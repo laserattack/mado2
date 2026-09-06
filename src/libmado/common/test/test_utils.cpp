@@ -4,23 +4,24 @@
 
 namespace mado::common {
 
-void test(bool check, const char *description) {
+void test(bool check) {
+    total_tests()++;
     if (!check) {
         failed_tests()++;
-        fprintf(stderr, "%-50s FAIL\n", description);
+        fprintf(stderr, "FAIL\n");
     } else {
-        fprintf(stderr, "%-50s PASS\n", description);
+        fprintf(stderr, "PASS\n");
     }
 }
 
 int run_tests(const std::vector<Test_Case> &tests) {
     for (const auto &test_case : tests) {
-        printf("\n--- %s: %s ---\n", test_case.name, test_case.description);
+        printf("\n%s: %s\n", test_case.name, test_case.description);
         test_case.func();
     }
 
     printf("\n(%zu / %zu) tests passed\n",
-           tests.size() - failed_tests(), tests.size());
+           total_tests() - failed_tests(), total_tests());
 
     return failed_tests() > 0 ? 1 : 0;
 }
