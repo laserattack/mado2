@@ -27,9 +27,9 @@ class Lexer {
     bool is_at_end() const;
 
     // Returns the character at offset n from the current position
-    // without advancing. peek_n(0) returns the current character.
+    // without advancing. get_it() returns the current character.
     // Returns '\0' if the position is past the end
-    char check_it(size_t n = 0) const;
+    char get_it(size_t n = 0) const;
 
     // Returns the current character and advances forward.
     // Returns '\0' if at the end

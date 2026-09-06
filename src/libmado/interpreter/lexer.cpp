@@ -14,7 +14,7 @@ std::vector<Token> Lexer::tokenize() {
         if (is_at_end())
             break;
 
-        char c = check_it();
+        char c = get_it();
 
         if (is_digit(c)) {
             tokens.push_back(parse_number_and_timestamp());
@@ -33,7 +33,7 @@ std::vector<Token> Lexer::tokenize() {
 }
 
 void Lexer::skip_whitespace() {
-    while (!is_at_end() && std::isspace(check_it())) {
+    while (!is_at_end() && std::isspace(get_it())) {
         eat_it();
     }
 }
@@ -42,7 +42,7 @@ bool Lexer::is_at_end() const {
     return pos_ >= query_.size();
 }
 
-char Lexer::check_it(size_t n) const {
+char Lexer::get_it(size_t n) const {
     if (pos_ + n >= query_.size())
         return '\0';
     return query_[pos_ + n];
@@ -81,9 +81,9 @@ bool Lexer::is_letter_or_underscore(char c) {
 Token Lexer::parse_number_and_timestamp() {
     size_t start = pos_;
 
-    assert(is_digit(check_it()) && "parse_number_and_timestamp called without digit");
+    assert(is_digit(get_it()) && "parse_number_and_timestamp called without digit");
 
-    while (!is_at_end() && is_digit(check_it())) {
+    while (!is_at_end() && is_digit(get_it())) {
         eat_it();
     }
 
@@ -106,8 +106,8 @@ Token Lexer::parse_quoted_string() {
 
     std::string result;
 
-    while (!is_at_end() && check_it() != quote) {
-        if (check_it() == '\\' && check_it(1) != '\0') {
+    while (!is_at_end() && get_it() != quote) {
+        if (get_it() == '\\' && get_it(1) != '\0') {
             eat_it();
             result += eat_it();
         } else {
@@ -129,10 +129,10 @@ Token Lexer::parse_quoted_string() {
 Token Lexer::parse_identifier_and_keyword() {
     size_t start = pos_;
 
-    assert(is_letter_or_underscore(check_it()) &&
+    assert(is_letter_or_underscore(get_it()) &&
            "parse_identifier_and_keyword called without letter or underscore");
 
-    while (!is_at_end() && is_identifier_char(check_it())) {
+    while (!is_at_end() && is_identifier_char(get_it())) {
         eat_it();
     }
 
@@ -177,157 +177,157 @@ Token Lexer::parse_operator_and_punctuation() {
     size_t start = pos_;
 
     // >=
-    if (check_it() == '>' && check_it(1) == '=') {
+    if (get_it() == '>' && get_it(1) == '=') {
         eat_it(2);
         return make_token(Token_Type::Ge, start);
     }
 
     // >
-    if (check_it() == '>') {
+    if (get_it() == '>') {
         eat_it();
         return make_token(Token_Type::Gt, start);
     }
 
     // <=
-    if (check_it() == '<' && check_it(1) == '=') {
+    if (get_it() == '<' && get_it(1) == '=') {
         eat_it(2);
         return make_token(Token_Type::Le, start);
     }
 
     // <
-    if (check_it() == '<') {
+    if (get_it() == '<') {
         eat_it();
         return make_token(Token_Type::Lt, start);
     }
 
     // =
-    if (check_it() == '=') {
+    if (get_it() == '=') {
         eat_it();
         return make_token(Token_Type::Eq, start);
     }
 
     // ~~
-    if (check_it() == '~' && check_it(1) == '~') {
+    if (get_it() == '~' && get_it(1) == '~') {
         eat_it(2);
         return make_token(Token_Type::Fuzzy, start);
     }
 
     // ~
-    if (check_it() == '~') {
+    if (get_it() == '~') {
         eat_it();
         return make_token(Token_Type::Substr, start);
     }
 
     // ^~
-    if (check_it() == '^' && check_it(1) == '~') {
+    if (get_it() == '^' && get_it(1) == '~') {
         eat_it(2);
         return make_token(Token_Type::Starts, start);
     }
 
     // $~
-    if (check_it() == '$' && check_it(1) == '~') {
+    if (get_it() == '$' && get_it(1) == '~') {
         eat_it(2);
         return make_token(Token_Type::Ends, start);
     }
 
     // %~
-    if (check_it() == '%' && check_it(1) == '~') {
+    if (get_it() == '%' && get_it(1) == '~') {
         eat_it(2);
         return make_token(Token_Type::Glob, start);
     }
 
     // f~
-    if (check_it() == 'f' && check_it(1) == '~') {
+    if (get_it() == 'f' && get_it(1) == '~') {
         eat_it(2);
         return make_token(Token_Type::Fuzzy, start);
     }
 
     // g~
-    if (check_it() == 'g' && check_it(1) == '~') {
+    if (get_it() == 'g' && get_it(1) == '~') {
         eat_it(2);
         return make_token(Token_Type::Glob, start);
     }
 
     // (
-    if (check_it() == '(') {
+    if (get_it() == '(') {
         eat_it();
         return make_token(Token_Type::Lparen, start);
     }
 
     // )
-    if (check_it() == ')') {
+    if (get_it() == ')') {
         eat_it();
         return make_token(Token_Type::Rparen, start);
     }
 
     // ,
-    if (check_it() == ',') {
+    if (get_it() == ',') {
         eat_it();
         return make_token(Token_Type::Comma, start);
     }
 
     // [
-    if (check_it() == '[') {
+    if (get_it() == '[') {
         eat_it();
         return make_token(Token_Type::Lbracket, start);
     }
 
     // ]
-    if (check_it() == ']') {
+    if (get_it() == ']') {
         eat_it();
         return make_token(Token_Type::Rbracket, start);
     }
 
     // ..
-    if (check_it() == '.' && check_it(1) == '.') {
+    if (get_it() == '.' && get_it(1) == '.') {
         eat_it(2);
         return make_token(Token_Type::DotDot, start);
     }
 
     // !=
-    if (check_it() == '!' && check_it(1) == '=') {
+    if (get_it() == '!' && get_it(1) == '=') {
         eat_it(2);
         return make_token(Token_Type::Ne, start);
     }
 
     // !~~
-    if (check_it() == '!' && check_it(1) == '~' && check_it(2) == '~') {
+    if (get_it() == '!' && get_it(1) == '~' && get_it(2) == '~') {
         eat_it(3);
         return make_token(Token_Type::Nfuzzy, start);
     }
 
     // !~
-    if (check_it() == '!' && check_it(1) == '~') {
+    if (get_it() == '!' && get_it(1) == '~') {
         eat_it(2);
         return make_token(Token_Type::Nsubstr, start);
     }
 
     // !%~
-    if (check_it() == '!' && check_it(1) == '%' && check_it(2) == '~') {
+    if (get_it() == '!' && get_it(1) == '%' && get_it(2) == '~') {
         eat_it(3);
         return make_token(Token_Type::Nglob, start);
     }
 
     // !^~
-    if (check_it() == '!' && check_it(1) == '^' && check_it(2) == '~') {
+    if (get_it() == '!' && get_it(1) == '^' && get_it(2) == '~') {
         eat_it(3);
         return make_token(Token_Type::Nstarts, start);
     }
 
     // !$~
-    if (check_it() == '!' && check_it(1) == '$' && check_it(2) == '~') {
+    if (get_it() == '!' && get_it(1) == '$' && get_it(2) == '~') {
         eat_it(3);
         return make_token(Token_Type::Nends, start);
     }
 
     // !f~
-    if (check_it() == '!' && check_it(1) == 'f' && check_it(2) == '~') {
+    if (get_it() == '!' && get_it(1) == 'f' && get_it(2) == '~') {
         eat_it(3);
         return make_token(Token_Type::Nfuzzy, start);
     }
 
     // !g~
-    if (check_it() == '!' && check_it(1) == 'g' && check_it(2) == '~') {
+    if (get_it() == '!' && get_it(1) == 'g' && get_it(2) == '~') {
         eat_it(3);
         return make_token(Token_Type::Nglob, start);
     }
