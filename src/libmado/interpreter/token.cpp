@@ -68,51 +68,51 @@ std::string to_string(Token_Type type) {
 
     // comparison operators
     case Token_Type::Gt:
-        return ">";
+        return "Gt";
     case Token_Type::Lt:
-        return "<";
+        return "Lt";
     case Token_Type::Ge:
-        return ">=";
+        return "Ge";
     case Token_Type::Le:
-        return "<=";
+        return "Le";
     case Token_Type::Eq:
-        return "=";
+        return "Eq";
     case Token_Type::Ne:
-        return "!=";
+        return "Ne";
     case Token_Type::Substr:
-        return "~";
+        return "Substr";
     case Token_Type::Nsubstr:
-        return "!~";
+        return "Nsubstr";
     case Token_Type::Fuzzy:
-        return "~~";
+        return "Fuzzy";
     case Token_Type::Nfuzzy:
-        return "!~~";
+        return "Nfuzzy";
     case Token_Type::Starts:
-        return "^~";
+        return "Starts";
     case Token_Type::Nstarts:
-        return "!^~";
+        return "Nstarts";
     case Token_Type::Ends:
-        return "$~";
+        return "Ends";
     case Token_Type::Nends:
-        return "!$~";
+        return "Nends";
     case Token_Type::Glob:
-        return "%~";
+        return "Glob";
     case Token_Type::Nglob:
-        return "!%~";
+        return "Nglob";
 
     // punctuation
     case Token_Type::Lparen:
-        return "(";
+        return "Lparen";
     case Token_Type::Rparen:
-        return ")";
+        return "Rparen";
     case Token_Type::Comma:
-        return ",";
+        return "Comma";
     case Token_Type::DotDot:
-        return "..";
+        return "DotDot";
     case Token_Type::Lbracket:
-        return "[";
+        return "Lbracket";
     case Token_Type::Rbracket:
-        return "]";
+        return "Rbracket";
 
     // system
     case Token_Type::End:

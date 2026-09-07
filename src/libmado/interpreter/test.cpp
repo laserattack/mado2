@@ -25,8 +25,8 @@ static void test_token_creation_default() {
 
 static void test_token_to_string() {
     test(to_string(Token_Type::Number) == "Number" &&
-         to_string(Token_Type::Gt) == ">" &&
-         to_string(Token_Type::Lparen) == "(" &&
+         to_string(Token_Type::Gt) == "Gt" &&
+         to_string(Token_Type::Lparen) == "Lparen" &&
          to_string(Token_Type::And) == "And");
 }
 

@@ -138,6 +138,7 @@ Token Lexer::parse_identifier_and_keyword() {
 
     std::string result = query_.substr(start, pos_ - start);
 
+    // TODO: remove it
     static const std::unordered_map<std::string, Token_Type> keywords = {
         {"priority", Token_Type::Priority},
         {"tag", Token_Type::Tag},
