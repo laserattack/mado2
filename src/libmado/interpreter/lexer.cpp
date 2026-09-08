@@ -127,19 +127,20 @@ Token Lexer::parse_identifier_and_keyword() {
 
     std::string result = query_.substr(start, pos_ - start);
 
-    // Iterate over keyword types (values <= 1000).
-    // Keywords are contiguous from 0 to the last keyword.
-    // Stop at the first "Unknown" — that's the first unassigned value,
-    // meaning there are no more keywords after it.
-    for (int i = 0; i <= 1000; i++) {
+    for (int i = 0;; i++) {
         Token_Type type = static_cast<Token_Type>(i);
-        std::string type_str = to_string(type);
 
-        if (type_str == "Unknown")
+        // last Token_Type enum field
+        if (type == Token_Type::Invalid)
             break;
 
+        if (!is_keyword(type))
+            continue;
+
+        std::string keyword = to_string(type);
+
         // TODO: fuzzy match
-        if (mado::common::equals_ignore_case(type_str, result)) {
+        if (mado::common::equals_ignore_case(keyword, result)) {
             return make_token(type, std::move(result), start);
         }
     }

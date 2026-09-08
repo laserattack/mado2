@@ -98,6 +98,6 @@ struct Token {
 std::string
 to_string(Token_Type type);
 
-constexpr bool is_keyword(Token_Type type);
+bool is_keyword(Token_Type type);
 
 } // namespace mado::interpreter
