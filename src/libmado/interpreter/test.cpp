@@ -1,4 +1,5 @@
 #include "../../common/test_utils.hpp"
+#include "ast.hpp"
 #include "lexer.hpp"
 #include "token.hpp"
 
@@ -187,6 +188,89 @@ static void test_lexer_unterminated_string() {
          tokens[1].type == Token_Type::End);
 }
 
+// ast
+
+static void test_ast_comparison_node() {
+    auto node = ast_make_comparison(
+        Ast_Comparison_Field::Priority,
+        Ast_Comparison_Operator::Gt,
+        5);
+
+    auto *comp = static_cast<Ast_Comparison_Op_Node *>(node.get());
+
+    test(node->type == Ast_Node_Type::Comparison_Op &&
+         comp->field == Ast_Comparison_Field::Priority &&
+         comp->op == Ast_Comparison_Operator::Gt &&
+         comp->is_number() &&
+         comp->as_number() == 5);
+}
+
+static void test_ast_comparison_node_string() {
+    auto node = ast_make_comparison(
+        Ast_Comparison_Field::Tag,
+        Ast_Comparison_Operator::Eq,
+        std::string("bug"));
+
+    auto *comp = static_cast<Ast_Comparison_Op_Node *>(node.get());
+
+    test(comp->is_string() &&
+         comp->as_string() == "bug");
+}
+
+static void test_ast_binary_node() {
+    auto left = ast_make_comparison(
+        Ast_Comparison_Field::Priority,
+        Ast_Comparison_Operator::Gt,
+        5);
+
+    auto right = ast_make_comparison(
+        Ast_Comparison_Field::Tag,
+        Ast_Comparison_Operator::Eq,
+        std::string("bug"));
+
+    auto node = ast_make_binary(
+        Ast_Binary_Operator::And,
+        std::move(left),
+        std::move(right));
+
+    auto *bin = static_cast<Ast_Binary_Op_Node *>(node.get());
+
+    test(node->type == Ast_Node_Type::Binary_Op &&
+         bin->op == Ast_Binary_Operator::And &&
+         bin->left != nullptr &&
+         bin->right != nullptr &&
+         bin->left->type == Ast_Node_Type::Comparison_Op &&
+         bin->right->type == Ast_Node_Type::Comparison_Op);
+}
+
+static void test_ast_unary_node() {
+    auto expr = ast_make_comparison(
+        Ast_Comparison_Field::Status,
+        Ast_Comparison_Operator::Eq,
+        std::string("opened"));
+
+    auto node = ast_make_unary(
+        Ast_Unary_Operator::Not,
+        std::move(expr));
+
+    auto *un = static_cast<Ast_Unary_Op_Node *>(node.get());
+
+    test(node->type == Ast_Node_Type::Unary_Op &&
+         un->op == Ast_Unary_Operator::Not &&
+         un->expr != nullptr &&
+         un->expr->type == Ast_Node_Type::Comparison_Op);
+}
+
+static void test_ast_special_nodes() {
+    auto all_node = ast_make_special(Ast_Node_Type::All);
+    auto untagged_node = ast_make_special(Ast_Node_Type::Untagged);
+    auto unnamed_node = ast_make_special(Ast_Node_Type::Unnamed);
+
+    test(all_node->type == Ast_Node_Type::All &&
+         untagged_node->type == Ast_Node_Type::Untagged &&
+         unnamed_node->type == Ast_Node_Type::Unnamed);
+}
+
 // entry point
 
 int main() {
@@ -207,6 +291,12 @@ int main() {
         {"Lexer position", "token positions", test_lexer_position},
         {"Lexer invalid operator", "tokenize invalid operators", test_lexer_invalid_operators},
         {"Lexer unterminated string", "tokenize unterminated string", test_lexer_unterminated_string},
+        // ast
+        {"AST comparison", "create comparison node", test_ast_comparison_node},
+        {"AST comparison string", "create comparison node with string", test_ast_comparison_node_string},
+        {"AST binary", "create binary node", test_ast_binary_node},
+        {"AST unary", "create unary node", test_ast_unary_node},
+        {"AST special", "create special nodes", test_ast_special_nodes},
     };
 
     return run_tests(tests);
