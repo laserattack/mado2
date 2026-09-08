@@ -196,7 +196,7 @@ static void test_ast_comparison_node() {
         Ast_Comparison_Operator::Gt,
         5);
 
-    auto *comp = static_cast<Ast_Comparison_Op_Node *>(node.get());
+    auto *comp = static_cast<Ast_Comparison_Operator_Node *>(node.get());
 
     test(node->type == Ast_Node_Type::Comparison_Op &&
          comp->field == Ast_Comparison_Field::Priority &&
@@ -211,7 +211,7 @@ static void test_ast_comparison_node_string() {
         Ast_Comparison_Operator::Eq,
         std::string("bug"));
 
-    auto *comp = static_cast<Ast_Comparison_Op_Node *>(node.get());
+    auto *comp = static_cast<Ast_Comparison_Operator_Node *>(node.get());
 
     test(comp->is_string() &&
          comp->as_string() == "bug");
@@ -233,7 +233,7 @@ static void test_ast_binary_node() {
         std::move(left),
         std::move(right));
 
-    auto *bin = static_cast<Ast_Binary_Op_Node *>(node.get());
+    auto *bin = static_cast<Ast_Binary_Operator_Node *>(node.get());
 
     test(node->type == Ast_Node_Type::Binary_Op &&
          bin->op == Ast_Binary_Operator::And &&
@@ -253,7 +253,7 @@ static void test_ast_unary_node() {
         Ast_Unary_Operator::Not,
         std::move(expr));
 
-    auto *un = static_cast<Ast_Unary_Op_Node *>(node.get());
+    auto *un = static_cast<Ast_Unary_Operator_Node *>(node.get());
 
     test(node->type == Ast_Node_Type::Unary_Op &&
          un->op == Ast_Unary_Operator::Not &&

@@ -4,19 +4,19 @@
 
 namespace mado::interpreter {
 
-bool Ast_Comparison_Op_Node::is_number() const {
+bool Ast_Comparison_Operator_Node::is_number() const {
     return std::holds_alternative<int>(value);
 }
 
-bool Ast_Comparison_Op_Node::is_string() const {
+bool Ast_Comparison_Operator_Node::is_string() const {
     return std::holds_alternative<std::string>(value);
 }
 
-int Ast_Comparison_Op_Node::as_number() const {
+int Ast_Comparison_Operator_Node::as_number() const {
     return std::get<int>(value);
 }
 
-const std::string &Ast_Comparison_Op_Node::as_string() const {
+const std::string &Ast_Comparison_Operator_Node::as_string() const {
     return std::get<std::string>(value);
 }
 
@@ -135,7 +135,7 @@ void ast_print(const Ast_Node *node, int depth) {
 
     switch (node->type) {
     case Ast_Node_Type::Comparison_Op: {
-        auto *n = static_cast<const Ast_Comparison_Op_Node *>(node);
+        auto *n = static_cast<const Ast_Comparison_Operator_Node *>(node);
         printf("%s: %s %s ",
                node_type_to_string(node->type),
                comparison_field_to_string(n->field),
@@ -149,7 +149,7 @@ void ast_print(const Ast_Node *node, int depth) {
         break;
     }
     case Ast_Node_Type::Binary_Op: {
-        auto *n = static_cast<const Ast_Binary_Op_Node *>(node);
+        auto *n = static_cast<const Ast_Binary_Operator_Node *>(node);
         printf("%s: %s\n",
                node_type_to_string(node->type),
                binary_operator_to_string(n->op));
@@ -158,7 +158,7 @@ void ast_print(const Ast_Node *node, int depth) {
         break;
     }
     case Ast_Node_Type::Unary_Op: {
-        auto *n = static_cast<const Ast_Unary_Op_Node *>(node);
+        auto *n = static_cast<const Ast_Unary_Operator_Node *>(node);
         printf("%s: %s\n",
                node_type_to_string(node->type),
                unary_operator_to_string(n->op));
