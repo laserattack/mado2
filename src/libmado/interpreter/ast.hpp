@@ -7,15 +7,15 @@
 namespace mado::interpreter {
 
 enum class Ast_Node_Type {
-    Comparison_Op, // field op value
-    Binary_Op,     // expr op expr
-    Unary_Op,      // op expr
-    All,           // all
-    Untagged,      // untagged
-    Unstatused,    // unstatused
-    Unnamed,       // unnamed
-    Unprioritized, // unprioritized
-    Undeadlined,   // undeadlined
+    Comparison_Operator, // field op value
+    Binary_Operator,     // expr op expr
+    Unary_Operator,      // op expr
+    All,                 // all
+    Untagged,            // untagged
+    Unstatused,          // unstatused
+    Unnamed,             // unnamed
+    Unprioritized,       // unprioritized
+    Undeadlined,         // undeadlined
 };
 
 enum class Ast_Comparison_Field {
@@ -77,7 +77,7 @@ struct Ast_Comparison_Operator_Node : Ast_Node {
     Ast_Comparison_Operator_Node(Ast_Comparison_Field f,
                                  Ast_Comparison_Operator o,
                                  Ast_Value v)
-        : Ast_Node(Ast_Node_Type::Comparison_Op),
+        : Ast_Node(Ast_Node_Type::Comparison_Operator),
           field(f), op(o), value(std::move(v)) {}
 
     bool is_number() const;
@@ -97,7 +97,7 @@ struct Ast_Binary_Operator_Node : Ast_Node {
     Ast_Binary_Operator_Node(Ast_Binary_Operator o,
                              std::unique_ptr<Ast_Node> l,
                              std::unique_ptr<Ast_Node> r)
-        : Ast_Node(Ast_Node_Type::Binary_Op),
+        : Ast_Node(Ast_Node_Type::Binary_Operator),
           op(o), left(std::move(l)), right(std::move(r)) {}
 };
 
@@ -107,7 +107,7 @@ struct Ast_Unary_Operator_Node : Ast_Node {
 
     Ast_Unary_Operator_Node(Ast_Unary_Operator o,
                             std::unique_ptr<Ast_Node> e)
-        : Ast_Node(Ast_Node_Type::Unary_Op),
+        : Ast_Node(Ast_Node_Type::Unary_Operator),
           op(o), expr(std::move(e)) {}
 };
 

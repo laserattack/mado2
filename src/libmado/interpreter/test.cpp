@@ -198,7 +198,7 @@ static void test_ast_comparison_node() {
 
     auto *comp = static_cast<Ast_Comparison_Operator_Node *>(node.get());
 
-    test(node->type == Ast_Node_Type::Comparison_Op &&
+    test(node->type == Ast_Node_Type::Comparison_Operator &&
          comp->field == Ast_Comparison_Field::Priority &&
          comp->op == Ast_Comparison_Operator::Gt &&
          comp->is_number() &&
@@ -235,12 +235,12 @@ static void test_ast_binary_node() {
 
     auto *bin = static_cast<Ast_Binary_Operator_Node *>(node.get());
 
-    test(node->type == Ast_Node_Type::Binary_Op &&
+    test(node->type == Ast_Node_Type::Binary_Operator &&
          bin->op == Ast_Binary_Operator::And &&
          bin->left != nullptr &&
          bin->right != nullptr &&
-         bin->left->type == Ast_Node_Type::Comparison_Op &&
-         bin->right->type == Ast_Node_Type::Comparison_Op);
+         bin->left->type == Ast_Node_Type::Comparison_Operator &&
+         bin->right->type == Ast_Node_Type::Comparison_Operator);
 }
 
 static void test_ast_unary_node() {
@@ -255,10 +255,10 @@ static void test_ast_unary_node() {
 
     auto *un = static_cast<Ast_Unary_Operator_Node *>(node.get());
 
-    test(node->type == Ast_Node_Type::Unary_Op &&
+    test(node->type == Ast_Node_Type::Unary_Operator &&
          un->op == Ast_Unary_Operator::Not &&
          un->expr != nullptr &&
-         un->expr->type == Ast_Node_Type::Comparison_Op);
+         un->expr->type == Ast_Node_Type::Comparison_Operator);
 }
 
 static void test_ast_special_nodes() {

@@ -104,11 +104,11 @@ static const char *unary_operator_to_string(Ast_Unary_Operator op) {
 
 static const char *node_type_to_string(Ast_Node_Type type) {
     switch (type) {
-    case Ast_Node_Type::Comparison_Op:
+    case Ast_Node_Type::Comparison_Operator:
         return "Comparison";
-    case Ast_Node_Type::Binary_Op:
+    case Ast_Node_Type::Binary_Operator:
         return "Binary";
-    case Ast_Node_Type::Unary_Op:
+    case Ast_Node_Type::Unary_Operator:
         return "Unary";
     case Ast_Node_Type::All:
         return "All";
@@ -134,7 +134,7 @@ void ast_print(const Ast_Node *node, int depth) {
         printf("  ");
 
     switch (node->type) {
-    case Ast_Node_Type::Comparison_Op: {
+    case Ast_Node_Type::Comparison_Operator: {
         auto *n = static_cast<const Ast_Comparison_Operator_Node *>(node);
         printf("%s: %s %s ",
                node_type_to_string(node->type),
@@ -148,7 +148,7 @@ void ast_print(const Ast_Node *node, int depth) {
         }
         break;
     }
-    case Ast_Node_Type::Binary_Op: {
+    case Ast_Node_Type::Binary_Operator: {
         auto *n = static_cast<const Ast_Binary_Operator_Node *>(node);
         printf("%s: %s\n",
                node_type_to_string(node->type),
@@ -157,7 +157,7 @@ void ast_print(const Ast_Node *node, int depth) {
         ast_print(n->right.get(), depth + 1);
         break;
     }
-    case Ast_Node_Type::Unary_Op: {
+    case Ast_Node_Type::Unary_Operator: {
         auto *n = static_cast<const Ast_Unary_Operator_Node *>(node);
         printf("%s: %s\n",
                node_type_to_string(node->type),
