@@ -1,19 +1,20 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 namespace mado::interpreter {
 
+// Token_Type values are split into two ranges:
+// - Keywords ([0, MAX_KEYWORD_VALUE]): tokens that look like identifiers but have
+//   special meaning in the query syntax (e.g. "priority", "and", "all")
+// - Non-keywords ((MAX_KEYWORD_VALUE, inf)): tokens that are operators, punctuation,
+//   values, or system tokens (e.g. ">", "(", "42", End, Invalid)
+constexpr uint16_t MAX_KEYWORD_VALUE = 1000;
+
 enum class Token_Type {
-
-    // Token_Type values are split into two ranges:
-    // - Keywords (<= 1000): tokens that look like identifiers but have
-    //   special meaning in the query syntax (e.g. "priority", "and", "all")
-    // - Non-keywords (> 1000): tokens that are operators, punctuation,
-    //   values, or system tokens (e.g. ">", "(", "42", End, Invalid)
-
-    // keywords (<= 1000)
+    // keywords
 
     // fields
     Priority = 0, // priority
@@ -46,25 +47,25 @@ enum class Token_Type {
     Xor, // xor
     Not, // not
 
-    // not keywords (> 1000)
+    // not keywords
 
     // comparison operators
-    Gt = 1001, // >
-    Lt,        // <
-    Ge,        // >=
-    Le,        // <=
-    Eq,        // =
-    Ne,        // !=
-    Substr,    // ~
-    Nsubstr,   // !~
-    Fuzzy,     // ~~ or f~
-    Nfuzzy,    // !~~ or !f~
-    Starts,    // ^~
-    Nstarts,   // !^~
-    Ends,      // $~
-    Nends,     // !$~
-    Glob,      // %~ or g~
-    Nglob,     // !%~ or !g~
+    Gt = MAX_KEYWORD_VALUE + 1, // >
+    Lt,                         // <
+    Ge,                         // >=
+    Le,                         // <=
+    Eq,                         // =
+    Ne,                         // !=
+    Substr,                     // ~
+    Nsubstr,                    // !~
+    Fuzzy,                      // ~~ or f~
+    Nfuzzy,                     // !~~ or !f~
+    Starts,                     // ^~
+    Nstarts,                    // !^~
+    Ends,                       // $~
+    Nends,                      // !$~
+    Glob,                       // %~ or g~
+    Nglob,                      // !%~ or !g~
 
     // punctuation
     Lparen,   // (
@@ -79,9 +80,12 @@ enum class Token_Type {
     String,    // [a-zA-Z_][a-zA-Z0-9_-]* or "..." or '...'
     Timestamp, // YYYYMMDDTHHMMSS with optional shorter forms: YYYY, YYYYMM, YYYYMMDD, YYYYMMDDT, YYYYMMDDTHH, YYYYMMDDTHHMM, YYYYMMDDTHHMMSS
 
-    // system
-    End,     // the end of the character stream
-    Invalid, // invalid token
+    // the end of the character stream
+    End,
+
+    // invalid token. Must remain the last entry in the enum:
+    // it is used as a loop termination condition in several places
+    Invalid,
 };
 
 struct Token {

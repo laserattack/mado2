@@ -127,7 +127,7 @@ std::string to_string(Token_Type type) {
 }
 
 bool is_keyword(Token_Type type) {
-    return static_cast<uint16_t>(type) <= 1000 &&
+    return static_cast<uint16_t>(type) <= MAX_KEYWORD_VALUE &&
            to_string(type) != "Unknown";
 }
 
