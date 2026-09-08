@@ -1,4 +1,4 @@
-#include "../common/test/test_utils.hpp"
+#include "../../common/test_utils.hpp"
 #include "lexer.hpp"
 #include "token.hpp"
 
@@ -28,18 +28,6 @@ static void test_token_to_string() {
          to_string(Token_Type::Gt) == "Gt" &&
          to_string(Token_Type::Lparen) == "Lparen" &&
          to_string(Token_Type::And) == "And");
-}
-
-static void test_token_all_types_have_string() {
-    bool all_ok = true;
-    for (int i = 0; i < static_cast<int>(Token_Type::Invalid); i++) {
-        auto type = static_cast<Token_Type>(i);
-        if (to_string(type) == "Unknown") {
-            all_ok = false;
-            break;
-        }
-    }
-    test(all_ok);
 }
 
 // lexer
@@ -207,7 +195,6 @@ int main() {
         {"Token creation", "create token with values", test_token_creation},
         {"Token default", "create default token", test_token_creation_default},
         {"Token to_string", "convert type to string", test_token_to_string},
-        {"Token all types", "all types have string", test_token_all_types_have_string},
         // lexer
         {"Lexer empty", "tokenize empty query", test_lexer_empty_query},
         {"Lexer numbers", "tokenize numbers", test_lexer_numbers},

@@ -49,15 +49,6 @@ class Lexer {
     Token parse_quoted_string();            // Parses a quoted string (single or double quotes)
     Token parse_identifier_and_keyword();   // Parses identifiers and a keywords
     Token parse_operator_and_punctuation(); // Parses operators and punctuation
-
-    // Checks whether the character is a digit (0-9)
-    static bool is_digit(char c);
-
-    // Checks whether the character is a letter (a-z, A-Z) or underscore (_)
-    static bool is_letter_or_underscore(char c);
-
-    // Checks whether the character is a digit, letter, or underscore
-    static bool is_identifier_char(char c);
 };
 
 } // namespace mado::interpreter

@@ -1,6 +1,6 @@
 #include <cassert>
-#include <unordered_map>
 
+#include "../../common/text_utils.hpp"
 #include "lexer.hpp"
 
 namespace mado::interpreter {
@@ -16,11 +16,11 @@ std::vector<Token> Lexer::tokenize() {
 
         char c = get_it();
 
-        if (is_digit(c)) {
+        if (mado::common::is_digit(c)) {
             tokens.push_back(parse_number_and_timestamp());
         } else if (c == '"' || c == '\'') {
             tokens.push_back(parse_quoted_string());
-        } else if (is_letter_or_underscore(c)) {
+        } else if (mado::common::is_letter_or_underscore(c)) {
             tokens.push_back(parse_identifier_and_keyword());
         } else {
             tokens.push_back(parse_operator_and_punctuation());
@@ -66,24 +66,13 @@ Token Lexer::make_token(Token_Type type, std::string value, size_t start) const 
     return Token{type, std::move(value), start};
 }
 
-bool Lexer::is_identifier_char(char c) {
-    return is_digit(c) || is_letter_or_underscore(c);
-}
-
-bool Lexer::is_digit(char c) {
-    return c >= '0' && c <= '9';
-}
-
-bool Lexer::is_letter_or_underscore(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-}
-
 Token Lexer::parse_number_and_timestamp() {
     size_t start = pos_;
 
-    assert(is_digit(get_it()) && "parse_number_and_timestamp called without digit");
+    assert(mado::common::is_digit(get_it()) &&
+           "parse_number_and_timestamp called without digit");
 
-    while (!is_at_end() && is_digit(get_it())) {
+    while (!is_at_end() && mado::common::is_digit(get_it())) {
         eat_it();
     }
 
@@ -129,46 +118,30 @@ Token Lexer::parse_quoted_string() {
 Token Lexer::parse_identifier_and_keyword() {
     size_t start = pos_;
 
-    assert(is_letter_or_underscore(get_it()) &&
+    assert(mado::common::is_letter_or_underscore(get_it()) &&
            "parse_identifier_and_keyword called without letter or underscore");
 
-    while (!is_at_end() && is_identifier_char(get_it())) {
+    while (!is_at_end() && mado::common::is_identifier_char(get_it())) {
         eat_it();
     }
 
     std::string result = query_.substr(start, pos_ - start);
 
-    // TODO: remove it
-    static const std::unordered_map<std::string, Token_Type> keywords = {
-        {"priority", Token_Type::Priority},
-        {"tag", Token_Type::Tag},
-        {"status", Token_Type::Status},
-        {"name", Token_Type::Name},
-        {"path", Token_Type::Path},
-        {"time", Token_Type::Time},
-        {"deadline", Token_Type::Deadline},
-        {"mtime", Token_Type::Mtime},
-        {"any", Token_Type::Any},
-        {"all", Token_Type::All},
-        {"untagged", Token_Type::Untagged},
-        {"unstatused", Token_Type::Unstatused},
-        {"unnamed", Token_Type::Unnamed},
-        {"unprioritized", Token_Type::Unprioritized},
-        {"undeadlined", Token_Type::Undeadlined},
-        {"and", Token_Type::And},
-        {"or", Token_Type::Or},
-        {"xor", Token_Type::Xor},
-        {"not", Token_Type::Not},
-        {"allof", Token_Type::Allof},
-        {"anyof", Token_Type::Anyof},
-        {"in", Token_Type::In},
-        {"has", Token_Type::Has},
-    };
+    // Iterate over keyword types (values <= 1000).
+    // Keywords are contiguous from 0 to the last keyword.
+    // Stop at the first "Unknown" — that's the first unassigned value,
+    // meaning there are no more keywords after it.
+    for (int i = 0; i <= 1000; i++) {
+        Token_Type type = static_cast<Token_Type>(i);
+        std::string type_str = to_string(type);
 
-    // TODO: fuzzy and ignore case
-    auto it = keywords.find(result);
-    if (it != keywords.end()) {
-        return make_token(it->second, std::move(result), start);
+        if (type_str == "Unknown")
+            break;
+
+        // TODO: fuzzy match
+        if (mado::common::equals_ignore_case(type_str, result)) {
+            return make_token(type, std::move(result), start);
+        }
     }
 
     return make_token(Token_Type::String, std::move(result), start);
