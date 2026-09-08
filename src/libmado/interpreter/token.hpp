@@ -99,9 +99,8 @@ struct Token {
         : type(t), value(std::move(v)), position(pos) {}
 };
 
-std::string
-to_string(Token_Type type);
+std::string token_to_string(Token_Type type);
 
-bool is_keyword(Token_Type type);
+bool token_is_keyword(Token_Type type);
 
 } // namespace mado::interpreter
