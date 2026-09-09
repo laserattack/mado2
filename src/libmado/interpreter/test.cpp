@@ -1,6 +1,7 @@
 #include "../../common/test_utils.hpp"
 #include "ast.hpp"
 #include "lexer.hpp"
+#include "parser.hpp"
 #include "token.hpp"
 
 using namespace mado::interpreter;
