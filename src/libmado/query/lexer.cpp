@@ -1,5 +1,7 @@
 #include <cassert>
+#include <optional>
 
+#include "../../common/fuzzy_match.hpp"
 #include "../../common/text_utils.hpp"
 #include "lexer.hpp"
 
@@ -127,10 +129,12 @@ Token Lexer::parse_identifier_and_keyword() {
 
     std::string result = query_.substr(start, pos_ - start);
 
+    std::optional<int32_t> best_score;
+    Token_Type best_type = Token_Type::Invalid;
+
     for (int i = 0;; i++) {
         Token_Type type = static_cast<Token_Type>(i);
 
-        // last Token_Type enum field
         if (type == Token_Type::Invalid)
             break;
 
@@ -139,10 +143,20 @@ Token Lexer::parse_identifier_and_keyword() {
 
         std::string keyword = token_type_to_string(type);
 
-        // TODO: fuzzy match
         if (mado::common::equals_ignore_case(keyword, result)) {
             return make_token(type, std::move(result), start);
         }
+
+        auto score = mado::common::fuzzy_match(result, keyword, true);
+
+        if (score && (!best_score || *score > *best_score)) {
+            best_score = *score;
+            best_type = type;
+        }
+    }
+
+    if (best_type != Token_Type::Invalid) {
+        return make_token(best_type, std::move(result), start);
     }
 
     return make_token(Token_Type::String, std::move(result), start);

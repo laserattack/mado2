@@ -3,7 +3,8 @@ CXXFLAGS = -Wall -Wextra -std=c++17 -g -O0
 
 SOURCES = test.cpp token.cpp lexer.cpp ast.cpp parser.cpp \
           ../../common/test_utils.cpp \
-          ../../common/text_utils.cpp
+          ../../common/text_utils.cpp \
+          ../../common/fuzzy_match.cpp
 
 TARGET = test_query
 

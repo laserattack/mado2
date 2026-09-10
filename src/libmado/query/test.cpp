@@ -165,9 +165,9 @@ static void test_lexer_invalid_operators() {
          tokens[1].value == "" &&
          tokens[2].type == Token_Type::Invalid &&
          tokens[2].value == "" &&
-         tokens[3].type == Token_Type::String &&
+         tokens[3].type == Token_Type::Allof && // fuzzy
          tokens[3].value == "f" &&
-         tokens[4].type == Token_Type::String &&
+         tokens[4].type == Token_Type::Tag && // fuzzy
          tokens[4].value == "g" &&
          tokens[5].type == Token_Type::Invalid &&
          tokens[5].value == "" &&
