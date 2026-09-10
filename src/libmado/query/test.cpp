@@ -13,12 +13,11 @@ using namespace mado::common;
 // token
 
 static void test_token_creation() {
-    Token t{Token_Type::Number, "42", 0, 2};
+    Token t{Token_Type::Number, "42", 0};
 
     test(t.type == Token_Type::Number &&
          t.value == "42" &&
-         t.position == 0 &&
-         t.length == 2);
+         t.position == 0);
 }
 
 static void test_token_creation_default() {
@@ -161,25 +160,25 @@ static void test_lexer_invalid_operators() {
 
     test(tokens.size() == 11 &&
          tokens[0].type == Token_Type::Invalid &&
-         tokens[0].value == "^" &&
+         tokens[0].value == "" &&
          tokens[1].type == Token_Type::Invalid &&
-         tokens[1].value == "$" &&
+         tokens[1].value == "" &&
          tokens[2].type == Token_Type::Invalid &&
-         tokens[2].value == "%" &&
+         tokens[2].value == "" &&
          tokens[3].type == Token_Type::String &&
          tokens[3].value == "f" &&
          tokens[4].type == Token_Type::String &&
          tokens[4].value == "g" &&
          tokens[5].type == Token_Type::Invalid &&
-         tokens[5].value == "." &&
+         tokens[5].value == "" &&
          tokens[6].type == Token_Type::Invalid &&
-         tokens[6].value == "*" &&
+         tokens[6].value == "" &&
          tokens[7].type == Token_Type::Invalid &&
-         tokens[7].value == "!" &&
+         tokens[7].value == "" &&
          tokens[8].type == Token_Type::Nsubstr &&
          tokens[8].value == "!~" &&
          tokens[9].type == Token_Type::Invalid &&
-         tokens[9].value == "&" &&
+         tokens[9].value == "" &&
          tokens[10].type == Token_Type::End);
 }
 

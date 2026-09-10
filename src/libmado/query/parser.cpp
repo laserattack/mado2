@@ -4,13 +4,12 @@ namespace mado::query {
 
 void Parse_Error::print(const std::string &query, std::ostream &os) const {
     size_t position = token_.position;
-    size_t length = token_.length > 0 ? token_.length : 1;
 
     std::string pos_str = std::to_string(position);
     std::string padding(pos_str.size(), ' ');
 
     os << pos_str << " | " << query << "\n";
-    os << padding << " | " << std::string(position, ' ') << std::string(length, '^') << "\n";
+    os << padding << " | " << std::string(position, ' ') << "^" << "\n";
     os << padding << " | " << what() << "\n";
 }
 
@@ -27,7 +26,7 @@ bool Parser::is_at_end() const {
 
 Token Parser::get_it(size_t n) const {
     if (current_ + n >= tokens_.size()) {
-        return Token{Token_Type::End, "", tokens_.back().position, 0};
+        return Token{Token_Type::End, "", tokens_.back().position};
     }
     return tokens_[current_ + n];
 }

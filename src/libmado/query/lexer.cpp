@@ -27,7 +27,7 @@ std::vector<Token> Lexer::tokenize() {
         }
     }
 
-    tokens.push_back({Token_Type::End, "", pos_, 0});
+    tokens.push_back({Token_Type::End, "", pos_});
 
     return tokens;
 }
@@ -59,13 +59,11 @@ void Lexer::eat_it(size_t n) {
 }
 
 Token Lexer::make_token(Token_Type type, size_t start) const {
-    size_t len = pos_ - start;
-    return Token{type, query_.substr(start, len), start, len};
+    return Token{type, query_.substr(start, pos_ - start), start};
 }
 
 Token Lexer::make_token(Token_Type type, std::string value, size_t start) const {
-    size_t len = pos_ - start;
-    return Token{type, std::move(value), start, len};
+    return Token{type, std::move(value), start};
 }
 
 Token Lexer::parse_number_and_timestamp() {
@@ -309,9 +307,14 @@ Token Lexer::parse_operator_and_punctuation() {
         return make_token(Token_Type::Nglob, start);
     }
 
-    // Unknown character
-    char c = eat_it();
-    return make_token(Token_Type::Invalid, std::string(1, c), start);
+    // Eat unknown character
+    eat_it();
+
+    // Don't include the byte in value: we can't tell if it's a valid character
+    // in the current encoding. A single byte may be part of a multi-byte UTF-8
+    // sequence, and slicing it would produce invalid text. So we only report
+    // the error location
+    return make_token(Token_Type::Invalid, "", start);
 }
 
 } // namespace mado::query
