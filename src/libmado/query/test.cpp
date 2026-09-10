@@ -13,11 +13,12 @@ using namespace mado::common;
 // token
 
 static void test_token_creation() {
-    Token t{Token_Type::Number, "42", 0};
+    Token t{Token_Type::Number, "42", 0, 2};
 
     test(t.type == Token_Type::Number &&
          t.value == "42" &&
-         t.position == 0);
+         t.position == 0 &&
+         t.length == 2);
 }
 
 static void test_token_creation_default() {

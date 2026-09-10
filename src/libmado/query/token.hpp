@@ -91,12 +91,17 @@ enum class Token_Type {
 struct Token {
     Token_Type type{Token_Type::Invalid};
     std::string value;
-    size_t position{0}; // The position of the token’s start in the character stream
+    size_t position{0}; // character offset from the start of the
+    // query string Length of the token in the query string. Needed
+    // for error underlining: value may differ from the raw source
+    // text (e.g. a quoted string strips quotes and processes
+    // escapes), so value.size() cannot be used
+    size_t length{0};
 
     Token() = default;
 
-    Token(Token_Type t, std::string v, size_t pos)
-        : type(t), value(std::move(v)), position(pos) {}
+    Token(Token_Type t, std::string v, size_t pos, size_t len)
+        : type(t), value(std::move(v)), position(pos), length(len) {}
 };
 
 std::string token_type_to_string(Token_Type type);

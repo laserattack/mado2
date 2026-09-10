@@ -27,7 +27,7 @@ std::vector<Token> Lexer::tokenize() {
         }
     }
 
-    tokens.push_back({Token_Type::End, "", pos_});
+    tokens.push_back({Token_Type::End, "", pos_, 0});
 
     return tokens;
 }
@@ -59,11 +59,13 @@ void Lexer::eat_it(size_t n) {
 }
 
 Token Lexer::make_token(Token_Type type, size_t start) const {
-    return Token{type, query_.substr(start, pos_ - start), start};
+    size_t len = pos_ - start;
+    return Token{type, query_.substr(start, len), start, len};
 }
 
 Token Lexer::make_token(Token_Type type, std::string value, size_t start) const {
-    return Token{type, std::move(value), start};
+    size_t len = pos_ - start;
+    return Token{type, std::move(value), start, len};
 }
 
 Token Lexer::parse_number_and_timestamp() {
@@ -87,12 +89,12 @@ Token Lexer::parse_number_and_timestamp() {
 }
 
 Token Lexer::parse_quoted_string() {
+    size_t start = pos_;
     char quote = eat_it();
 
     assert((quote == '"' || quote == '\'') &&
            "parse_quoted_string called without quote");
 
-    size_t start = pos_;
     std::string result;
 
     while (!is_at_end() && get_it() != quote) {
