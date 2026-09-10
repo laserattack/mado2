@@ -3,7 +3,7 @@
 #include "../../common/text_utils.hpp"
 #include "lexer.hpp"
 
-namespace mado::interpreter {
+namespace mado::query {
 
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
@@ -312,4 +312,4 @@ Token Lexer::parse_operator_and_punctuation() {
     return make_token(Token_Type::Invalid, std::string(1, c), start);
 }
 
-} // namespace mado::interpreter
+} // namespace mado::query

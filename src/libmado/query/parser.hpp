@@ -9,7 +9,7 @@
 #include "ast.hpp"
 #include "token.hpp"
 
-namespace mado::interpreter {
+namespace mado::query {
 
 class Parse_Error : public std::runtime_error {
   public:
@@ -80,4 +80,4 @@ class Parser {
     std::string token_repr(const Token &token) const;
 };
 
-} // namespace mado::interpreter
+} // namespace mado::query

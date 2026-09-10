@@ -1,6 +1,6 @@
 #include "parser.hpp"
 
-namespace mado::interpreter {
+namespace mado::query {
 
 void Parse_Error::print(const std::string &query, std::ostream &os) const {
     size_t position = token_.position;
@@ -296,4 +296,4 @@ Ast_Comparison_Operator Parser::parse_comparison_operator() {
     }
 }
 
-} // namespace mado::interpreter
+} // namespace mado::query

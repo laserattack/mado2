@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-namespace mado::interpreter {
+namespace mado::query {
 
 // Token_Type values are split into two ranges:
 // - Keywords ([0, MAX_KEYWORD_VALUE]): tokens that look like identifiers but have
@@ -103,4 +103,4 @@ std::string token_type_to_string(Token_Type type);
 
 bool token_is_keyword(Token_Type type);
 
-} // namespace mado::interpreter
+} // namespace mado::query

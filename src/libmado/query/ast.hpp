@@ -4,7 +4,7 @@
 #include <string>
 #include <variant>
 
-namespace mado::interpreter {
+namespace mado::query {
 
 enum class Ast_Node_Type {
     Comparison_Operator, // field op value
@@ -142,4 +142,4 @@ inline std::unique_ptr<Ast_Node> ast_make_comparison(
 
 void ast_print(const Ast_Node *node, int depth = 0);
 
-} // namespace mado::interpreter
+} // namespace mado::query

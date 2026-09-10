@@ -7,7 +7,7 @@
 #include "parser.hpp"
 #include "token.hpp"
 
-using namespace mado::interpreter;
+using namespace mado::query;
 using namespace mado::common;
 
 // token

@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-namespace mado::interpreter {
+namespace mado::query {
 
 bool Ast_Comparison_Operator_Node::is_number() const {
     return std::holds_alternative<int>(value);
@@ -176,4 +176,4 @@ void ast_print(const Ast_Node *node, int depth) {
     }
 }
 
-} // namespace mado::interpreter
+} // namespace mado::query

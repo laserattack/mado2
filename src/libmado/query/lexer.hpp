@@ -5,7 +5,7 @@
 
 #include "token.hpp"
 
-namespace mado::interpreter {
+namespace mado::query {
 
 class Lexer {
   public:
@@ -51,4 +51,4 @@ class Lexer {
     Token parse_operator_and_punctuation(); // Parses operators and punctuation
 };
 
-} // namespace mado::interpreter
+} // namespace mado::query

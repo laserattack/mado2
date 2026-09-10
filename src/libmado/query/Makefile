@@ -5,9 +5,9 @@ SOURCES = test.cpp token.cpp lexer.cpp ast.cpp parser.cpp \
           ../../common/test_utils.cpp \
           ../../common/text_utils.cpp
 
-TARGET = test_interpreter
+TARGET = test_query
 
-test: $(SOURCES) token.hpp lexer.hpp ast.hpp
+test: $(SOURCES) token.hpp lexer.hpp ast.hpp parser.hpp
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(TARGET)
 	./$(TARGET)
 

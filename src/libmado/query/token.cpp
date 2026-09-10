@@ -2,7 +2,7 @@
 
 #include "token.hpp"
 
-namespace mado::interpreter {
+namespace mado::query {
 
 std::string token_type_to_string(Token_Type type) {
     switch (type) {
@@ -131,4 +131,4 @@ bool token_is_keyword(Token_Type type) {
            token_type_to_string(type) != "Unknown";
 }
 
-} // namespace mado::interpreter
+} // namespace mado::query
