@@ -13,18 +13,16 @@ namespace mado::interpreter {
 
 class Parse_Error : public std::runtime_error {
   public:
-    Parse_Error(const std::string &message, size_t position)
-        : std::runtime_error(message), position_(position) {}
+    Parse_Error(const std::string &message, const Token &token)
+        : std::runtime_error(message), token_(token) {}
 
-    // Character offset from the start of the query string
-    size_t position() const { return position_; }
+    const Token &token() const { return token_; }
 
-    // Prints the error with the query and a caret at the error position
+    // Prints the error with the query and carets under the error token
     void print(const std::string &query, std::ostream &os = std::cerr) const;
 
   private:
-    // Character offset from the start of the query string
-    size_t position_;
+    Token token_;
 };
 
 class Parser {

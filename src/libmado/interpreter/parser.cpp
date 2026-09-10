@@ -1,14 +1,16 @@
-// src/libmado/interpreter/parser.cpp
 #include "parser.hpp"
 
 namespace mado::interpreter {
 
 void Parse_Error::print(const std::string &query, std::ostream &os) const {
-    std::string pos_str = std::to_string(position_);
+    size_t position = token_.position;
+    size_t length = token_.value.empty() ? 1 : token_.value.size();
+
+    std::string pos_str = std::to_string(position);
     std::string padding(pos_str.size(), ' ');
 
     os << pos_str << " | " << query << "\n";
-    os << padding << " | " << std::string(position_, ' ') << "^\n";
+    os << padding << " | " << std::string(position, ' ') << std::string(length, '^') << "\n";
     os << padding << " | " << what() << "\n";
 }
 
@@ -43,15 +45,14 @@ void Parser::eat_it(size_t n) {
 
 Token Parser::expect(Token_Type type, const std::string &error_msg) {
     if (get_it().type != type) {
-        throw Parse_Error(error_msg + ", got: " + token_repr(get_it()),
-                          get_it().position);
+        throw Parse_Error(error_msg + ", got: " + token_repr(get_it()), get_it());
     }
     return eat_it();
 }
 
 std::unique_ptr<Ast_Node> Parser::parse() {
     if (is_at_end()) {
-        throw Parse_Error("Empty query", 0);
+        throw Parse_Error("Empty query", get_it());
     }
 
     auto ast = parse_expression();
@@ -59,7 +60,7 @@ std::unique_ptr<Ast_Node> Parser::parse() {
     if (!is_at_end()) {
         throw Parse_Error("Expected binary operator or end of query, got: " +
                               token_repr(get_it()),
-                          get_it().position);
+                          get_it());
     }
 
     return ast;
@@ -188,7 +189,7 @@ std::unique_ptr<Ast_Node> Parser::parse_condition() {
         break;
     default:
         throw Parse_Error("Expected field name or special keyword, got: " + token_repr(field_token),
-                          field_token.position);
+                          field_token);
     }
 
     switch (field) {
@@ -221,7 +222,7 @@ std::unique_ptr<Ast_Node> Parser::parse_string_condition(Ast_Comparison_Field fi
     }
 
     throw Parse_Error("Expected string value, got: " + token_repr(token),
-                      token.position);
+                      token);
 }
 
 std::unique_ptr<Ast_Node> Parser::parse_time_condition(Ast_Comparison_Field field) {
@@ -246,7 +247,7 @@ std::unique_ptr<Ast_Node> Parser::parse_any_condition() {
             return ast_make_comparison(Ast_Comparison_Field::Any, op, value_token.value);
         }
         throw Parse_Error("Expected value, got: " + token_repr(value_token),
-                          value_token.position);
+                          value_token);
     }
 }
 
@@ -288,7 +289,7 @@ Ast_Comparison_Operator Parser::parse_comparison_operator() {
         return Ast_Comparison_Operator::Nglob;
     default:
         throw Parse_Error("Expected comparison operator, got: " + token_repr(token),
-                          token.position);
+                          token);
     }
 }
 
