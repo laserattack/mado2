@@ -71,10 +71,6 @@ class Parser {
     // Does nothing if n would move past the end
     void eat_it(size_t n);
 
-    // If the current token matches the expected type, eat it and returns it.
-    // Otherwise throws Parse_Error with the given message
-    Token expect(Token_Type type, const std::string &error_msg);
-
     // Returns a debug representation of the token: Type(value)
     // e.g. And(and), Number(42)
     std::string token_repr(const Token &token) const;
