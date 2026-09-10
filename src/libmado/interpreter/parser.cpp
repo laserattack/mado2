@@ -15,7 +15,10 @@ void Parse_Error::print(const std::string &query, std::ostream &os) const {
 }
 
 std::string Parser::token_repr(const Token &token) const {
-    return token_type_to_string(token.type) + "(" + token.value + ")";
+    if (token.value.empty()) {
+        return token_type_to_string(token.type);
+    }
+    return token_type_to_string(token.type) + ": " + token.value;
 }
 
 bool Parser::is_at_end() const {
@@ -45,7 +48,7 @@ void Parser::eat_it(size_t n) {
 
 Token Parser::expect(Token_Type type, const std::string &error_msg) {
     if (get_it().type != type) {
-        throw Parse_Error(error_msg + ", got: " + token_repr(get_it()), get_it());
+        throw Parse_Error(error_msg + ", got " + token_repr(get_it()), get_it());
     }
     return eat_it();
 }
@@ -58,7 +61,7 @@ std::unique_ptr<Ast_Node> Parser::parse() {
     auto ast = parse_expression();
 
     if (!is_at_end()) {
-        throw Parse_Error("Expected binary operator or end of query, got: " +
+        throw Parse_Error("Expected binary operator or end of query, got " +
                               token_repr(get_it()),
                           get_it());
     }
@@ -188,7 +191,7 @@ std::unique_ptr<Ast_Node> Parser::parse_condition() {
         field = Ast_Comparison_Field::Any;
         break;
     default:
-        throw Parse_Error("Expected field name or special keyword, got: " + token_repr(field_token),
+        throw Parse_Error("Expected field name or special keyword, got " + token_repr(field_token),
                           field_token);
     }
 
@@ -221,7 +224,7 @@ std::unique_ptr<Ast_Node> Parser::parse_string_condition(Ast_Comparison_Field fi
         return ast_make_comparison(field, op, token.value);
     }
 
-    throw Parse_Error("Expected string value, got: " + token_repr(token),
+    throw Parse_Error("Expected string value, got " + token_repr(token),
                       token);
 }
 
@@ -246,7 +249,7 @@ std::unique_ptr<Ast_Node> Parser::parse_any_condition() {
         if (token_is_keyword(value_token.type)) {
             return ast_make_comparison(Ast_Comparison_Field::Any, op, value_token.value);
         }
-        throw Parse_Error("Expected value, got: " + token_repr(value_token),
+        throw Parse_Error("Expected value, got " + token_repr(value_token),
                           value_token);
     }
 }
@@ -288,7 +291,7 @@ Ast_Comparison_Operator Parser::parse_comparison_operator() {
     case Token_Type::Nglob:
         return Ast_Comparison_Operator::Nglob;
     default:
-        throw Parse_Error("Expected comparison operator, got: " + token_repr(token),
+        throw Parse_Error("Expected comparison operator, got " + token_repr(token),
                           token);
     }
 }
