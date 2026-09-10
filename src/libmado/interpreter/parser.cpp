@@ -3,6 +3,15 @@
 
 namespace mado::interpreter {
 
+void Parse_Error::print(const std::string &query, std::ostream &os) const {
+    std::string pos_str = std::to_string(position_);
+    std::string padding(pos_str.size(), ' ');
+
+    os << pos_str << " | " << query << "\n";
+    os << padding << " | " << std::string(position_, ' ') << "^\n";
+    os << padding << " | " << what() << "\n";
+}
+
 std::string Parser::token_repr(const Token &token) const {
     return token_type_to_string(token.type) + "(" + token.value + ")";
 }
@@ -19,10 +28,13 @@ Token Parser::get_it(size_t n) const {
 }
 
 Token Parser::eat_it() {
+    Token token = get_it();
+
     if (!is_at_end()) {
         current_++;
     }
-    return tokens_[current_ - 1];
+
+    return token;
 }
 
 void Parser::eat_it(size_t n) {
@@ -45,7 +57,7 @@ std::unique_ptr<Ast_Node> Parser::parse() {
     auto ast = parse_expression();
 
     if (!is_at_end()) {
-        throw Parse_Error("Expected binary operator (and, or, xor) or end of query, got: " +
+        throw Parse_Error("Expected binary operator or end of query, got: " +
                               token_repr(get_it()),
                           get_it().position);
     }

@@ -555,7 +555,7 @@ int main(int argc, char **argv) {
             auto ast = parser.parse();
             ast_print(ast.get());
         } catch (const Parse_Error &e) {
-            std::cerr << e.what() << " at position " << e.position() << std::endl;
+            e.print(query);
             return 1;
         }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -15,11 +16,15 @@ class Parse_Error : public std::runtime_error {
     Parse_Error(const std::string &message, size_t position)
         : std::runtime_error(message), position_(position) {}
 
-    // character offset from the start of the query string
+    // Character offset from the start of the query string
     size_t position() const { return position_; }
 
+    // Prints the error with the query and a caret at the error position
+    void print(const std::string &query, std::ostream &os = std::cerr) const;
+
   private:
-    size_t position_; // character offset from the start of the query string
+    // Character offset from the start of the query string
+    size_t position_;
 };
 
 class Parser {
