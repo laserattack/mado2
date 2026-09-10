@@ -87,12 +87,12 @@ Token Lexer::parse_number_and_timestamp() {
 }
 
 Token Lexer::parse_quoted_string() {
-    size_t start = pos_;
     char quote = eat_it();
 
     assert((quote == '"' || quote == '\'') &&
            "parse_quoted_string called without quote");
 
+    size_t start = pos_;
     std::string result;
 
     while (!is_at_end() && get_it() != quote) {
