@@ -16,6 +16,9 @@ constexpr uint16_t MAX_KEYWORD_VALUE = 1000;
 enum class Token_Type {
     // keywords
 
+    // Keywords must consist only of letters, so the lexer can safely
+    // distinguish them from operators.
+
     // fields
     Priority = 0, // priority
     Tag,          // tag
@@ -49,6 +52,11 @@ enum class Token_Type {
 
     // not keywords
 
+    // Non-keywords must not contain letters, so the lexer does not
+    // confuse them with identifiers. Values (Number, String,
+    // Timestamp) are lexer output, not source text, and are matched
+    // separately.
+
     // comparison operators
     Gt = MAX_KEYWORD_VALUE + 1, // >
     Lt,                         // <
@@ -58,14 +66,14 @@ enum class Token_Type {
     Ne,                         // !=
     Substr,                     // ~
     Nsubstr,                    // !~
-    Fuzzy,                      // ~~ or f~
-    Nfuzzy,                     // !~~ or !f~
+    Fuzzy,                      // ~~
+    Nfuzzy,                     // !~~
     Starts,                     // ^~
     Nstarts,                    // !^~
     Ends,                       // $~
     Nends,                      // !$~
-    Glob,                       // %~ or g~
-    Nglob,                      // !%~ or !g~
+    Glob,                       // %~
+    Nglob,                      // !%~
 
     // punctuation
     Lparen,   // (

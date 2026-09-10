@@ -225,18 +225,6 @@ Token Lexer::parse_operator_and_punctuation() {
         return make_token(Token_Type::Glob, start);
     }
 
-    // f~
-    if (get_it() == 'f' && get_it(1) == '~') {
-        eat_it(2);
-        return make_token(Token_Type::Fuzzy, start);
-    }
-
-    // g~
-    if (get_it() == 'g' && get_it(1) == '~') {
-        eat_it(2);
-        return make_token(Token_Type::Glob, start);
-    }
-
     // (
     if (get_it() == '(') {
         eat_it();
@@ -307,18 +295,6 @@ Token Lexer::parse_operator_and_punctuation() {
     if (get_it() == '!' && get_it(1) == '$' && get_it(2) == '~') {
         eat_it(3);
         return make_token(Token_Type::Nends, start);
-    }
-
-    // !f~
-    if (get_it() == '!' && get_it(1) == 'f' && get_it(2) == '~') {
-        eat_it(3);
-        return make_token(Token_Type::Nfuzzy, start);
-    }
-
-    // !g~
-    if (get_it() == '!' && get_it(1) == 'g' && get_it(2) == '~') {
-        eat_it(3);
-        return make_token(Token_Type::Nglob, start);
     }
 
     // Eat unknown character
