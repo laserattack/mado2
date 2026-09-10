@@ -99,7 +99,7 @@ struct Token {
         : type(t), value(std::move(v)), position(pos) {}
 };
 
-std::string token_to_string(Token_Type type);
+std::string token_type_to_string(Token_Type type);
 
 bool token_is_keyword(Token_Type type);
 

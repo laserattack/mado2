@@ -137,7 +137,7 @@ Token Lexer::parse_identifier_and_keyword() {
         if (!token_is_keyword(type))
             continue;
 
-        std::string keyword = token_to_string(type);
+        std::string keyword = token_type_to_string(type);
 
         // TODO: fuzzy match
         if (mado::common::equals_ignore_case(keyword, result)) {

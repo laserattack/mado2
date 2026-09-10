@@ -67,6 +67,7 @@ struct Ast_Node {
     Ast_Node(Ast_Node_Type t) : type(t) {}
 };
 
+// TODO: not int. number in range [0,999]
 using Ast_Value = std::variant<int, std::string>;
 
 struct Ast_Comparison_Operator_Node : Ast_Node {

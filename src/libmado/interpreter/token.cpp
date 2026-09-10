@@ -4,7 +4,7 @@
 
 namespace mado::interpreter {
 
-std::string token_to_string(Token_Type type) {
+std::string token_type_to_string(Token_Type type) {
     switch (type) {
     // fields
     case Token_Type::Priority:
@@ -128,7 +128,7 @@ std::string token_to_string(Token_Type type) {
 
 bool token_is_keyword(Token_Type type) {
     return static_cast<uint16_t>(type) <= MAX_KEYWORD_VALUE &&
-           token_to_string(type) != "Unknown";
+           token_type_to_string(type) != "Unknown";
 }
 
 } // namespace mado::interpreter

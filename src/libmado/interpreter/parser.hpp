@@ -39,6 +39,8 @@ class Parser {
     std::unique_ptr<Ast_Node> parse_not();        // priority > and
     std::unique_ptr<Ast_Node> parse_primary();    // highest priority
 
+    Ast_Comparison_Operator parse_comparison_operator();
+
     // Determines which parse_*_condition to call based on the current field token
     std::unique_ptr<Ast_Node> parse_condition();
     // field op number_value
@@ -69,6 +71,10 @@ class Parser {
     // If the current token matches the expected type, eat it and returns it.
     // Otherwise throws Parse_Error with the given message
     Token expect(Token_Type type, const std::string &error_msg);
+
+    // Returns a debug representation of the token: Type(value)
+    // e.g. And(and), Number(42)
+    std::string token_repr(const Token &token) const;
 };
 
 } // namespace mado::interpreter
