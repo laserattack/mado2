@@ -213,7 +213,8 @@ std::unique_ptr<Ast_Node> Parser::parse_number_condition(Ast_Comparison_Field fi
         throw Parse_Error("Expected Number, got " + token_repr(token), token);
     }
 
-    return ast_make_comparison(field, op, std::stoi(token.value));
+    // Lexer guarantees 1-3 digit positive numbers, so stoi can't overflow
+    return ast_make_comparison(field, op, static_cast<uint16_t>(std::stoi(token.value)));
 }
 
 std::unique_ptr<Ast_Node> Parser::parse_string_condition(Ast_Comparison_Field field) {
@@ -247,7 +248,7 @@ std::unique_ptr<Ast_Node> Parser::parse_any_condition() {
 
     switch (value_token.type) {
     case Token_Type::Number:
-        return ast_make_comparison(Ast_Comparison_Field::Any, op, std::stoi(value_token.value));
+        return ast_make_comparison(Ast_Comparison_Field::Any, op, static_cast<uint16_t>(std::stoi(value_token.value)));
     case Token_Type::String:
     case Token_Type::Timestamp:
         return ast_make_comparison(Ast_Comparison_Field::Any, op, value_token.value);

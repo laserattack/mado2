@@ -198,7 +198,7 @@ static void test_ast_comparison_node() {
     auto node = ast_make_comparison(
         Ast_Comparison_Field::Priority,
         Ast_Comparison_Operator::Gt,
-        5);
+        uint16_t{5});
 
     auto *comp = static_cast<Ast_Comparison_Operator_Node *>(node.get());
 
@@ -225,7 +225,7 @@ static void test_ast_binary_node() {
     auto left = ast_make_comparison(
         Ast_Comparison_Field::Priority,
         Ast_Comparison_Operator::Gt,
-        5);
+        uint16_t{5});
 
     auto right = ast_make_comparison(
         Ast_Comparison_Field::Tag,

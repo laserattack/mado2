@@ -67,8 +67,8 @@ struct Ast_Node {
     Ast_Node(Ast_Node_Type t) : type(t) {}
 };
 
-// TODO: not int. number in range [0,999]
-using Ast_Value = std::variant<int, std::string>;
+// number in range [0,999]
+using Ast_Value = std::variant<uint16_t, std::string>;
 
 struct Ast_Comparison_Operator_Node : Ast_Node {
     Ast_Comparison_Field field;
@@ -85,7 +85,7 @@ struct Ast_Comparison_Operator_Node : Ast_Node {
 
     bool is_string() const;
 
-    int as_number() const;
+    uint16_t as_number() const;
 
     const std::string &as_string() const;
 };
@@ -140,6 +140,6 @@ inline std::unique_ptr<Ast_Node> ast_make_comparison(
     return std::make_unique<Ast_Comparison_Operator_Node>(field, op, std::move(value));
 }
 
-void ast_print(const Ast_Node *node, int depth = 0);
+void ast_print(const Ast_Node *node, size_t depth = 0);
 
 } // namespace mado::query

@@ -5,15 +5,15 @@
 namespace mado::query {
 
 bool Ast_Comparison_Operator_Node::is_number() const {
-    return std::holds_alternative<int>(value);
+    return std::holds_alternative<uint16_t>(value);
 }
 
 bool Ast_Comparison_Operator_Node::is_string() const {
     return std::holds_alternative<std::string>(value);
 }
 
-int Ast_Comparison_Operator_Node::as_number() const {
-    return std::get<int>(value);
+uint16_t Ast_Comparison_Operator_Node::as_number() const {
+    return std::get<uint16_t>(value);
 }
 
 const std::string &Ast_Comparison_Operator_Node::as_string() const {
@@ -126,11 +126,11 @@ static const char *node_type_to_string(Ast_Node_Type type) {
     return "Unknown";
 }
 
-void ast_print(const Ast_Node *node, int depth) {
+void ast_print(const Ast_Node *node, size_t depth) {
     if (!node)
         return;
 
-    for (int i = 0; i < depth; ++i)
+    for (size_t i = 0; i < depth; ++i)
         printf("  ");
 
     switch (node->type) {
