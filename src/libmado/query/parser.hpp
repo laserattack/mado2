@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -18,8 +17,8 @@ class Parse_Error : public std::runtime_error {
 
     const Token &token() const { return token_; }
 
-    // Prints the error with the query and carets under the error token
-    void print(const std::string &query, std::ostream &os = std::cerr) const;
+    // Formats the error with the query and a caret at the error position
+    std::string format(const std::string &query) const;
 
   private:
     Token token_;

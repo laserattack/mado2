@@ -2,15 +2,15 @@
 
 namespace mado::query {
 
-void Parse_Error::print(const std::string &query, std::ostream &os) const {
+std::string Parse_Error::format(const std::string &query) const {
     size_t position = token_.position;
 
     std::string pos_str = std::to_string(position);
     std::string padding(pos_str.size(), ' ');
 
-    os << pos_str << " | " << query << "\n";
-    os << padding << " | " << std::string(position, ' ') << "^" << "\n";
-    os << padding << " | " << what() << "\n";
+    return pos_str + " | " + query + "\n" +
+           padding + " | " + std::string(position, ' ') + "^\n" +
+           padding + " | " + what() + "\n";
 }
 
 std::string Parser::token_repr(const Token &token) const {

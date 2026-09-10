@@ -555,7 +555,7 @@ int main(int argc, char **argv) {
             auto ast = parser.parse();
             ast_print(ast.get());
         } catch (const Parse_Error &e) {
-            e.print(query);
+            std::cerr << e.format(query);
             return 1;
         }
 
