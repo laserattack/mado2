@@ -55,14 +55,6 @@ class Lexer {
     //
 
     enum class Macro_Type {
-        // Simple macros: no arguments, expand into a fixed
-        // sequence of tokens. Described in the simple_macros_ vec
-        Max,   // number 999
-        Min,   // number 0
-        Never, // timestamp 99990101T000000
-
-        // Complex macros: require computation at tokenize time.
-        // May accept arguments. Handled by dedicated resolvers
         Today,     // @today, @today(-1), @today(5)...
         Now,       // @now, @now(-1), @now(5)...
         Yesterday, // @yesterday, @yesterday(-1), @yesterday(5)...
@@ -77,13 +69,6 @@ class Lexer {
     };
 
     static std::string macro_type_to_string(Macro_Type type);
-
-    struct Simple_Macro_Info {
-        Macro_Type type;
-        std::vector<std::pair<Token_Type, const char *>> tokens;
-    };
-
-    static const std::vector<Simple_Macro_Info> simple_macros_;
 
     // Parses a macro starting with '@' and expands it into one or more tokens
     std::vector<Token> parse_macro();

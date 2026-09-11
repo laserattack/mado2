@@ -429,16 +429,6 @@ static void test_lexer_numeric_macro_with_arg() {
          tokens[1].type == Token_Type::End);
 }
 
-static void test_lexer_numeric_macro_no_parens() {
-    Lexer lexer("@max");
-    auto tokens = lexer.tokenize();
-
-    test(tokens.size() == 2 &&
-         tokens[0].type == Token_Type::Number &&
-         tokens[0].value == "999" &&
-         tokens[1].type == Token_Type::End);
-}
-
 static void test_lexer_macro_unknown_name() {
     Lexer lexer("@foobar()");
     auto tokens = lexer.tokenize();
@@ -486,18 +476,6 @@ static void test_lexer_macro_case_insensitive() {
          tokens[0].type == Token_Type::Timestamp &&
          tokens[0].value.size() == 8 &&
          tokens[1].type == Token_Type::End);
-}
-
-static void test_lexer_macro_in_query() {
-    Lexer lexer("priority > @max()");
-    auto tokens = lexer.tokenize();
-
-    test(tokens.size() == 4 &&
-         tokens[0].type == Token_Type::Priority &&
-         tokens[1].type == Token_Type::Gt &&
-         tokens[2].type == Token_Type::Number &&
-         tokens[2].value == "999" &&
-         tokens[3].type == Token_Type::End);
 }
 
 // ast
@@ -843,6 +821,244 @@ static void test_parser_unexpected_token_throws() {
     test(thrown);
 }
 
+static void test_parser_anyof_number() {
+    Lexer lexer("priority = anyof(1, 2, 3)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *inner = static_cast<Ast_Binary_Operator_Node *>(root->left.get());
+    auto *one = static_cast<Ast_Comparison_Operator_Node *>(inner->left.get());
+    auto *two = static_cast<Ast_Comparison_Operator_Node *>(inner->right.get());
+    auto *three = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(ast->type == Ast_Node_Type::Binary_Operator &&
+         root->op == Ast_Binary_Operator::Or &&
+
+         inner->type == Ast_Node_Type::Binary_Operator &&
+         inner->op == Ast_Binary_Operator::Or &&
+
+         one->field == Ast_Comparison_Field::Priority &&
+         one->op == Ast_Comparison_Operator::Eq &&
+         one->is_number() &&
+         one->as_number() == 1 &&
+
+         two->field == Ast_Comparison_Field::Priority &&
+         two->op == Ast_Comparison_Operator::Eq &&
+         two->is_number() &&
+         two->as_number() == 2 &&
+
+         three->field == Ast_Comparison_Field::Priority &&
+         three->op == Ast_Comparison_Operator::Eq &&
+         three->is_number() &&
+         three->as_number() == 3);
+}
+
+static void test_parser_allof_number() {
+    Lexer lexer("priority = allof(1, 2)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         left->is_number() && left->as_number() == 1 &&
+         right->is_number() && right->as_number() == 2);
+}
+
+static void test_parser_anyof_string() {
+    Lexer lexer("tag = anyof(bug, crit)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::Or &&
+         left->field == Ast_Comparison_Field::Tag &&
+         left->is_string() && left->as_string() == "bug" &&
+         right->is_string() && right->as_string() == "crit");
+}
+
+static void test_parser_allof_string() {
+    Lexer lexer("tag = allof(a, b, c)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *inner = static_cast<Ast_Binary_Operator_Node *>(root->left.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         inner->op == Ast_Binary_Operator::And);
+}
+
+static void test_parser_anyof_time() {
+    Lexer lexer("deadline = anyof(20260101, 20260202)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::Or &&
+         left->field == Ast_Comparison_Field::Deadline &&
+         left->is_string() && left->as_string() == "20260101" &&
+         right->is_string() && right->as_string() == "20260202");
+}
+
+static void test_parser_anyof_any() {
+    Lexer lexer("any = anyof(1, foo, 20260101)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *inner = static_cast<Ast_Binary_Operator_Node *>(root->left.get());
+    auto *one = static_cast<Ast_Comparison_Operator_Node *>(inner->left.get());
+    auto *foo = static_cast<Ast_Comparison_Operator_Node *>(inner->right.get());
+    auto *ts = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::Or &&
+         inner->op == Ast_Binary_Operator::Or &&
+
+         one->is_number() && one->as_number() == 1 &&
+         foo->is_string() && foo->as_string() == "foo" &&
+         ts->is_string() && ts->as_string() == "20260101");
+}
+
+static void test_parser_anyof_single_value() {
+    Lexer lexer("priority = anyof(5)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *comp = static_cast<Ast_Comparison_Operator_Node *>(ast.get());
+
+    test(ast->type == Ast_Node_Type::Comparison_Operator &&
+         comp->field == Ast_Comparison_Field::Priority &&
+         comp->op == Ast_Comparison_Operator::Eq &&
+         comp->is_number() &&
+         comp->as_number() == 5);
+}
+
+static void test_parser_anyof_with_operator() {
+    Lexer lexer("priority > anyof(1, 2)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+
+    test(root->op == Ast_Binary_Operator::Or &&
+         left->op == Ast_Comparison_Operator::Gt &&
+         left->is_number() && left->as_number() == 1);
+}
+
+static void test_parser_anyof_empty_throws() {
+    Lexer lexer("tag = anyof()");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_anyof_trailing_comma_throws() {
+    Lexer lexer("tag = anyof(a, b,)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_anyof_missing_comma_throws() {
+    Lexer lexer("tag = anyof(a b)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_anyof_unclosed_throws() {
+    Lexer lexer("tag = anyof(a, b");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_anyof_wrong_type_throws() {
+    Lexer lexer("priority = anyof(a, b)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_anyof_in_expression() {
+    Lexer lexer("tag = anyof(a, b) and priority > 5");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Binary_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         left->op == Ast_Binary_Operator::Or &&
+         right->field == Ast_Comparison_Field::Priority &&
+         right->is_number() && right->as_number() == 5);
+}
+
 // entry point
 
 int main(int argc, char **argv) {
@@ -911,13 +1127,11 @@ int main(int argc, char **argv) {
         {"Lexer timestamp macro year overflow", "@year(21831231)", test_lexer_timestamp_macro_year_overflow},
         {"Lexer macro trailing comma", "@today(7,)", test_lexer_macro_trailing_comma},
         {"Lexer numeric macro with arg", "@max(5)", test_lexer_numeric_macro_with_arg},
-        {"Lexer numeric macro no parens", "@max", test_lexer_numeric_macro_no_parens},
         {"Lexer macro unknown name", "@foobar()", test_lexer_macro_unknown_name},
         {"Lexer macro only at", "@", test_lexer_macro_only_at},
         {"Lexer macro at with digit", "@123", test_lexer_macro_at_with_digit},
         {"Lexer macro fuzzy name", "@tday()", test_lexer_macro_fuzzy_name},
         {"Lexer macro case insensitive", "@TODAY()", test_lexer_macro_case_insensitive},
-        {"Lexer macro in query", "priority > @max()", test_lexer_macro_in_query},
         // ast
         {"AST comparison", "create comparison node", test_ast_comparison_node},
         {"AST comparison string", "create comparison node with string", test_ast_comparison_node_string},
@@ -935,6 +1149,20 @@ int main(int argc, char **argv) {
         {"Parser empty", "empty query throws", test_parser_empty_throws},
         {"Parser unexpected", "unexpected token throws", test_parser_unexpected_token_throws},
         {"Parser priority", "parse 'not not priority > 1 or priority > 2 xor priority > 3 and not priority > 4'", test_parser_priority},
+        {"Parser anyof number", "parse 'priority = anyof(1, 2, 3)'", test_parser_anyof_number},
+        {"Parser allof number", "parse 'priority = allof(1, 2)'", test_parser_allof_number},
+        {"Parser anyof string", "parse 'tag = anyof(bug, crit)'", test_parser_anyof_string},
+        {"Parser allof string", "parse 'tag = allof(a, b, c)'", test_parser_allof_string},
+        {"Parser anyof time", "parse 'deadline = anyof(20260101, 20260202)'", test_parser_anyof_time},
+        {"Parser anyof any", "parse 'any = anyof(1, foo, 20260101)'", test_parser_anyof_any},
+        {"Parser anyof single", "parse 'priority = anyof(5)'", test_parser_anyof_single_value},
+        {"Parser anyof with op", "parse 'priority > anyof(1, 2)'", test_parser_anyof_with_operator},
+        {"Parser anyof empty", "parse 'tag = anyof()' throws", test_parser_anyof_empty_throws},
+        {"Parser anyof trailing comma", "parse 'tag = anyof(a, b,)' throws", test_parser_anyof_trailing_comma_throws},
+        {"Parser anyof missing comma", "parse 'tag = anyof(a b)' throws", test_parser_anyof_missing_comma_throws},
+        {"Parser anyof unclosed", "parse 'tag = anyof(a, b' throws", test_parser_anyof_unclosed_throws},
+        {"Parser anyof wrong type", "parse 'priority = anyof(a, b)' throws", test_parser_anyof_wrong_type_throws},
+        {"Parser anyof in expression", "parse 'tag = anyof(a, b) and priority > 5'", test_parser_anyof_in_expression},
     };
 
     return run_tests(tests);

@@ -43,16 +43,14 @@ class Parser {
 
     Ast_Comparison_Operator parse_comparison_operator();
 
-    // Determines which parse_*_condition to call based on the current field token
-    std::unique_ptr<Ast_Node> parse_condition();
-    // field op number_value
-    std::unique_ptr<Ast_Node> parse_number_condition(Ast_Comparison_Field field);
-    // field op string_value
-    std::unique_ptr<Ast_Node> parse_string_condition(Ast_Comparison_Field field);
-    // field op timestamp_value
-    std::unique_ptr<Ast_Node> parse_time_condition(Ast_Comparison_Field field);
-    // any op number_value/string_value/timestamp
-    std::unique_ptr<Ast_Node> parse_any_condition();
+    // eat field token and call parse_comparison
+    std::unique_ptr<Ast_Node> parse_field();
+    // eat op and call parse_value / parse_list
+    std::unique_ptr<Ast_Node> parse_comparison(Ast_Comparison_Field field);
+    //
+    std::unique_ptr<Ast_Node> parse_list(Ast_Comparison_Field field, Ast_Comparison_Operator op, bool is_allof);
+    // eat value token and make comparison node
+    std::unique_ptr<Ast_Node> parse_value(Ast_Comparison_Field field, Ast_Comparison_Operator op);
 
     // Whether the end of the token stream has been reached
     bool is_at_end() const;
