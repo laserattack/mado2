@@ -4,6 +4,16 @@
 
 namespace mado::common {
 
+size_t &total_tests() {
+    static size_t count = 0;
+    return count;
+}
+
+size_t &failed_tests() {
+    static size_t count = 0;
+    return count;
+}
+
 void test(bool check) {
     total_tests()++;
     if (!check) {

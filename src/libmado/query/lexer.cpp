@@ -328,8 +328,38 @@ Token Lexer::parse_operator_and_punctuation() {
     return make_token(Token_Type::Invalid, "", start);
 }
 
+const std::vector<Lexer::Simple_Macro_Info> Lexer::simple_macros_ = {
+    {
+        Macro_Type::Max,
+        {
+            {Token_Type::Number, "999"},
+        },
+    },
+    {
+        Macro_Type::Min,
+        {
+            {Token_Type::Number, "0"},
+        },
+    },
+    {
+        Macro_Type::Never,
+        {
+            {Token_Type::Timestamp, "99990101T000000"},
+        },
+    },
+};
+
 std::string Lexer::macro_type_to_string(Macro_Type type) {
     switch (type) {
+    // simple
+    case Macro_Type::Max:
+        return "Max";
+    case Macro_Type::Min:
+        return "Min";
+    case Macro_Type::Never:
+        return "Never";
+
+    // time
     case Macro_Type::Today:
         return "Today";
     case Macro_Type::Now:
@@ -344,10 +374,8 @@ std::string Lexer::macro_type_to_string(Macro_Type type) {
         return "Month";
     case Macro_Type::Year:
         return "Year";
-    case Macro_Type::Max:
-        return "Max";
-    case Macro_Type::Min:
-        return "Min";
+
+    // special
     case Macro_Type::Invalid:
         return "Invalid";
     }
@@ -445,40 +473,31 @@ std::vector<Token> Lexer::resolve_macro(const std::string &name,
         }
     }
 
-    // found!
-    if (type) {
-        // Dispatch by macro type
-        switch (*type) {
-        case Macro_Type::Max:
-            if (!args.empty()) {
-                return {make_token(Token_Type::Invalid, start)};
-            }
-            return {make_token(Token_Type::Number, "999", start)};
-
-        case Macro_Type::Min:
-            if (!args.empty()) {
-                return {make_token(Token_Type::Invalid, start)};
-            }
-            return {make_token(Token_Type::Number, "0", start)};
-
-        case Macro_Type::Today:
-        case Macro_Type::Now:
-        case Macro_Type::Yesterday:
-        case Macro_Type::Tomorrow:
-        case Macro_Type::Week:
-        case Macro_Type::Month:
-        case Macro_Type::Year:
-            return resolve_time_macro(*type, args, start);
-
-        case Macro_Type::Invalid:
-            // unreachable case
-            assert(false && "resolve_macro: Invalid type reached");
-            return {make_token(Token_Type::Invalid, start)};
-        }
+    // not found :(
+    if (!type) {
+        return {make_token(Token_Type::Invalid, start)};
     }
 
-    // not found :(
-    return {make_token(Token_Type::Invalid, start)};
+    // simple macros: lookup in the table
+    for (const auto &sm : simple_macros_) {
+        if (sm.type != *type)
+            continue;
+
+        if (!args.empty()) {
+            return {make_token(Token_Type::Invalid, start)};
+        }
+
+        std::vector<Token> result;
+        result.reserve(sm.tokens.size());
+
+        for (const auto &[tok_type, tok_value] : sm.tokens) {
+            result.push_back(make_token(tok_type, tok_value, start));
+        }
+        return result;
+    }
+
+    // otherwise: time macro
+    return resolve_time_macro(*type, args, start);
 }
 
 std::vector<Token> Lexer::resolve_time_macro(Macro_Type type,

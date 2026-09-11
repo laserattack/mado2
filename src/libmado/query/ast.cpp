@@ -4,6 +4,30 @@
 
 namespace mado::query {
 
+std::unique_ptr<Ast_Node> ast_make_binary(
+    Ast_Binary_Operator op,
+    std::unique_ptr<Ast_Node> left,
+    std::unique_ptr<Ast_Node> right) {
+    return std::make_unique<Ast_Binary_Operator_Node>(op, std::move(left), std::move(right));
+}
+
+std::unique_ptr<Ast_Node> ast_make_unary(
+    Ast_Unary_Operator op,
+    std::unique_ptr<Ast_Node> expr) {
+    return std::make_unique<Ast_Unary_Operator_Node>(op, std::move(expr));
+}
+
+std::unique_ptr<Ast_Node> ast_make_special(Ast_Node_Type type) {
+    return std::make_unique<Ast_Special_Node>(type);
+}
+
+std::unique_ptr<Ast_Node> ast_make_comparison(
+    Ast_Comparison_Field field,
+    Ast_Comparison_Operator op,
+    Ast_Value value) {
+    return std::make_unique<Ast_Comparison_Operator_Node>(field, op, std::move(value));
+}
+
 bool Ast_Comparison_Operator_Node::is_number() const {
     return std::holds_alternative<uint16_t>(value);
 }

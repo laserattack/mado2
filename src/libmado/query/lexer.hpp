@@ -50,8 +50,19 @@ class Lexer {
     Token parse_identifier_and_keyword();   // Parses identifiers and a keywords
     Token parse_operator_and_punctuation(); // Parses operators and punctuation
 
+    //
+    // macros
+    //
+
     enum class Macro_Type {
-        // time macros
+        // Simple macros: no arguments, expand into a fixed
+        // sequence of tokens. Described in the simple_macros_ vec
+        Max,   // number 999
+        Min,   // number 0
+        Never, // timestamp 99990101T000000
+
+        // Complex macros: require computation at tokenize time.
+        // May accept arguments. Handled by dedicated resolvers
         Today,     // @today, @today(-1), @today(5)...
         Now,       // @now, @now(-1), @now(5)...
         Yesterday, // @yesterday, @yesterday(-1), @yesterday(5)...
@@ -60,16 +71,19 @@ class Lexer {
         Month,     // @month, @month(-1), @month(5)...
         Year,      // @year, @year(-1), @year(5)...
 
-        // number macros
-        Max,
-        Min,
-
         // Invalid must be the last entry in the enum:
         // resolve_macro iterates over Macro_Type values until it reaches Invalid
         Invalid,
     };
 
     static std::string macro_type_to_string(Macro_Type type);
+
+    struct Simple_Macro_Info {
+        Macro_Type type;
+        std::vector<std::pair<Token_Type, const char *>> tokens;
+    };
+
+    static const std::vector<Simple_Macro_Info> simple_macros_;
 
     // Parses a macro starting with '@' and expands it into one or more tokens
     std::vector<Token> parse_macro();

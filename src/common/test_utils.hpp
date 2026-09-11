@@ -11,16 +11,8 @@ struct Test_Case {
     void (*func)();
 };
 
-inline size_t &total_tests() {
-    static size_t count = 0;
-    return count;
-}
-
-inline size_t &failed_tests() {
-    static size_t count = 0;
-    return count;
-}
-
+size_t &total_tests();
+size_t &failed_tests();
 void test(bool check);
 int run_tests(const std::vector<Test_Case> &tests);
 
