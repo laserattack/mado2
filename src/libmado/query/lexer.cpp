@@ -84,14 +84,29 @@ Token Lexer::parse_number_and_timestamp() {
         eat_it();
     }
 
-    size_t length = pos_ - start;
+    // If exactly 8 digits are followed by 'T', continue as timestamp
+    if (get_it() == 'T' && pos_ - start == 8) {
+        eat_it(); // T
 
-    // Number must be 1-3 digits (0-999)
-    if (length > 3) {
-        assert(false && "TODO: implement timestamp parsing");
+        while (!is_at_end() && mado::common::is_digit(get_it())) {
+            eat_it();
+        }
     }
 
-    return make_token(Token_Type::Number, start);
+    size_t length = pos_ - start;
+
+    // 1-3 digits: number (0-999)
+    if (length <= 3) {
+        return make_token(Token_Type::Number, start);
+    }
+
+    // 4+ digits: maybe timestamp (YYYY, YYYYMM, YYYYMMDD, YYYYMMDDT...)
+    std::string value = query_.substr(start, length);
+    if (mado::common::is_timestamp(value)) {
+        return make_token(Token_Type::Timestamp, start);
+    }
+
+    return make_token(Token_Type::Invalid, start);
 }
 
 Token Lexer::parse_quoted_string() {

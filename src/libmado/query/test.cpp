@@ -192,6 +192,109 @@ static void test_lexer_unterminated_string() {
          tokens[1].type == Token_Type::End);
 }
 
+static void test_lexer_timestamp_yyyy() {
+    Lexer lexer("2026");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value == "2026" &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_yyyymm() {
+    Lexer lexer("202609");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value == "202609" &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_yyyymmdd() {
+    Lexer lexer("20260911");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value == "20260911" &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_full() {
+    Lexer lexer("20260911T123045");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value == "20260911T123045" &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_with_t_only() {
+    Lexer lexer("20260911T");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value == "20260911T" &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_invalid_date() {
+    Lexer lexer("20260230");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_invalid_month() {
+    Lexer lexer("202613");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_invalid_length() {
+    Lexer lexer("12345");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_in_query() {
+    Lexer lexer("deadline < 20260911T123045");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 4 &&
+         tokens[0].type == Token_Type::Deadline &&
+         tokens[1].type == Token_Type::Lt &&
+         tokens[2].type == Token_Type::Timestamp &&
+         tokens[2].value == "20260911T123045" &&
+         tokens[3].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_numbers_still_work() {
+    Lexer lexer("42 20260911 0");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 4 &&
+         tokens[0].type == Token_Type::Number &&
+         tokens[0].value == "42" &&
+         tokens[1].type == Token_Type::Timestamp &&
+         tokens[1].value == "20260911" &&
+         tokens[2].type == Token_Type::Number &&
+         tokens[2].value == "0" &&
+         tokens[3].type == Token_Type::End);
+}
+
 static void test_lexer_macro_no_parens() {
     Lexer lexer("@today");
     auto tokens = lexer.tokenize();
@@ -253,7 +356,6 @@ static void test_lexer_macro_one_arg() {
 }
 
 static void test_lexer_macro_arg_with_spaces() {
-    // @today( 7 )
     Lexer lexer("@today( 7 )");
     auto tokens = lexer.tokenize();
 
@@ -264,7 +366,6 @@ static void test_lexer_macro_arg_with_spaces() {
 }
 
 static void test_lexer_timestamp_macro_non_numeric_arg() {
-    // @today(abc)
     Lexer lexer("@today(abc)");
     auto tokens = lexer.tokenize();
 
@@ -786,6 +887,16 @@ int main(int argc, char **argv) {
         {"Lexer position", "token positions", test_lexer_position},
         {"Lexer invalid operator", "tokenize invalid operators", test_lexer_invalid_operators},
         {"Lexer unterminated string", "tokenize unterminated string", test_lexer_unterminated_string},
+        {"Lexer timestamp YYYY", "2026", test_lexer_timestamp_yyyy},
+        {"Lexer timestamp YYYYMM", "202609", test_lexer_timestamp_yyyymm},
+        {"Lexer timestamp YYYYMMDD", "20260911", test_lexer_timestamp_yyyymmdd},
+        {"Lexer timestamp full", "20260911T123045", test_lexer_timestamp_full},
+        {"Lexer timestamp T only", "20260911T", test_lexer_timestamp_with_t_only},
+        {"Lexer timestamp invalid date", "20260230", test_lexer_timestamp_invalid_date},
+        {"Lexer timestamp invalid month", "202613", test_lexer_timestamp_invalid_month},
+        {"Lexer timestamp invalid length", "12345", test_lexer_timestamp_invalid_length},
+        {"Lexer timestamp in query", "deadline < 20260911T123045", test_lexer_timestamp_in_query},
+        {"Lexer timestamp and numbers", "42 20260911 0", test_lexer_timestamp_numbers_still_work},
         {"Lexer macro no parens", "@today", test_lexer_macro_no_parens},
         {"Lexer macro empty parens", "@today()", test_lexer_macro_empty_parens},
         {"Lexer macro empty parens spaces", "@today(   )", test_lexer_macro_empty_parens_with_spaces},
