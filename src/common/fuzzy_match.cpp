@@ -10,13 +10,13 @@
 namespace mado::common {
 namespace {
 
-constexpr int32_t kUnmatchedLetterPenalty = -1;
-constexpr int32_t kAdjacencyBonus = 15;
-constexpr int32_t kSeparatorBonus = 30;
-constexpr int32_t kCamelBonus = 30;
-constexpr int32_t kFirstLetterBonus = 15;
-constexpr int32_t kLeadingLetterPenalty = -5;
-constexpr int32_t kMaxLeadingLetterPenalty = -15;
+constexpr int32_t UNMATCHED_LETTER_PENALTY = -1;
+constexpr int32_t ADJACENCY_BONUS = 15;
+constexpr int32_t SEPARATOR_BONUS = 30;
+constexpr int32_t CAMEL_BONUS = 30;
+constexpr int32_t FIRST_LETTER_BONUS = 15;
+constexpr int32_t LEADING_LETTER_PENALTY = -5;
+constexpr int32_t MAX_LEADING_LETTER_PENALTY = -15;
 
 int32_t compute_score(size_t jump, bool first_char,
                       char current, char previous) {
@@ -24,25 +24,25 @@ int32_t compute_score(size_t jump, bool first_char,
     int32_t score = 0;
 
     if (!first_char && jump == 0) {
-        score += kAdjacencyBonus;
+        score += ADJACENCY_BONUS;
     }
     if (!first_char || jump > 0) {
         if (std::isupper(static_cast<unsigned char>(current)) &&
             std::islower(static_cast<unsigned char>(previous))) {
-            score += kCamelBonus;
+            score += CAMEL_BONUS;
         }
         if (std::isalnum(static_cast<unsigned char>(current)) &&
             !std::isalnum(static_cast<unsigned char>(previous))) {
-            score += kSeparatorBonus;
+            score += SEPARATOR_BONUS;
         }
     }
     if (first_char && jump == 0) {
-        score += kFirstLetterBonus;
+        score += FIRST_LETTER_BONUS;
     }
 
     if (first_char) {
-        score += std::max(kLeadingLetterPenalty * static_cast<int32_t>(jump),
-                          kMaxLeadingLetterPenalty);
+        score += std::max(LEADING_LETTER_PENALTY * static_cast<int32_t>(jump),
+                          MAX_LEADING_LETTER_PENALTY);
     }
 
     return score;
@@ -105,7 +105,7 @@ std::optional<int32_t> fuzzy_match(const std::string &pattern,
         return std::nullopt;
     }
 
-    const int32_t score = 100 + kUnmatchedLetterPenalty *
+    const int32_t score = 100 + UNMATCHED_LETTER_PENALTY *
                                     static_cast<int32_t>(str.size() - pattern.size());
 
     return match_recurse(pattern, str, 0, 0, score, true, ignore_case);

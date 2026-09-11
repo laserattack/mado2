@@ -1,4 +1,5 @@
 #include <cassert>
+#include <ctime>
 #include <optional>
 
 #include "../../common/fuzzy_match.hpp"
@@ -18,7 +19,12 @@ std::vector<Token> Lexer::tokenize() {
 
         char c = get_it();
 
-        if (mado::common::is_digit(c)) {
+        if (c == '@') {
+            auto resolved = parse_macro();
+            tokens.insert(tokens.end(),
+                          std::make_move_iterator(resolved.begin()),
+                          std::make_move_iterator(resolved.end()));
+        } else if (mado::common::is_digit(c)) {
             tokens.push_back(parse_number_and_timestamp());
         } else if (c == '"' || c == '\'') {
             tokens.push_back(parse_quoted_string());
@@ -305,6 +311,268 @@ Token Lexer::parse_operator_and_punctuation() {
     // sequence, and slicing it would produce invalid text. So we only report
     // the error location
     return make_token(Token_Type::Invalid, "", start);
+}
+
+std::string Lexer::macro_type_to_string(Macro_Type type) {
+    switch (type) {
+    case Macro_Type::Today:
+        return "Today";
+    case Macro_Type::Now:
+        return "Now";
+    case Macro_Type::Yesterday:
+        return "Yesterday";
+    case Macro_Type::Tomorrow:
+        return "Tomorrow";
+    case Macro_Type::Week:
+        return "Week";
+    case Macro_Type::Month:
+        return "Month";
+    case Macro_Type::Year:
+        return "Year";
+    case Macro_Type::Max:
+        return "Max";
+    case Macro_Type::Min:
+        return "Min";
+    case Macro_Type::Invalid:
+        return "Invalid";
+    }
+
+    return "Unknown";
+}
+
+std::vector<Token> Lexer::parse_macro() {
+    size_t start = pos_;
+
+    assert(get_it() == '@' &&
+           "parse_macro called without '@'");
+
+    eat_it(); // @
+
+    if (!mado::common::is_letter_or_underscore(get_it())) {
+        return {make_token(Token_Type::Invalid, start)};
+    }
+
+    std::string name;
+    while (!is_at_end() && mado::common::is_identifier_char(get_it())) {
+        name += eat_it();
+    }
+
+    std::vector<std::string> args;
+    if (get_it() == '(') {
+
+        eat_it(); // (
+
+        while (true) {
+
+            // @macro(    ) - without args
+            while (!is_at_end() && std::isspace(get_it())) {
+                eat_it();
+            }
+            if (get_it() == ')')
+                break;
+
+            std::string arg;
+            while (!is_at_end() && get_it() != ',' && get_it() != ')') {
+                char c = eat_it();
+                if (std::isspace(c))
+                    continue;
+                arg += c;
+            }
+            args.push_back(std::move(arg));
+
+            // arg,
+            if (get_it() == ',') {
+                eat_it();
+                continue; // next arg
+            }
+
+            // arg) or argEND
+            break;
+        }
+
+        if (get_it() != ')') {
+            return {make_token(Token_Type::Invalid, start)}; // argEND
+        }
+
+        eat_it(); // arg)
+    }
+
+    return resolve_macro(name, args, start);
+}
+
+std::vector<Token> Lexer::resolve_macro(const std::string &name,
+                                        const std::vector<std::string> &args,
+                                        size_t start) const {
+
+    std::optional<Macro_Type> type;
+    std::optional<int32_t> best_score;
+
+    // finding macro type
+    for (int i = 0;; ++i) {
+        Macro_Type mt = static_cast<Macro_Type>(i);
+
+        if (mt == Macro_Type::Invalid)
+            break;
+
+        std::string macro_name = macro_type_to_string(mt);
+
+        // Exact match
+        if (mado::common::equals_ignore_case(name, macro_name)) {
+            type = mt;
+            break;
+        }
+
+        // Fuzzy fallback
+        auto score = mado::common::fuzzy_match(name, macro_name, true);
+        if (score && (!best_score || *score > *best_score)) {
+            best_score = *score;
+            type = mt;
+        }
+    }
+
+    // found!
+    if (type) {
+        // Dispatch by macro type
+        switch (*type) {
+        case Macro_Type::Max:
+            if (!args.empty()) {
+                return {make_token(Token_Type::Invalid, start)};
+            }
+            return {make_token(Token_Type::Number, "999", start)};
+
+        case Macro_Type::Min:
+            if (!args.empty()) {
+                return {make_token(Token_Type::Invalid, start)};
+            }
+            return {make_token(Token_Type::Number, "0", start)};
+
+        case Macro_Type::Today:
+        case Macro_Type::Now:
+        case Macro_Type::Yesterday:
+        case Macro_Type::Tomorrow:
+        case Macro_Type::Week:
+        case Macro_Type::Month:
+        case Macro_Type::Year:
+            return resolve_time_macro(*type, args, start);
+
+        case Macro_Type::Invalid:
+            // unreachable case
+            assert(false && "resolve_macro: Invalid type reached");
+            return {make_token(Token_Type::Invalid, start)};
+        }
+    }
+
+    // not found :(
+    return {make_token(Token_Type::Invalid, start)};
+}
+
+std::vector<Token> Lexer::resolve_time_macro(Macro_Type type,
+                                             const std::vector<std::string> &args,
+                                             size_t start) const {
+
+    // Parse optional offset (at most one numeric argument)
+
+    int offset = 0;
+
+    if (args.size() > 1) {
+        return {make_token(Token_Type::Invalid, start)};
+    }
+
+    if (args.size() == 1) {
+        const std::string &arg = args[0];
+
+        try {
+            size_t pos = 0;
+            offset = std::stoi(arg, &pos);
+            if (pos != arg.size()) {
+                // Trailing garbage after the number
+                return {make_token(Token_Type::Invalid, start)};
+            }
+        } catch (...) {
+            return {make_token(Token_Type::Invalid, start)};
+        }
+    }
+
+    // Current local time
+
+    time_t now = std::time(nullptr);        // get current time
+    std::tm tm_buf = *std::localtime(&now); // and parse it
+
+    // Apply offset depending on the macro type
+    switch (type) {
+    case Macro_Type::Now:
+        tm_buf.tm_mday += offset;
+        break;
+
+    case Macro_Type::Today:
+        tm_buf.tm_mday += offset;
+        break;
+
+    case Macro_Type::Yesterday:
+        tm_buf.tm_mday += offset - 1;
+        break;
+
+    case Macro_Type::Tomorrow:
+        tm_buf.tm_mday += offset + 1;
+        break;
+
+    case Macro_Type::Week: {
+        // Move to Monday of the current week, then offset by weeks
+        int days_since_monday = (tm_buf.tm_wday + 6) % 7;
+        tm_buf.tm_mday -= days_since_monday;
+        tm_buf.tm_mday += offset * 7;
+        break;
+    }
+
+    case Macro_Type::Month:
+        tm_buf.tm_mon += offset;
+        break;
+
+    case Macro_Type::Year:
+        tm_buf.tm_year += offset;
+        break;
+
+    default:
+        return {make_token(Token_Type::Invalid, start)};
+    }
+
+    // Normalize date (mktime handles overflow of days/months/years)
+    tm_buf.tm_isdst = -1; // A negative value of time->tm_isdst causes
+                          // mktime to attempt to determine if
+                          // Daylight Saving Time was in effect
+    if (std::mktime(&tm_buf) == -1) {
+        // Time since epoch as a std::time_t object on success or -1
+        // if time cannot be represented as a std::time_t object
+        return {make_token(Token_Type::Invalid, start)};
+    }
+
+    // Format depending on the macro type
+    char buf[16]; // YYYYMMDDTHHMMSS = 15 + \0
+    const char *fmt;
+
+    switch (type) {
+    case Macro_Type::Now:
+        fmt = "%Y%m%dT%H%M%S";
+        break;
+    case Macro_Type::Month:
+        fmt = "%Y%m";
+        break;
+    case Macro_Type::Year:
+        fmt = "%Y";
+        break;
+    default:
+        fmt = "%Y%m%d";
+        break;
+    }
+
+    std::strftime(buf, sizeof(buf), fmt, &tm_buf);
+
+    // maybe invalid timestamp like YYYYYYMM.. etc
+    if (!mado::common::is_timestamp(buf)) {
+        return {make_token(Token_Type::Invalid, start)};
+    }
+
+    return {make_token(Token_Type::Timestamp, buf, start)};
 }
 
 } // namespace mado::query

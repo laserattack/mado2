@@ -16,4 +16,7 @@ bool is_letter_or_underscore(char c);
 // Checks whether the character is a digit, letter, or underscore
 bool is_identifier_char(char c);
 
+// YYYYMMDDTHHMMSS with optional shorter forms: YYYY, YYYYMM, YYYYMMDD, YYYYMMDDT, YYYYMMDDTHH, YYYYMMDDTHHMM, YYYYMMDDTHHMMSS
+bool is_timestamp(const std::string &str);
+
 } // namespace mado::common

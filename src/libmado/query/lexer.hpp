@@ -49,6 +49,38 @@ class Lexer {
     Token parse_quoted_string();            // Parses a quoted string (single or double quotes)
     Token parse_identifier_and_keyword();   // Parses identifiers and a keywords
     Token parse_operator_and_punctuation(); // Parses operators and punctuation
+
+    enum class Macro_Type {
+        // time macros
+        Today,     // @today, @today(-1), @today(5)...
+        Now,       // @now, @now(-1), @now(5)...
+        Yesterday, // @yesterday, @yesterday(-1), @yesterday(5)...
+        Tomorrow,  // @tomorrow, @tomorrow(-1), @tomorrow(5)...
+        Week,      // @week, @week(-1), @week(5)...
+        Month,     // @month, @month(-1), @month(5)...
+        Year,      // @year, @year(-1), @year(5)...
+
+        // number macros
+        Max,
+        Min,
+
+        // Invalid must be the last entry in the enum:
+        // resolve_macro iterates over Macro_Type values until it reaches Invalid
+        Invalid,
+    };
+
+    static std::string macro_type_to_string(Macro_Type type);
+
+    // Parses a macro starting with '@' and expands it into one or more tokens
+    std::vector<Token> parse_macro();
+
+    std::vector<Token> resolve_macro(const std::string &name,
+                                     const std::vector<std::string> &args,
+                                     size_t start) const;
+
+    std::vector<Token> resolve_time_macro(Macro_Type type,
+                                          const std::vector<std::string> &args,
+                                          size_t start) const;
 };
 
 } // namespace mado::query

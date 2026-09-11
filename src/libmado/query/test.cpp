@@ -192,6 +192,213 @@ static void test_lexer_unterminated_string() {
          tokens[1].type == Token_Type::End);
 }
 
+static void test_lexer_macro_no_parens() {
+    Lexer lexer("@today");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_empty_parens() {
+    Lexer lexer("@today()");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_empty_parens_with_spaces() {
+    Lexer lexer("@today(   )");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_unclosed_paren() {
+    Lexer lexer("@today(7");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_unopened_paren() {
+    Lexer lexer("@today)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 3 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::Rparen &&
+         tokens[2].type == Token_Type::End);
+}
+
+static void test_lexer_macro_one_arg() {
+    Lexer lexer("@today(7)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_arg_with_spaces() {
+    // @today( 7 )
+    Lexer lexer("@today( 7 )");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_macro_non_numeric_arg() {
+    // @today(abc)
+    Lexer lexer("@today(abc)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_macro_partial_numeric_arg() {
+    Lexer lexer("@today(7abc)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_macro_overflow_arg() {
+    Lexer lexer("@today(9999999999)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_macro_two_args() {
+    Lexer lexer("@today(1, 2)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_timestamp_macro_year_overflow() {
+    Lexer lexer("@year(21831231)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_trailing_comma() {
+    Lexer lexer("@today(7,)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_numeric_macro_with_arg() {
+    Lexer lexer("@max(5)");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_numeric_macro_no_parens() {
+    Lexer lexer("@max");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Number &&
+         tokens[0].value == "999" &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_unknown_name() {
+    Lexer lexer("@foobar()");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_only_at() {
+    Lexer lexer("@");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_at_with_digit() {
+    Lexer lexer("@123");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 3 &&
+         tokens[0].type == Token_Type::Invalid &&
+         tokens[1].type == Token_Type::Number &&
+         tokens[1].value == "123" &&
+         tokens[2].type == Token_Type::End);
+}
+
+static void test_lexer_macro_fuzzy_name() {
+    Lexer lexer("@tday()");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_case_insensitive() {
+    Lexer lexer("@TODAY()");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 &&
+         tokens[0].type == Token_Type::Timestamp &&
+         tokens[0].value.size() == 8 &&
+         tokens[1].type == Token_Type::End);
+}
+
+static void test_lexer_macro_in_query() {
+    Lexer lexer("priority > @max()");
+    auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 4 &&
+         tokens[0].type == Token_Type::Priority &&
+         tokens[1].type == Token_Type::Gt &&
+         tokens[2].type == Token_Type::Number &&
+         tokens[2].value == "999" &&
+         tokens[3].type == Token_Type::End);
+}
+
 // ast
 
 static void test_ast_comparison_node() {
@@ -579,6 +786,27 @@ int main(int argc, char **argv) {
         {"Lexer position", "token positions", test_lexer_position},
         {"Lexer invalid operator", "tokenize invalid operators", test_lexer_invalid_operators},
         {"Lexer unterminated string", "tokenize unterminated string", test_lexer_unterminated_string},
+        {"Lexer macro no parens", "@today", test_lexer_macro_no_parens},
+        {"Lexer macro empty parens", "@today()", test_lexer_macro_empty_parens},
+        {"Lexer macro empty parens spaces", "@today(   )", test_lexer_macro_empty_parens_with_spaces},
+        {"Lexer macro unclosed paren", "@today(7", test_lexer_macro_unclosed_paren},
+        {"Lexer macro unopened paren", "@today)", test_lexer_macro_unopened_paren},
+        {"Lexer macro one arg", "@today(7)", test_lexer_macro_one_arg},
+        {"Lexer macro arg with spaces", "@today( 7 )", test_lexer_macro_arg_with_spaces},
+        {"Lexer timestamp macro non numeric arg", "@today(abc)", test_lexer_timestamp_macro_non_numeric_arg},
+        {"Lexer timestamp macro partial numeric arg", "@today(7abc)", test_lexer_timestamp_macro_partial_numeric_arg},
+        {"Lexer timestamp macro overflow arg", "@today(9999999999)", test_lexer_timestamp_macro_overflow_arg},
+        {"Lexer timestamp macro two args", "@today(1, 2)", test_lexer_timestamp_macro_two_args},
+        {"Lexer timestamp macro year overflow", "@year(21831231)", test_lexer_timestamp_macro_year_overflow},
+        {"Lexer macro trailing comma", "@today(7,)", test_lexer_macro_trailing_comma},
+        {"Lexer numeric macro with arg", "@max(5)", test_lexer_numeric_macro_with_arg},
+        {"Lexer numeric macro no parens", "@max", test_lexer_numeric_macro_no_parens},
+        {"Lexer macro unknown name", "@foobar()", test_lexer_macro_unknown_name},
+        {"Lexer macro only at", "@", test_lexer_macro_only_at},
+        {"Lexer macro at with digit", "@123", test_lexer_macro_at_with_digit},
+        {"Lexer macro fuzzy name", "@tday()", test_lexer_macro_fuzzy_name},
+        {"Lexer macro case insensitive", "@TODAY()", test_lexer_macro_case_insensitive},
+        {"Lexer macro in query", "priority > @max()", test_lexer_macro_in_query},
         // ast
         {"AST comparison", "create comparison node", test_ast_comparison_node},
         {"AST comparison string", "create comparison node with string", test_ast_comparison_node_string},
