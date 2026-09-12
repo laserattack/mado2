@@ -86,7 +86,7 @@ enum class Token_Type {
     // values
     Number,    // 0-999
     String,    // [a-zA-Z_][a-zA-Z0-9_-]* or "..." or '...'
-    Timestamp, // YYYYMMDDTHHMMSS with optional shorter forms: YYYY, YYYYMM, YYYYMMDD, YYYYMMDDT, YYYYMMDDTHH, YYYYMMDDTHHMM, YYYYMMDDTHHMMSS
+    Timestamp, // YYYYMMDD-HHMMSS with optional shorter forms: YYYY, YYYYMM, YYYYMMDD, YYYYMMDD-, YYYYMMDD-HH, YYYYMMDD-HHMM, YYYYMMDD-HHMMSS
 
     // the end of the character stream
     End,

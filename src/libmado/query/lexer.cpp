@@ -84,9 +84,9 @@ Token Lexer::parse_number_and_timestamp() {
         eat_it();
     }
 
-    // If exactly 8 digits are followed by 'T', continue as timestamp
-    if (get_it() == 'T' && pos_ - start == 8) {
-        eat_it(); // T
+    // If exactly 8 digits are followed by '-', continue as timestamp
+    if ((get_it() == '-' || get_it() == 'T') && pos_ - start == 8) {
+        eat_it(); // -
 
         while (!is_at_end() && mado::common::is_digit(get_it())) {
             eat_it();
@@ -100,7 +100,7 @@ Token Lexer::parse_number_and_timestamp() {
         return make_token(Token_Type::Number, start);
     }
 
-    // 4+ digits: maybe timestamp (YYYY, YYYYMM, YYYYMMDD, YYYYMMDDT...)
+    // 4+ digits: maybe timestamp (YYYY, YYYYMM, YYYYMMDD, YYYYMMDD-...)
     std::string value = query_.substr(start, length);
     if (mado::common::is_timestamp(value)) {
         return make_token(Token_Type::Timestamp, start);
@@ -534,12 +534,12 @@ std::vector<Token> Lexer::resolve_time_macro(Macro_Type type,
     }
 
     // Format depending on the macro type
-    char buf[16]; // YYYYMMDDTHHMMSS = 15 + \0
+    char buf[16]; // YYYYMMDD-HHMMSS = 15 + \0
     const char *fmt;
 
     switch (type) {
     case Macro_Type::Now:
-        fmt = "%Y%m%dT%H%M%S";
+        fmt = "%Y%m%d-%H%M%S";
         break;
     case Macro_Type::Month:
         fmt = "%Y%m";

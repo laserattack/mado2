@@ -61,10 +61,10 @@ bool is_timestamp(const std::string &str) {
     // YYYY
     // YYYYMM
     // YYYYMMDD
-    // YYYYMMDDT
-    // YYYYMMDDTHH
-    // YYYYMMDDTHHMM
-    // YYYYMMDDTHHMMSS
+    // YYYYMMDD-
+    // YYYYMMDD-HH
+    // YYYYMMDD-HHMM
+    // YYYYMMDD-HHMMSS
     if (n != 4 && n != 6 && n != 8 && n != 9 &&
         n != 11 && n != 13 && n != 15) {
         return false;
@@ -110,13 +110,13 @@ bool is_timestamp(const std::string &str) {
             return false;
     }
 
-    // YYYYMMDDT
+    // YYYYMMDD-
     if (n >= 9) {
-        if (str[8] != 'T')
+        if (str[8] != '-' && str[8] != 'T')
             return false;
     }
 
-    // YYYYMMDDTHH
+    // YYYYMMDD-HH
     if (n >= 11) {
         if (!is_digits(9, 2))
             return false;
@@ -126,7 +126,7 @@ bool is_timestamp(const std::string &str) {
             return false;
     }
 
-    // YYYYMMDDTHHMM
+    // YYYYMMDD-HHMM
     if (n >= 13) {
         if (!is_digits(11, 2))
             return false;
@@ -136,7 +136,7 @@ bool is_timestamp(const std::string &str) {
             return false;
     }
 
-    // YYYYMMDDTHHMMSS
+    // YYYYMMDD-HHMMSS
     if (n >= 15) {
         if (!is_digits(13, 2))
             return false;
