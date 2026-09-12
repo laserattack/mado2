@@ -43,13 +43,10 @@ class Parser {
 
     Ast_Comparison_Operator parse_comparison_operator();
 
-    // eat field token and call parse_comparison
     std::unique_ptr<Ast_Node> parse_field();
-    // eat op and call parse_value / parse_list
     std::unique_ptr<Ast_Node> parse_comparison(Ast_Comparison_Field field);
-    // eat "( v , v , ... )" and fold into and/or chain
     std::unique_ptr<Ast_Node> parse_list(Ast_Comparison_Field field, Ast_Comparison_Operator op, bool is_allof);
-    // eat value token and make comparison node
+    std::unique_ptr<Ast_Node> parse_range(Ast_Comparison_Field field);
     std::unique_ptr<Ast_Node> parse_value(Ast_Comparison_Field field, Ast_Comparison_Operator op);
 
     // Whether the end of the token stream has been reached
