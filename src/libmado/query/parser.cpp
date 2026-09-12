@@ -325,7 +325,7 @@ Ast_Comparison_Operator Parser::parse_comparison_operator() {
     case Token_Type::Nglob:
         return Ast_Comparison_Operator::Nglob;
     default:
-        throw Parse_Error("Expected comparison operator, got " + token_repr(token), token);
+        throw Parse_Error("Expected comparison operator, 'in' or 'has', got " + token_repr(token), token);
     }
 }
 
