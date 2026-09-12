@@ -182,6 +182,13 @@ std::unique_ptr<Ast_Node> Parser::parse_field() {
 }
 
 std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
+    // in (...) / has (...)
+    if (get_it().type == Token_Type::In || get_it().type == Token_Type::Has) {
+        bool is_allof = get_it().type == Token_Type::Has;
+        eat_it();
+        return parse_list(field, Ast_Comparison_Operator::Eq, is_allof);
+    }
+
     auto op = parse_comparison_operator();
 
     // anyof / allof
@@ -274,7 +281,7 @@ std::unique_ptr<Ast_Node> Parser::parse_value(
             if (token_is_keyword(token.type)) {
                 return ast_make_comparison(field, op, token.value);
             }
-            throw Parse_Error("Expected Number, String, Timestamp, got " + token_repr(token), token);
+            throw Parse_Error("Expected Number, String or Timestamp, got " + token_repr(token), token);
         }
     }
 

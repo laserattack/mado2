@@ -1059,6 +1059,50 @@ static void test_parser_anyof_in_expression() {
          right->is_number() && right->as_number() == 5);
 }
 
+static void test_parser_in() {
+    Lexer lexer("status in (opened, reopened)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::Or &&
+         left->field == Ast_Comparison_Field::Status &&
+         left->op == Ast_Comparison_Operator::Eq &&
+         left->is_string() && left->as_string() == "opened" &&
+         right->is_string() && right->as_string() == "reopened");
+}
+
+static void test_parser_has() {
+    Lexer lexer("tag has (bug, crit)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+
+    test(root->op == Ast_Binary_Operator::And);
+}
+
+static void test_parser_in_single_value() {
+    Lexer lexer("status in (opened)");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *comp = static_cast<Ast_Comparison_Operator_Node *>(ast.get());
+
+    test(ast->type == Ast_Node_Type::Comparison_Operator &&
+         comp->op == Ast_Comparison_Operator::Eq &&
+         comp->is_string() && comp->as_string() == "opened");
+}
+
 // entry point
 
 int main(int argc, char **argv) {
@@ -1163,6 +1207,9 @@ int main(int argc, char **argv) {
         {"Parser anyof unclosed", "parse 'tag = anyof(a, b' throws", test_parser_anyof_unclosed_throws},
         {"Parser anyof wrong type", "parse 'priority = anyof(a, b)' throws", test_parser_anyof_wrong_type_throws},
         {"Parser anyof in expression", "parse 'tag = anyof(a, b) and priority > 5'", test_parser_anyof_in_expression},
+        {"Parser in", "parse 'status in (opened, reopened)'", test_parser_in},
+        {"Parser has", "parse 'tag has (bug, crit)'", test_parser_has},
+        {"Parser in single", "parse 'status in (opened)'", test_parser_in_single_value},
     };
 
     return run_tests(tests);
