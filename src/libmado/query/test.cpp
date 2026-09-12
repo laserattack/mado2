@@ -1104,6 +1104,184 @@ static void test_parser_in_single_value() {
          comp->is_string() && comp->as_string() == "opened");
 }
 
+static void test_parser_range_both() {
+    Lexer lexer("priority in [50..100]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         left->field == Ast_Comparison_Field::Priority &&
+         left->op == Ast_Comparison_Operator::Ge &&
+         left->is_number() && left->as_number() == 50 &&
+         right->op == Ast_Comparison_Operator::Le &&
+         right->is_number() && right->as_number() == 100);
+}
+
+static void test_parser_range_low_only() {
+    Lexer lexer("priority in [50..]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *comp = static_cast<Ast_Comparison_Operator_Node *>(ast.get());
+
+    test(ast->type == Ast_Node_Type::Comparison_Operator &&
+         comp->field == Ast_Comparison_Field::Priority &&
+         comp->op == Ast_Comparison_Operator::Ge &&
+         comp->is_number() && comp->as_number() == 50);
+}
+
+static void test_parser_range_high_only() {
+    Lexer lexer("priority in [..50]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *comp = static_cast<Ast_Comparison_Operator_Node *>(ast.get());
+
+    test(ast->type == Ast_Node_Type::Comparison_Operator &&
+         comp->field == Ast_Comparison_Field::Priority &&
+         comp->op == Ast_Comparison_Operator::Le &&
+         comp->is_number() && comp->as_number() == 50);
+}
+
+static void test_parser_range_string() {
+    Lexer lexer("name in [a..z]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         left->field == Ast_Comparison_Field::Name &&
+         left->op == Ast_Comparison_Operator::Ge &&
+         left->is_string() && left->as_string() == "a" &&
+         right->op == Ast_Comparison_Operator::Le &&
+         right->is_string() && right->as_string() == "z");
+}
+
+static void test_parser_range_time() {
+    Lexer lexer("deadline in [20260101..20260202]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         left->field == Ast_Comparison_Field::Deadline &&
+         left->op == Ast_Comparison_Operator::Ge &&
+         left->is_string() && left->as_string() == "20260101" &&
+         right->op == Ast_Comparison_Operator::Le &&
+         right->is_string() && right->as_string() == "20260202");
+}
+
+static void test_parser_range_any() {
+    Lexer lexer("any in [1..20260101]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Comparison_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         left->op == Ast_Comparison_Operator::Ge &&
+         left->is_number() && left->as_number() == 1 &&
+         right->op == Ast_Comparison_Operator::Le &&
+         right->is_string() && right->as_string() == "20260101");
+}
+
+static void test_parser_range_in_expression() {
+    Lexer lexer("priority in [50..100] and tag = bug");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    auto ast = parser.parse();
+
+    auto *root = static_cast<Ast_Binary_Operator_Node *>(ast.get());
+    auto *left = static_cast<Ast_Binary_Operator_Node *>(root->left.get());
+    auto *right = static_cast<Ast_Comparison_Operator_Node *>(root->right.get());
+
+    test(root->op == Ast_Binary_Operator::And &&
+         left->op == Ast_Binary_Operator::And &&
+         right->field == Ast_Comparison_Field::Tag &&
+         right->is_string() && right->as_string() == "bug");
+}
+
+static void test_parser_range_empty_throws() {
+    Lexer lexer("priority in [..]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_range_missing_dotdot_throws() {
+    Lexer lexer("priority in [50]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_range_unclosed_throws() {
+    Lexer lexer("priority in [50..100");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_parser_range_wrong_type_throws() {
+    Lexer lexer("priority in [a..z]");
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+
+    bool thrown = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
 // entry point
 
 int main(int argc, char **argv) {
@@ -1211,6 +1389,17 @@ int main(int argc, char **argv) {
         {"Parser in", "parse 'status in (opened, reopened)'", test_parser_in},
         {"Parser has", "parse 'tag has (bug, crit)'", test_parser_has},
         {"Parser in single", "parse 'status in (opened)'", test_parser_in_single_value},
+        {"Parser range both", "parse 'priority in [50..100]'", test_parser_range_both},
+        {"Parser range low only", "parse 'priority in [50..]'", test_parser_range_low_only},
+        {"Parser range high only", "parse 'priority in [..50]'", test_parser_range_high_only},
+        {"Parser range string", "parse 'name in [a..z]'", test_parser_range_string},
+        {"Parser range time", "parse 'deadline in [20260101..20260202]'", test_parser_range_time},
+        {"Parser range any", "parse 'any in [1..20260101]'", test_parser_range_any},
+        {"Parser range in expression", "parse 'priority in [50..100] and tag = bug'", test_parser_range_in_expression},
+        {"Parser range empty", "parse 'priority in [..]' throws", test_parser_range_empty_throws},
+        {"Parser range missing dotdot", "parse 'priority in [50]' throws", test_parser_range_missing_dotdot_throws},
+        {"Parser range unclosed", "parse 'priority in [50..100' throws", test_parser_range_unclosed_throws},
+        {"Parser range wrong type", "parse 'priority in [a..z]' throws", test_parser_range_wrong_type_throws},
     };
 
     return run_tests(tests);

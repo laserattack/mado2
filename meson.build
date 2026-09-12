@@ -20,7 +20,7 @@ mado_lib = static_library('mado',
                           include_directories: inc,
                          )
 
-test_exe = executable('test_query',
+test_query_exe = executable('test_query',
                       [
                         'src/libmado/query/test.cpp',
                         'src/common/test_utils.cpp'
