@@ -449,8 +449,19 @@ std::vector<Token> Lexer::resolve_macro(const std::string &name,
         return {make_token(Token_Type::Invalid, start)};
     }
 
-    // otherwise: time macro
-    return resolve_time_macro(*type, args, start);
+    switch (*type) {
+    // time macro
+    case Macro_Type::Today:
+    case Macro_Type::Now:
+    case Macro_Type::Yesterday:
+    case Macro_Type::Tomorrow:
+    case Macro_Type::Week:
+    case Macro_Type::Month:
+    case Macro_Type::Year:
+        return resolve_time_macro(*type, args, start);
+    default:
+        return {make_token(Token_Type::Invalid, start)};
+    }
 }
 
 std::vector<Token> Lexer::resolve_time_macro(Macro_Type type,
