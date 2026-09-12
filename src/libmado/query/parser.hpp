@@ -64,10 +64,6 @@ class Parser {
     // Advances forward by n tokens.
     // Does nothing if n would move past the end
     void eat_it(size_t n);
-
-    // Returns a debug representation of the token: Type(value)
-    // e.g. And(and), Number(42)
-    std::string token_repr(const Token &token) const;
 };
 
 } // namespace mado::query

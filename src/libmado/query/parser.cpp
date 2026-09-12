@@ -2,6 +2,17 @@
 
 namespace mado::query {
 
+namespace {
+
+std::string token_repr(const Token &token) {
+    if (token.value.empty()) {
+        return token_type_to_string(token.type);
+    }
+    return token_type_to_string(token.type) + ": " + token.value;
+}
+
+} // namespace
+
 std::string Parse_Error::format(const std::string &query) const {
     size_t position = token_.position;
 
@@ -11,13 +22,6 @@ std::string Parse_Error::format(const std::string &query) const {
     return pos_str + " | " + query + "\n" +
            padding + " | " + std::string(position, ' ') + "^\n" +
            padding + " | " + what() + "\n";
-}
-
-std::string Parser::token_repr(const Token &token) const {
-    if (token.value.empty()) {
-        return token_type_to_string(token.type);
-    }
-    return token_type_to_string(token.type) + ": " + token.value;
 }
 
 bool Parser::is_at_end() const {
@@ -199,7 +203,10 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
     auto op = parse_comparison_operator();
 
     // anyof / allof
-    if (get_it().type == Token_Type::Allof || get_it().type == Token_Type::Anyof) {
+    // sugar only when followed by '(', otherwise they are plain string values
+    if ((get_it().type == Token_Type::Allof || get_it().type == Token_Type::Anyof) &&
+        get_it(1).type == Token_Type::Lparen) {
+
         bool is_allof = get_it().type == Token_Type::Allof;
         eat_it();
         return parse_list(field, op, is_allof);
