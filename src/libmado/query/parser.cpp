@@ -57,7 +57,7 @@ std::unique_ptr<Ast_Node> Parser::parse() {
     auto ast = parse_expression();
 
     if (!is_at_end()) {
-        throw Parse_Error("Expected 'and', 'or', 'xor', end of query, got " + token_repr(get_it()), get_it());
+        throw Parse_Error("Expected binary operator, end of query, got " + token_repr(get_it()), get_it());
     }
 
     return ast;
@@ -131,37 +131,29 @@ std::unique_ptr<Ast_Node> Parser::parse_primary() {
         return expr;
     }
 
-    // Special expressions
-    switch (get_it().type) {
-    case Token_Type::All:
-        eat_it();
-        return ast_make_special(Ast_Node_Type::All);
-    case Token_Type::Untagged:
-        eat_it();
-        return ast_make_special(Ast_Node_Type::Untagged);
-    case Token_Type::Unstatused:
-        eat_it();
-        return ast_make_special(Ast_Node_Type::Unstatused);
-    case Token_Type::Unnamed:
-        eat_it();
-        return ast_make_special(Ast_Node_Type::Unnamed);
-    case Token_Type::Unprioritized:
-        eat_it();
-        return ast_make_special(Ast_Node_Type::Unprioritized);
-    case Token_Type::Undeadlined:
-        eat_it();
-        return ast_make_special(Ast_Node_Type::Undeadlined);
-    default:
-        break;
-    }
-
-    return parse_field();
+    return parse_field_and_special();
 }
 
-std::unique_ptr<Ast_Node> Parser::parse_field() {
+std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
     auto field = eat_it();
 
     switch (field.type) {
+
+    // Special expressions
+    case Token_Type::All:
+        return ast_make_special(Ast_Node_Type::All);
+    case Token_Type::Untagged:
+        return ast_make_special(Ast_Node_Type::Untagged);
+    case Token_Type::Unstatused:
+        return ast_make_special(Ast_Node_Type::Unstatused);
+    case Token_Type::Unnamed:
+        return ast_make_special(Ast_Node_Type::Unnamed);
+    case Token_Type::Unprioritized:
+        return ast_make_special(Ast_Node_Type::Unprioritized);
+    case Token_Type::Undeadlined:
+        return ast_make_special(Ast_Node_Type::Undeadlined);
+
+    // Fields
     case Token_Type::Priority:
         return parse_comparison(Ast_Comparison_Field::Priority);
     case Token_Type::Tag:
@@ -180,6 +172,7 @@ std::unique_ptr<Ast_Node> Parser::parse_field() {
         return parse_comparison(Ast_Comparison_Field::Mtime);
     case Token_Type::Any:
         return parse_comparison(Ast_Comparison_Field::Any);
+
     default:
         throw Parse_Error("Expected field name, special keyword, got " + token_repr(field), field);
     }
@@ -223,7 +216,7 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     std::unique_ptr<Ast_Node> low;
     if (get_it().type != Token_Type::DotDot) {
-        low = parse_value(field, Ast_Comparison_Operator::Ge); // val
+        low = parse_value(field, Ast_Comparison_Operator::Ge, {"'..'"}); // val
     }
 
     auto dots = eat_it(); // ..
@@ -233,7 +226,13 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     std::unique_ptr<Ast_Node> high;
     if (get_it().type != Token_Type::Rbracket) {
-        high = parse_value(field, Ast_Comparison_Operator::Le); // val
+        if (low) {
+            // [val.. <- expected val or ]
+            high = parse_value(field, Ast_Comparison_Operator::Le, {"']'"}); // val
+        } else {
+            // [.. <- expected val
+            high = parse_value(field, Ast_Comparison_Operator::Le); // val
+        }
     }
 
     auto rbr = eat_it(); // ]
@@ -258,7 +257,11 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
 
     auto lparen = eat_it(); // (
     if (lparen.type != Token_Type::Lparen) {
-        throw Parse_Error("Expected '(', got " + token_repr(lparen), lparen);
+        if (is_allof) { // has ... <- only list expected
+            throw Parse_Error("Expected '(', got " + token_repr(lparen), lparen);
+        } else { // in ... <- list or range expected
+            throw Parse_Error("Expected '(', '[', got " + token_repr(lparen), lparen);
+        }
     }
 
     if (get_it().type == Token_Type::Rparen) {
@@ -291,14 +294,24 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
 
 std::unique_ptr<Ast_Node> Parser::parse_value(
     Ast_Comparison_Field field,
-    Ast_Comparison_Operator op) {
+    Ast_Comparison_Operator op,
+    std::initializer_list<std::string> extra_expected) {
 
     auto val = eat_it();
+
+    auto make_error = [&](const std::string &expected) {
+        std::string msg = "Expected " + expected;
+        for (const auto &e : extra_expected) {
+            msg += ", " + e;
+        }
+        msg += ", got " + token_repr(val);
+        return Parse_Error(msg, val);
+    };
 
     switch (field) {
     case Ast_Comparison_Field::Priority:
         if (val.type != Token_Type::Number) {
-            throw Parse_Error("Expected Number, got " + token_repr(val), val);
+            throw make_error("numeric value");
         }
         // Lexer guarantees 1-3 digit positive numbers, so stoi can't overflow
         return ast_make_comparison(field, op, static_cast<uint16_t>(std::stoi(val.value)));
@@ -310,13 +323,13 @@ std::unique_ptr<Ast_Node> Parser::parse_value(
         if (val.type == Token_Type::String || token_is_keyword(val.type)) {
             return ast_make_comparison(field, op, val.value);
         }
-        throw Parse_Error("Expected String, got " + token_repr(val), val);
+        throw make_error("string value");
 
     case Ast_Comparison_Field::Time:
     case Ast_Comparison_Field::Deadline:
     case Ast_Comparison_Field::Mtime:
         if (val.type != Token_Type::Timestamp) {
-            throw Parse_Error("Expected Timestamp, got " + token_repr(val), val);
+            throw make_error("timestamp value");
         }
         return ast_make_comparison(field, op, val.value);
 
@@ -331,7 +344,7 @@ std::unique_ptr<Ast_Node> Parser::parse_value(
             if (token_is_keyword(val.type)) {
                 return ast_make_comparison(field, op, val.value);
             }
-            throw Parse_Error("Expected Number, String, Timestamp, got " + token_repr(val), val);
+            throw make_error("value");
         }
     default:
         // unreachable

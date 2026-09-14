@@ -43,11 +43,14 @@ class Parser {
 
     Ast_Comparison_Operator parse_comparison_operator();
 
-    std::unique_ptr<Ast_Node> parse_field();
+    std::unique_ptr<Ast_Node> parse_field_and_special();
     std::unique_ptr<Ast_Node> parse_comparison(Ast_Comparison_Field field);
     std::unique_ptr<Ast_Node> parse_list(Ast_Comparison_Field field, Ast_Comparison_Operator op, bool is_allof);
     std::unique_ptr<Ast_Node> parse_range(Ast_Comparison_Field field);
-    std::unique_ptr<Ast_Node> parse_value(Ast_Comparison_Field field, Ast_Comparison_Operator op);
+    std::unique_ptr<Ast_Node> parse_value(
+        Ast_Comparison_Field field,
+        Ast_Comparison_Operator op,
+        std::initializer_list<std::string> extra_expected = {});
 
     // Whether the end of the token stream has been reached
     bool is_at_end() const;
