@@ -1,4 +1,4 @@
-#include "ast.hpp"
+#include <mado/query/ast.hpp>
 
 #include <cstdio>
 

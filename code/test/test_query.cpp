@@ -1,15 +1,14 @@
 #include <iostream>
 #include <string>
 
-#include "common/test_utils.hpp"
+#include "test_utils.hpp"
 
-#include "ast.hpp"
-#include "lexer.hpp"
-#include "parser.hpp"
-#include "token.hpp"
+#include <mado/query/ast.hpp>
+#include <mado/query/lexer.hpp>
+#include <mado/query/parser.hpp>
+#include <mado/query/token.hpp>
 
 using namespace mado::query;
-using namespace mado::common;
 
 // token
 

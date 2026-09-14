@@ -1,7 +1,7 @@
 #include <cctype>
 #include <string>
 
-#include "text_utils.hpp"
+#include <mado/common/text_utils.hpp>
 
 namespace mado::common {
 

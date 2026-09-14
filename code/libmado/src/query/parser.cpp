@@ -1,4 +1,4 @@
-#include "parser.hpp"
+#include <mado/query/parser.hpp>
 
 namespace mado::query {
 

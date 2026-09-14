@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "ast.hpp"
-#include "token.hpp"
+#include <mado/query/ast.hpp>
+#include <mado/query/token.hpp>
 
 namespace mado::query {
 

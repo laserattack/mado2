@@ -1,6 +1,6 @@
 #include <cstdint>
 
-#include "token.hpp"
+#include <mado/query/token.hpp>
 
 namespace mado::query {
 

@@ -3,7 +3,7 @@
  * https://opensource.org/licenses/MIT
  */
 
-#include "fuzzy_match.hpp"
+#include <mado/common/fuzzy_match.hpp>
 
 #include <cctype>
 

@@ -2,10 +2,9 @@
 #include <ctime>
 #include <optional>
 
-#include "common/fuzzy_match.hpp"
-#include "common/text_utils.hpp"
-
-#include "lexer.hpp"
+#include <mado/common/fuzzy_match.hpp>
+#include <mado/common/text_utils.hpp>
+#include <mado/query/lexer.hpp>
 
 namespace mado::query {
 

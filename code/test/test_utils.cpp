@@ -2,8 +2,6 @@
 
 #include <cstdio>
 
-namespace mado::common {
-
 size_t &total_tests() {
     static size_t count = 0;
     return count;
@@ -35,5 +33,3 @@ int run_tests(const std::vector<Test_Case> &tests) {
 
     return failed_tests() > 0 ? 1 : 0;
 }
-
-} // namespace mado::common
