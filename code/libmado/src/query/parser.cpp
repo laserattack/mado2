@@ -60,7 +60,7 @@ std::string Parse_Error::format(const std::string &query) const {
 
     Display_Metrics m = utf8proc_metrics(query, byte_pos);
 
-    std::string pos_str = std::to_string(m.codepoints);
+    std::string pos_str = std::to_string(m.codepoints + 1);
     std::string padding(pos_str.size(), ' ');
 
     return pos_str + " | " + query + "\n" +
