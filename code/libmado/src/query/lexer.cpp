@@ -7,6 +7,13 @@
 #include <mado/common/time_utils.hpp>
 #include <mado/query/lexer.hpp>
 
+// TODO: fix position for non-ASCII characters
+// ~/projects/mado2
+// [serr@lap]-> ./build/code/test/test_query --query 'st = "флоывифыолвфы" and '
+// 38 | st = "флоывифыолвфы" and
+//    |                                       ^
+//    | Expected field name, special keyword, got End
+
 namespace mado::query {
 
 std::vector<Token> Lexer::tokenize() {
