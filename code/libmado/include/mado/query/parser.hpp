@@ -67,10 +67,6 @@ class Parser {
     // Returns the current token and advances forward.
     // Returns End token if at the end of the stream
     Token eat_it();
-
-    // Advances forward by n tokens.
-    // Does nothing if n would move past the end
-    void eat_it(size_t n);
 };
 
 } // namespace mado::query

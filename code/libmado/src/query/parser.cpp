@@ -45,10 +45,6 @@ Token Parser::eat_it() {
     return token;
 }
 
-void Parser::eat_it(size_t n) {
-    current_ = std::min(current_ + n, tokens_.size());
-}
-
 bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) const {
     switch (field) {
     case Ast_Comparison_Field::Priority:
