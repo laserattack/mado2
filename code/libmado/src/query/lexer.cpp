@@ -4,24 +4,10 @@
 
 #include <mado/common/fuzzy_match.hpp>
 #include <mado/common/text_utils.hpp>
+#include <mado/common/time_utils.hpp>
 #include <mado/query/lexer.hpp>
 
 namespace mado::query {
-
-namespace {
-
-// localtime_r on POSIX, localtime_s on MSVC
-std::tm localtime_threadsafe(time_t t) {
-    std::tm bt{};
-#if defined(_MSC_VER)
-    localtime_s(&bt, &t);
-#else
-    localtime_r(&t, &bt);
-#endif
-    return bt;
-}
-
-} // namespace
 
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
@@ -508,8 +494,8 @@ std::vector<Token> Lexer::resolve_time_macro(Macro_Type type,
 
     // Current local time
 
-    time_t now = std::time(nullptr);            // get current time
-    std::tm tm_buf = localtime_threadsafe(now); // and parse it
+    time_t now = std::time(nullptr);                          // get current time
+    std::tm tm_buf = mado::common::localtime_threadsafe(now); // and parse it
 
     // Apply offset depending on the macro type
     switch (type) {
