@@ -26,6 +26,7 @@ class Parse_Error : public std::runtime_error {
 
 class Parser {
   public:
+    // The vector always contains at least one End token; the lexer guarantees this
     explicit Parser(std::vector<Token> tokens) : tokens_(std::move(tokens)) {}
 
     std::unique_ptr<Ast_Node> parse(); // parse AST
@@ -47,10 +48,13 @@ class Parser {
     std::unique_ptr<Ast_Node> parse_comparison(Ast_Comparison_Field field);
     std::unique_ptr<Ast_Node> parse_list(Ast_Comparison_Field field, Ast_Comparison_Operator op, bool is_allof);
     std::unique_ptr<Ast_Node> parse_range(Ast_Comparison_Field field);
-    std::unique_ptr<Ast_Node> parse_value(
-        Ast_Comparison_Field field,
-        Ast_Comparison_Operator op,
-        std::initializer_list<std::string> extra_expected = {});
+    std::unique_ptr<Ast_Node> parse_value(Ast_Comparison_Field field, Ast_Comparison_Operator op);
+
+    // Whether the token can be a value for the given field
+    bool value_matches_field(Ast_Comparison_Field field, const Token &val) const;
+
+    // Human-readable description of the value type expected for the field
+    std::string value_types_desc(Ast_Comparison_Field field) const;
 
     // Whether the end of the token stream has been reached
     bool is_at_end() const;

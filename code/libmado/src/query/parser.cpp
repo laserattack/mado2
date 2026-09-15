@@ -49,6 +49,47 @@ void Parser::eat_it(size_t n) {
     current_ = std::min(current_ + n, tokens_.size());
 }
 
+bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) const {
+    switch (field) {
+    case Ast_Comparison_Field::Priority:
+        return val.type == Token_Type::Number;
+    case Ast_Comparison_Field::Tag:
+    case Ast_Comparison_Field::Status:
+    case Ast_Comparison_Field::Path:
+    case Ast_Comparison_Field::Name:
+        return val.type == Token_Type::String || token_is_keyword(val.type);
+    case Ast_Comparison_Field::Time:
+    case Ast_Comparison_Field::Deadline:
+    case Ast_Comparison_Field::Mtime:
+        return val.type == Token_Type::Timestamp;
+    case Ast_Comparison_Field::Any:
+        return val.type == Token_Type::Number ||
+               val.type == Token_Type::String ||
+               val.type == Token_Type::Timestamp ||
+               token_is_keyword(val.type);
+    }
+    return false;
+}
+
+std::string Parser::value_types_desc(Ast_Comparison_Field field) const {
+    switch (field) {
+    case Ast_Comparison_Field::Priority:
+        return "numeric value";
+    case Ast_Comparison_Field::Tag:
+    case Ast_Comparison_Field::Status:
+    case Ast_Comparison_Field::Path:
+    case Ast_Comparison_Field::Name:
+        return "string value";
+    case Ast_Comparison_Field::Time:
+    case Ast_Comparison_Field::Deadline:
+    case Ast_Comparison_Field::Mtime:
+        return "timestamp value";
+    case Ast_Comparison_Field::Any:
+        return "value";
+    }
+    return "value";
+}
+
 std::unique_ptr<Ast_Node> Parser::parse() {
     if (is_at_end()) {
         throw Parse_Error("Empty query", get_it());
@@ -199,21 +240,21 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
     // expr: field in (v,v,v,...)
     // expr: field has (v,v,v,...)
     if (get_it().type == Token_Type::In || get_it().type == Token_Type::Has) {
-        bool is_has = get_it().type == Token_Type::Has;
+        bool combine_and = get_it().type == Token_Type::Has;
         eat_it(); // in / has
 
         auto next = get_it();
 
         // After 'in', both '[' (range) and '(' (list) are valid.
         // After 'has', only '(' (list) is valid.
-        if (!is_has && next.type == Token_Type::Lbracket) {
+        if (!combine_and && next.type == Token_Type::Lbracket) {
             return parse_range(field);
         }
         if (next.type == Token_Type::Lparen) {
-            return parse_list(field, Ast_Comparison_Operator::Eq, is_has);
+            return parse_list(field, Ast_Comparison_Operator::Eq, combine_and);
         }
 
-        if (is_has) { // has
+        if (combine_and) { // has
             throw Parse_Error("Expected '(', got " + token_repr(next), next);
         } else { // in
             throw Parse_Error("Expected '(', '[', got " + token_repr(next), next);
@@ -228,22 +269,31 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
         // sugar only when followed by '(', otherwise they are plain string values
         get_it(1).type == Token_Type::Lparen) {
 
-        bool is_has = get_it().type == Token_Type::Allof;
+        bool combine_and = get_it().type == Token_Type::Allof;
         eat_it();
-        return parse_list(field, op, is_has);
+        return parse_list(field, op, combine_and);
     }
 
+    // expr: field comp_op value
+    auto tok = get_it();
+    if (!value_matches_field(field, tok)) {
+        throw Parse_Error("Expected " + value_types_desc(field) + ", got " + token_repr(tok), tok);
+    }
     return parse_value(field, op);
 }
 
 std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     // '[' is guaranteed by the caller
-    auto lbr = eat_it(); // [
+    eat_it(); // [
 
     std::unique_ptr<Ast_Node> low;
     if (get_it().type != Token_Type::DotDot) {
-        low = parse_value(field, Ast_Comparison_Operator::Ge, {"'..'"}); // val
+        auto tok = get_it();
+        if (!value_matches_field(field, tok)) {
+            throw Parse_Error("Expected " + value_types_desc(field) + ", '..', got " + token_repr(tok), tok);
+        }
+        low = parse_value(field, Ast_Comparison_Operator::Ge);
     }
 
     auto dots = eat_it(); // ..
@@ -253,13 +303,15 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     std::unique_ptr<Ast_Node> high;
     if (get_it().type != Token_Type::Rbracket) {
-        if (low) {
-            // [val.. <- expected val or ]
-            high = parse_value(field, Ast_Comparison_Operator::Le, {"']'"}); // val
-        } else {
-            // [.. <- expected val
-            high = parse_value(field, Ast_Comparison_Operator::Le); // val
+        auto tok = get_it();
+        if (!value_matches_field(field, tok)) {
+            if (low) {
+                throw Parse_Error("Expected " + value_types_desc(field) + ", ']', got " + token_repr(tok), tok);
+            } else {
+                throw Parse_Error("Expected " + value_types_desc(field) + ", got " + token_repr(tok), tok);
+            }
         }
+        high = parse_value(field, Ast_Comparison_Operator::Le);
     }
 
     auto rbr = eat_it(); // ]
@@ -280,7 +332,7 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 std::unique_ptr<Ast_Node> Parser::parse_list(
     Ast_Comparison_Field field,
     Ast_Comparison_Operator op,
-    bool is_allof) {
+    bool combine_and) {
 
     // '(' is guaranteed by the caller
     eat_it(); // (
@@ -290,10 +342,14 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
         throw Parse_Error("List cannot be empty, expected value, got " + token_repr(rparen), rparen);
     }
 
-    auto combine = is_allof ? Ast_Binary_Operator::And : Ast_Binary_Operator::Or;
+    auto combine = combine_and ? Ast_Binary_Operator::And : Ast_Binary_Operator::Or;
     std::unique_ptr<Ast_Node> result;
 
     while (true) {
+        auto tok = get_it();
+        if (!value_matches_field(field, tok)) {
+            throw Parse_Error("Expected " + value_types_desc(field) + ", got " + token_repr(tok), tok);
+        }
         auto cmp = parse_value(field, op);
 
         result = result
@@ -315,25 +371,13 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
 
 std::unique_ptr<Ast_Node> Parser::parse_value(
     Ast_Comparison_Field field,
-    Ast_Comparison_Operator op,
-    std::initializer_list<std::string> extra_expected) {
+    Ast_Comparison_Operator op) {
 
     auto val = eat_it();
 
-    auto make_error = [&](const std::string &expected) {
-        std::string msg = "Expected " + expected;
-        for (const auto &e : extra_expected) {
-            msg += ", " + e;
-        }
-        msg += ", got " + token_repr(val);
-        return Parse_Error(msg, val);
-    };
-
+    // caller guarantees val matches field (see value_matches_field)
     switch (field) {
     case Ast_Comparison_Field::Priority:
-        if (val.type != Token_Type::Number) {
-            throw make_error("numeric value");
-        }
         // Lexer guarantees 1-3 digit positive numbers, so stoi can't overflow
         return ast_make_comparison(field, op, static_cast<uint16_t>(std::stoi(val.value)));
 
@@ -341,36 +385,22 @@ std::unique_ptr<Ast_Node> Parser::parse_value(
     case Ast_Comparison_Field::Status:
     case Ast_Comparison_Field::Path:
     case Ast_Comparison_Field::Name:
-        if (val.type == Token_Type::String || token_is_keyword(val.type)) {
-            return ast_make_comparison(field, op, val.value);
-        }
-        throw make_error("string value");
+        return ast_make_comparison(field, op, val.value);
 
     case Ast_Comparison_Field::Time:
     case Ast_Comparison_Field::Deadline:
     case Ast_Comparison_Field::Mtime:
-        if (val.type != Token_Type::Timestamp) {
-            throw make_error("timestamp value");
-        }
         return ast_make_comparison(field, op, val.value);
 
     case Ast_Comparison_Field::Any:
-        switch (val.type) {
-        case Token_Type::Number:
+        if (val.type == Token_Type::Number) {
             return ast_make_comparison(field, op, static_cast<uint16_t>(std::stoi(val.value)));
-        case Token_Type::String:
-        case Token_Type::Timestamp:
-            return ast_make_comparison(field, op, val.value);
-        default:
-            if (token_is_keyword(val.type)) {
-                return ast_make_comparison(field, op, val.value);
-            }
-            throw make_error("value");
         }
-    default:
-        // unreachable
-        throw Parse_Error("Unknown field", val);
+        return ast_make_comparison(field, op, val.value);
     }
+
+    // unreachable
+    throw Parse_Error("Unknown field", val);
 }
 
 Ast_Comparison_Operator Parser::parse_comparison_operator() {
