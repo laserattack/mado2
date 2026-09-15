@@ -63,10 +63,12 @@ std::unique_ptr<Ast_Node> Parser::parse() {
     return ast;
 }
 
+// expr bin_op expr
 std::unique_ptr<Ast_Node> Parser::parse_expression() {
     return parse_or();
 }
 
+// expr or expr
 std::unique_ptr<Ast_Node> Parser::parse_or() {
     auto left = parse_xor();
 
@@ -80,6 +82,7 @@ std::unique_ptr<Ast_Node> Parser::parse_or() {
     return left;
 }
 
+// expr xor expr
 std::unique_ptr<Ast_Node> Parser::parse_xor() {
     auto left = parse_and();
 
@@ -93,6 +96,7 @@ std::unique_ptr<Ast_Node> Parser::parse_xor() {
     return left;
 }
 
+// expr and expr
 std::unique_ptr<Ast_Node> Parser::parse_and() {
     auto left = parse_not();
 
@@ -106,6 +110,7 @@ std::unique_ptr<Ast_Node> Parser::parse_and() {
     return left;
 }
 
+// not expr
 std::unique_ptr<Ast_Node> Parser::parse_not() {
     if (get_it().type == Token_Type::Not) {
         eat_it();
@@ -117,7 +122,7 @@ std::unique_ptr<Ast_Node> Parser::parse_not() {
 }
 
 std::unique_ptr<Ast_Node> Parser::parse_primary() {
-    // Parentheses
+    // (expr)
     if (get_it().type == Token_Type::Lparen) { // (
         eat_it();
         auto expr = parse_expression();
@@ -134,12 +139,13 @@ std::unique_ptr<Ast_Node> Parser::parse_primary() {
     return parse_field_and_special();
 }
 
+// expr
 std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
     auto field = eat_it();
 
     switch (field.type) {
 
-    // Special expressions
+    // expr: special_expr
     case Token_Type::All:
         return ast_make_special(Ast_Node_Type::All);
     case Token_Type::Untagged:
@@ -153,7 +159,14 @@ std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
     case Token_Type::Undeadlined:
         return ast_make_special(Ast_Node_Type::Undeadlined);
 
-    // Fields
+    // expr: field comp_op value
+    // expr: field comp_op anyof(v,v,v,...)
+    // expr: field comp_op allof(v,v,v,...)
+    // expr: field in (v,v,v,...)
+    // expr: field has (v,v,v,...)
+    // expr: field in [v..v]
+    // expr: field in [v..]
+    // expr: field in [..v]
     case Token_Type::Priority:
         return parse_comparison(Ast_Comparison_Field::Priority);
     case Token_Type::Tag:
@@ -180,39 +193,53 @@ std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
 
 std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
 
-    // in [...]
-    if (get_it().type == Token_Type::In && get_it(1).type == Token_Type::Lbracket) {
-        eat_it(); // in
-        return parse_range(field);
-    }
-
-    // in (...) / has (...)
+    // expr: field in [v..v]
+    // expr: field in [v..]
+    // expr: field in [..v]
+    // expr: field in (v,v,v,...)
+    // expr: field has (v,v,v,...)
     if (get_it().type == Token_Type::In || get_it().type == Token_Type::Has) {
-        bool is_allof = get_it().type == Token_Type::Has;
-        eat_it();
-        return parse_list(field, Ast_Comparison_Operator::Eq, is_allof);
+        bool is_has = get_it().type == Token_Type::Has;
+        eat_it(); // in / has
+
+        auto next = get_it();
+
+        // After 'in', both '[' (range) and '(' (list) are valid.
+        // After 'has', only '(' (list) is valid.
+        if (!is_has && next.type == Token_Type::Lbracket) {
+            return parse_range(field);
+        }
+        if (next.type == Token_Type::Lparen) {
+            return parse_list(field, Ast_Comparison_Operator::Eq, is_has);
+        }
+
+        if (is_has) { // has
+            throw Parse_Error("Expected '(', got " + token_repr(next), next);
+        } else { // in
+            throw Parse_Error("Expected '(', '[', got " + token_repr(next), next);
+        }
     }
 
     auto op = parse_comparison_operator();
 
-    // anyof / allof
-    // sugar only when followed by '(', otherwise they are plain string values
+    // expr: field comp_op anyof(v,v,v,...)
+    // expr: field comp_op allof(v,v,v,...)
     if ((get_it().type == Token_Type::Allof || get_it().type == Token_Type::Anyof) &&
+        // sugar only when followed by '(', otherwise they are plain string values
         get_it(1).type == Token_Type::Lparen) {
 
-        bool is_allof = get_it().type == Token_Type::Allof;
+        bool is_has = get_it().type == Token_Type::Allof;
         eat_it();
-        return parse_list(field, op, is_allof);
+        return parse_list(field, op, is_has);
     }
 
     return parse_value(field, op);
 }
 
 std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
+
+    // '[' is guaranteed by the caller
     auto lbr = eat_it(); // [
-    if (lbr.type != Token_Type::Lbracket) {
-        throw Parse_Error("Expected '[', got " + token_repr(lbr), lbr);
-    }
 
     std::unique_ptr<Ast_Node> low;
     if (get_it().type != Token_Type::DotDot) {
@@ -255,14 +282,8 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
     Ast_Comparison_Operator op,
     bool is_allof) {
 
-    auto lparen = eat_it(); // (
-    if (lparen.type != Token_Type::Lparen) {
-        if (is_allof) { // has ... <- only list expected
-            throw Parse_Error("Expected '(', got " + token_repr(lparen), lparen);
-        } else { // in ... <- list or range expected
-            throw Parse_Error("Expected '(', '[', got " + token_repr(lparen), lparen);
-        }
-    }
+    // '(' is guaranteed by the caller
+    eat_it(); // (
 
     if (get_it().type == Token_Type::Rparen) {
         auto rparen = eat_it(); // )
@@ -389,7 +410,7 @@ Ast_Comparison_Operator Parser::parse_comparison_operator() {
     case Token_Type::Nglob:
         return Ast_Comparison_Operator::Nglob;
     default:
-        throw Parse_Error("Expected comparison operator, 'in', 'has', got " + token_repr(op), op);
+        throw Parse_Error("Expected comparison operator, got " + token_repr(op), op);
     }
 }
 
