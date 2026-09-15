@@ -7,6 +7,13 @@ A working Linux only version (the predecessor) is available at
 
 # Build
 
+Requirements:
+
+- C++17 compiler
+- Meson + Ninja
+
+Build:
+
 ```
 meson setup build
 meson compile -C build

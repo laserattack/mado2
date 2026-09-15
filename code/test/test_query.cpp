@@ -1,12 +1,12 @@
-#include <iostream>
-#include <string>
-
 #include "test_utils.hpp"
 
 #include <mado/query/ast.hpp>
 #include <mado/query/lexer.hpp>
 #include <mado/query/parser.hpp>
 #include <mado/query/token.hpp>
+
+#include <iostream>
+#include <string>
 
 using namespace mado::query;
 

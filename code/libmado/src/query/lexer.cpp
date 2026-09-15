@@ -1,18 +1,11 @@
-#include <cassert>
-#include <ctime>
-#include <optional>
-
 #include <mado/common/fuzzy_match.hpp>
 #include <mado/common/text_utils.hpp>
 #include <mado/common/time_utils.hpp>
 #include <mado/query/lexer.hpp>
 
-// TODO: fix position for non-ASCII characters
-// ~/projects/mado2
-// [serr@lap]-> ./build/code/test/test_query --query 'st = "флоывифыолвфы" and '
-// 38 | st = "флоывифыолвфы" and
-//    |                                       ^
-//    | Expected field name, special keyword, got End
+#include <cassert>
+#include <ctime>
+#include <optional>
 
 namespace mado::query {
 

@@ -1,5 +1,9 @@
 #include <mado/query/parser.hpp>
 
+#include <utf8proc/utf8proc.h>
+
+#include <algorithm>
+
 namespace mado::query {
 
 namespace {
@@ -11,16 +15,56 @@ std::string token_repr(const Token &token) {
     return token_type_to_string(token.type) + ": " + token.value;
 }
 
+struct Display_Metrics {
+    size_t codepoints;
+    size_t columns;
+};
+
+// Codepoints and terminal columns occupied by the first byte_len
+// bytes of str. Invalid UTF-8 bytes count as one column and are
+// skipped as codepoints.
+Display_Metrics utf8proc_metrics(const std::string &str, size_t byte_len) {
+    Display_Metrics m{0, 0};
+    size_t i = 0;
+    const size_t n = std::min(byte_len, str.size());
+
+    while (i < n) {
+        utf8proc_int32_t codepoint = 0;
+        utf8proc_ssize_t consumed = utf8proc_iterate(
+            reinterpret_cast<const utf8proc_uint8_t *>(str.data() + i),
+            static_cast<utf8proc_ssize_t>(n - i),
+            &codepoint);
+
+        if (consumed < 0) {
+            // Invalid UTF-8: one byte, one column, not a codepoint
+            m.columns += 1;
+            i += 1;
+            continue;
+        }
+
+        m.codepoints += 1;
+        int w = utf8proc_charwidth(codepoint);
+        if (w > 0) {
+            m.columns += static_cast<size_t>(w);
+        }
+        i += static_cast<size_t>(consumed);
+    }
+
+    return m;
+}
+
 } // namespace
 
 std::string Parse_Error::format(const std::string &query) const {
-    size_t position = token_.position;
+    size_t byte_pos = std::min(token_.position, query.size());
 
-    std::string pos_str = std::to_string(position);
+    Display_Metrics m = utf8proc_metrics(query, byte_pos);
+
+    std::string pos_str = std::to_string(m.codepoints);
     std::string padding(pos_str.size(), ' ');
 
     return pos_str + " | " + query + "\n" +
-           padding + " | " + std::string(position, ' ') + "^\n" +
+           padding + " | " + std::string(m.columns, ' ') + "^\n" +
            padding + " | " + what() + "\n";
 }
 
