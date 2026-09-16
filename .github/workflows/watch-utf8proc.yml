@@ -1,0 +1,56 @@
+name: Watch utf8proc upstream
+
+on:
+  schedule:
+    - cron: '20 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Get latest utf8proc commit
+        id: upstream
+        run: |
+          LATEST_SHA=$(curl -s https://api.github.com/repos/JuliaStrings/utf8proc/commits/master | jq -r .sha)
+          echo "sha=$LATEST_SHA" >> $GITHUB_OUTPUT
+          echo "Upstream commit: $LATEST_SHA"
+
+      - name: Check if issue already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ steps.upstream.outputs.sha }}"
+          EXISTING=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --state all \
+            --search "$SHA" \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Issue already exists: #$EXISTING"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No issue for this commit yet"
+          fi
+
+      - name: Create issue if upstream changed
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ steps.upstream.outputs.sha }}"
+          COMMIT_URL="https://github.com/JuliaStrings/utf8proc/commit/$SHA"
+          ISSUE_TITLE="utf8proc upstream updated"
+          ISSUE_BODY="A new commit was found in utf8proc: $COMMIT_URL. Update vendored files pls!!"
+
+          gh issue create \
+            --title "$ISSUE_TITLE" \
+            --body "$ISSUE_BODY" \
+            --repo ${{ github.repository }}
