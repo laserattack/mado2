@@ -112,7 +112,7 @@ bool is_timestamp(const std::string &str) {
 
     // YYYYMMDD-
     if (n >= 9) {
-        if (str[8] != '-' && str[8] != 'T')
+        if (str[8] != '-')
             return false;
     }
 

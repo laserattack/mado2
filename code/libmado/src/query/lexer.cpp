@@ -79,7 +79,7 @@ Token Lexer::parse_number_and_timestamp() {
     }
 
     // If exactly 8 digits are followed by '-', continue as timestamp
-    if ((get_it() == '-' || get_it() == 'T') && pos_ - start == 8) {
+    if (get_it() == '-' && pos_ - start == 8) {
         eat_it(); // -
 
         while (!is_at_end() && mado::common::is_digit(get_it())) {

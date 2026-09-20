@@ -54,7 +54,7 @@ class Parser {
     bool value_matches_field(Ast_Comparison_Field field, const Token &val) const;
 
     // Human-readable description of the value type expected for the field
-    std::string value_types_desc(Ast_Comparison_Field field) const;
+    std::string value_type_desc(Ast_Comparison_Field field) const;
 
     // Whether the end of the token stream has been reached
     bool is_at_end() const;

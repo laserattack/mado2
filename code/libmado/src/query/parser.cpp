@@ -111,7 +111,7 @@ bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) c
     return false;
 }
 
-std::string Parser::value_types_desc(Ast_Comparison_Field field) const {
+std::string Parser::value_type_desc(Ast_Comparison_Field field) const {
     switch (field) {
     case Ast_Comparison_Field::Priority:
         return "numeric value";
@@ -317,7 +317,7 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
     // expr: field comp_op value
     auto tok = get_it();
     if (!value_matches_field(field, tok)) {
-        throw Parse_Error("Expected " + value_types_desc(field) + ", got " + token_repr(tok), tok);
+        throw Parse_Error("Expected " + value_type_desc(field) + ", got " + token_repr(tok), tok);
     }
     return parse_value(field, op);
 }
@@ -331,7 +331,7 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
     if (get_it().type != Token_Type::DotDot) {
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
-            throw Parse_Error("Expected " + value_types_desc(field) + ", '..', got " + token_repr(tok), tok);
+            throw Parse_Error("Expected " + value_type_desc(field) + ", '..', got " + token_repr(tok), tok);
         }
         low = parse_value(field, Ast_Comparison_Operator::Ge);
     }
@@ -346,9 +346,9 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
             if (low) {
-                throw Parse_Error("Expected " + value_types_desc(field) + ", ']', got " + token_repr(tok), tok);
+                throw Parse_Error("Expected " + value_type_desc(field) + ", ']', got " + token_repr(tok), tok);
             } else {
-                throw Parse_Error("Expected " + value_types_desc(field) + ", got " + token_repr(tok), tok);
+                throw Parse_Error("Expected " + value_type_desc(field) + ", got " + token_repr(tok), tok);
             }
         }
         high = parse_value(field, Ast_Comparison_Operator::Le);
@@ -388,7 +388,7 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
     while (true) {
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
-            throw Parse_Error("Expected " + value_types_desc(field) + ", got " + token_repr(tok), tok);
+            throw Parse_Error("Expected " + value_type_desc(field) + ", got " + token_repr(tok), tok);
         }
         auto cmp = parse_value(field, op);
 

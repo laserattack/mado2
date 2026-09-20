@@ -3,7 +3,6 @@ libmado_private_inc = include_directories('3rdparty')
 
 libmado_src = [
   # 3rdparty
-  # utf8proc_data.c is #included by utf8proc.c, do not compile separately
   '3rdparty/utf8proc/utf8proc.c',
 
   # utils
@@ -16,6 +15,9 @@ libmado_src = [
   'src/query/lexer.cpp',
   'src/query/ast.cpp',
   'src/query/parser.cpp',
+
+  # interpreter
+  'src/interpreter/entry.cpp',
 ]
 
 libmado = static_library('mado',
