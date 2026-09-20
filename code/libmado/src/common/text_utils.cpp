@@ -30,6 +30,14 @@ bool is_valid_date(int year, int month, int day) {
 
 } // namespace
 
+std::string trim(const std::string &s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    size_t end = s.find_last_not_of(" \t\r\n");
+    if (start == std::string::npos)
+        return "";
+    return s.substr(start, end - start + 1);
+}
+
 bool equals_ignore_case(const std::string &str1, const std::string &str2) {
     if (str1.length() != str2.length())
         return false;
