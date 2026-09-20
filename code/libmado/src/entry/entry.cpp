@@ -1,8 +1,8 @@
 #include <mado/common/fuzzy_match.hpp>
 #include <mado/common/text_utils.hpp>
-#include <mado/interpreter/entry.hpp>
+#include <mado/entry/entry.hpp>
 
-namespace mado::interpreter {
+namespace mado::entry {
 
 namespace {
 
@@ -258,4 +258,4 @@ bool Entry::match_filter(const Ast_Node *filter) const {
     return false;
 }
 
-} // namespace mado::interpreter
+} // namespace mado::entry

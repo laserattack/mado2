@@ -5,9 +5,9 @@ test_query_exe = executable('test_query',
                             ],
                             dependencies: libmado_dep)
 
-test_interpreter_exe = executable('test_interpreter',
-                                  [
-                                    'test_utils.cpp',
-                                    'test_interpreter.cpp',
-                                  ],
-                                  dependencies: libmado_dep)
+test_entry_exe = executable('test_entry',
+                            [
+                              'test_utils.cpp',
+                              'test_entry.cpp',
+                            ],
+                            dependencies: libmado_dep)

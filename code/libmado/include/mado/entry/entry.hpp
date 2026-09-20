@@ -8,7 +8,7 @@
 
 #include <mado/query/ast.hpp>
 
-namespace mado::interpreter {
+namespace mado::entry {
 
 class Entry_Error : public std::runtime_error {
   public:
@@ -52,4 +52,4 @@ class Entry {
     std::string deadline_ = "99990101-000000";
 };
 
-} // namespace mado::interpreter
+} // namespace mado::entry

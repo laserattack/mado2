@@ -16,8 +16,8 @@ libmado_src = [
   'src/query/ast.cpp',
   'src/query/parser.cpp',
 
-  # interpreter
-  'src/interpreter/entry.cpp',
+  # entry
+  'src/entry/entry.cpp',
 ]
 
 libmado = static_library('mado',

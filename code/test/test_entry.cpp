@@ -1,10 +1,10 @@
 #include "test_utils.hpp"
 
-#include <mado/interpreter/entry.hpp>
+#include <mado/entry/entry.hpp>
 #include <mado/query/lexer.hpp>
 #include <mado/query/parser.hpp>
 
-using namespace mado::interpreter;
+using namespace mado::entry;
 using namespace mado::query;
 
 // helpers
