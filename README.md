@@ -9,7 +9,7 @@ A working Linux only version (the predecessor) is available at
 
 Requirements:
 
-- C++17 compiler
+- C++20 compiler
 - Meson + Ninja
 
 Build:

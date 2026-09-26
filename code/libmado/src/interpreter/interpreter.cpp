@@ -19,17 +19,13 @@ bool check_string(const std::string &value,
     case mado::query::Ast_Comparison_Operator::Nsubstr:
         return value.find(pattern) == std::string::npos;
     case mado::query::Ast_Comparison_Operator::Starts:
-        return value.rfind(pattern, 0) == 0;
+        return value.starts_with(pattern);
     case mado::query::Ast_Comparison_Operator::Nstarts:
-        return value.rfind(pattern, 0) != 0;
+        return !value.starts_with(pattern);
     case mado::query::Ast_Comparison_Operator::Ends:
-        return value.size() >= pattern.size() &&
-               value.compare(value.size() - pattern.size(),
-                             pattern.size(), pattern) == 0;
+        return value.ends_with(pattern);
     case mado::query::Ast_Comparison_Operator::Nends:
-        return !(value.size() >= pattern.size() &&
-                 value.compare(value.size() - pattern.size(),
-                               pattern.size(), pattern) == 0);
+        return !value.ends_with(pattern);
     case mado::query::Ast_Comparison_Operator::Fuzzy:
         return mado::common::fuzzy_match(pattern, value, true).has_value();
     case mado::query::Ast_Comparison_Operator::Nfuzzy:
