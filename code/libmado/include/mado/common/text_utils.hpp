@@ -19,4 +19,7 @@ bool is_identifier_char(char c);
 // YYYYMMDD-HHMMSS with optional shorter forms: YYYY, YYYYMM, YYYYMMDD, YYYYMMDD-, YYYYMMDD-HH, YYYYMMDD-HHMM, YYYYMMDD-HHMMSS
 bool is_timestamp(const std::string &str);
 
+// Trims leading and trailing whitespace
+std::string trim(const std::string &s);
+
 } // namespace mado::common
