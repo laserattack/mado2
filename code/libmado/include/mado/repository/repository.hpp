@@ -14,7 +14,7 @@ class Repository {
     // Find MADO/ starting from `from`, going up the tree.
     static std::optional<Repository> open(const std::filesystem::path &from);
 
-    // Load entries matching the filter (nullptr = all).
+    // Load entries matching the filter.
     // Invalid entries are skipped. Only matching entries are kept in memory.
     std::vector<Entry> find(const mado::query::Ast_Node *filter) const;
 

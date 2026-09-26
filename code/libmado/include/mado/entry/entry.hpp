@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-#include <mado/query/ast.hpp>
-
 namespace mado::entry {
 
 class Entry_Error : public std::runtime_error {
@@ -18,9 +16,6 @@ class Entry_Error : public std::runtime_error {
 
 class Entry {
   public:
-    // Returns true if the entry matches the filter (or filter is nullptr)
-    bool match_filter(const mado::query::Ast_Node *filter) const;
-
     // Getters
     const std::filesystem::path &path() const { return path_; }
     const std::string &name() const { return name_; }
