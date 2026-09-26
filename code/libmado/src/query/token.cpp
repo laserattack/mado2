@@ -5,123 +5,121 @@
 namespace mado::query {
 
 std::string token_type_to_string(Token_Type type) {
-    using enum Token_Type;
-
     switch (type) {
     // fields
-    case Priority:
+    case Token_Type::Priority:
         return "Priority";
-    case Tag:
+    case Token_Type::Tag:
         return "Tag";
-    case Status:
+    case Token_Type::Status:
         return "Status";
-    case Name:
+    case Token_Type::Name:
         return "Name";
-    case Path:
+    case Token_Type::Path:
         return "Path";
-    case Time:
+    case Token_Type::Time:
         return "Time";
-    case Deadline:
+    case Token_Type::Deadline:
         return "Deadline";
-    case Mtime:
+    case Token_Type::Mtime:
         return "Mtime";
-    case Any:
+    case Token_Type::Any:
         return "Any";
 
     // values
-    case Number:
+    case Token_Type::Number:
         return "Number";
-    case String:
+    case Token_Type::String:
         return "String";
-    case Timestamp:
+    case Token_Type::Timestamp:
         return "Timestamp";
 
     // special expressions
-    case All:
+    case Token_Type::All:
         return "All";
-    case Untagged:
+    case Token_Type::Untagged:
         return "Untagged";
-    case Unstatused:
+    case Token_Type::Unstatused:
         return "Unstatused";
-    case Unnamed:
+    case Token_Type::Unnamed:
         return "Unnamed";
-    case Unprioritized:
+    case Token_Type::Unprioritized:
         return "Unprioritized";
-    case Undeadlined:
+    case Token_Type::Undeadlined:
         return "Undeadlined";
 
     // sugar
-    case Allof:
+    case Token_Type::Allof:
         return "Allof";
-    case Anyof:
+    case Token_Type::Anyof:
         return "Anyof";
-    case In:
+    case Token_Type::In:
         return "In";
-    case Has:
+    case Token_Type::Has:
         return "Has";
 
     // logical operators
-    case And:
+    case Token_Type::And:
         return "And";
-    case Or:
+    case Token_Type::Or:
         return "Or";
-    case Xor:
+    case Token_Type::Xor:
         return "Xor";
-    case Not:
+    case Token_Type::Not:
         return "Not";
 
     // comparison operators
-    case Gt:
+    case Token_Type::Gt:
         return "Gt";
-    case Lt:
+    case Token_Type::Lt:
         return "Lt";
-    case Ge:
+    case Token_Type::Ge:
         return "Ge";
-    case Le:
+    case Token_Type::Le:
         return "Le";
-    case Eq:
+    case Token_Type::Eq:
         return "Eq";
-    case Ne:
+    case Token_Type::Ne:
         return "Ne";
-    case Substr:
+    case Token_Type::Substr:
         return "Substr";
-    case Nsubstr:
+    case Token_Type::Nsubstr:
         return "Nsubstr";
-    case Fuzzy:
+    case Token_Type::Fuzzy:
         return "Fuzzy";
-    case Nfuzzy:
+    case Token_Type::Nfuzzy:
         return "Nfuzzy";
-    case Starts:
+    case Token_Type::Starts:
         return "Starts";
-    case Nstarts:
+    case Token_Type::Nstarts:
         return "Nstarts";
-    case Ends:
+    case Token_Type::Ends:
         return "Ends";
-    case Nends:
+    case Token_Type::Nends:
         return "Nends";
-    case Glob:
+    case Token_Type::Glob:
         return "Glob";
-    case Nglob:
+    case Token_Type::Nglob:
         return "Nglob";
 
     // punctuation
-    case Lparen:
+    case Token_Type::Lparen:
         return "Lparen";
-    case Rparen:
+    case Token_Type::Rparen:
         return "Rparen";
-    case Comma:
+    case Token_Type::Comma:
         return "Comma";
-    case DotDot:
+    case Token_Type::DotDot:
         return "DotDot";
-    case Lbracket:
+    case Token_Type::Lbracket:
         return "Lbracket";
-    case Rbracket:
+    case Token_Type::Rbracket:
         return "Rbracket";
 
     // system
-    case End:
+    case Token_Type::End:
         return "End";
-    case Invalid:
+    case Token_Type::Invalid:
         return "Invalid";
     }
 
