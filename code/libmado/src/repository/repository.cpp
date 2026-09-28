@@ -22,6 +22,12 @@ constexpr const char *ENTRY_DIR = "MADO";
 constexpr const char *ENTRY_FILE = "MAIN.md";
 constexpr int MAX_HEADER_LINES = 30;
 
+class Repository_Error : public std::runtime_error {
+  public:
+    explicit Repository_Error(const std::string &message)
+        : std::runtime_error(message) {}
+};
+
 // Converts a std::filesystem::file_time_type to
 // std::chrono::system_clock::time_point.
 //
@@ -126,7 +132,9 @@ std::vector<mado::entry::Entry> Repository::find(const mado::query::Ast_Node *fi
             mado::entry::Entry e = load_one(dir_entry.path());
             if (interp.evaluate(filter, e))
                 result.push_back(std::move(e));
-        } catch (const std::exception &) {
+        } catch (const Repository_Error &) {
+            // Skip invalid entries
+        } catch (const mado::entry::Entry_Error &) {
             // Skip invalid entries
         }
     }
@@ -134,6 +142,27 @@ std::vector<mado::entry::Entry> Repository::find(const mado::query::Ast_Node *fi
     return result;
 }
 
+// Loads one entry from MADO/<timestamp>/.
+//
+// The entry directory name must be a valid timestamp; otherwise
+// set_time throws Entry_Error. The directory must contain a regular
+// file named MAIN.md, otherwise Repository_Error is thrown.
+//
+// The entry's TIME is taken from the directory name and MTIME from
+// the modification time of MAIN.md.
+//
+// MAIN.md is parsed as a header of "- KEY: value" lines, at most
+// MAX_HEADER_LINES of them. Only the first occurrence of each known
+// field (NAME, TAGS, STATUS, PRIORITY, DEADLINE) is used; later
+// duplicates are ignored. Unknown keys and lines that do not start
+// with "- " are skipped. Invalid values (e.g. non-numeric PRIORITY,
+// malformed DEADLINE) are ignored, and the field keeps its default.
+//
+// Errors:
+//   - Repository_Error: MAIN.md is missing.
+//   - std::runtime_error: MAIN.md cannot be stat'ed or opened;
+//     this indicates an I/O problem, not a malformed entry.
+//   - Entry_Error: the directory name is not a valid timestamp.
 mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) const {
     mado::entry::Entry e;
 
@@ -141,10 +170,11 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
 
     std::error_code ec;
     if (!std::filesystem::is_regular_file(main_md, ec))
-        throw std::runtime_error("No " + std::string(ENTRY_FILE) +
-                                 " in " + entry_dir.string());
+        throw Repository_Error("No " + std::string(ENTRY_FILE) +
+                               " in " + entry_dir.string());
 
-    // Time comes from the directory name, which is a valid timestamp.
+    // Time comes from the directory name. Throws Entry_Error if the
+    // directory name is not a valid timestamp.
     e.set_time(entry_dir.filename().string());
 
     // mtime comes from the MAIN.md modification time.
