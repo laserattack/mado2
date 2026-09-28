@@ -113,7 +113,7 @@ Token Lexer::parse_quoted_string() {
     std::string result;
 
     while (!is_at_end() && get_it() != quote) {
-        if (get_it() == '\\' && get_it(1) != '\0') {
+        if (get_it() == '\\' && (get_it(1) == '\'' || get_it(1) == '"')) {
             eat_it();
             result += eat_it();
         } else {
