@@ -16,7 +16,7 @@ class Repository {
 
     // Load entries matching the filter.
     // Invalid entries are skipped. Only matching entries are kept in memory.
-    std::vector<Entry> find(const mado::query::Ast_Node *filter) const;
+    std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;
 
     const std::filesystem::path &root() const { return root_; }
 
@@ -24,7 +24,7 @@ class Repository {
     explicit Repository(std::filesystem::path root) : root_(std::move(root)) {}
 
     // Load one entry from MADO/<timestamp>/MAIN.md.
-    Entry load_one(const std::filesystem::path &entry_dir) const;
+    mado::entry::Entry load_one(const std::filesystem::path &entry_dir) const;
 
     std::filesystem::path root_;
 };

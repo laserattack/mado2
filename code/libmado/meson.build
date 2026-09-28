@@ -21,6 +21,9 @@ libmado_src = [
 
   # entry
   'src/entry/entry.cpp',
+
+  # repository
+  'src/repository/repository.cpp',
 ]
 
 libmado = static_library('mado',
