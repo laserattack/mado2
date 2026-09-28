@@ -1,4 +1,4 @@
-project('mado2',
+project('mado',
         ['cpp', 'c'],
         default_options: [
           'cpp_std=c++20',
@@ -8,3 +8,4 @@ project('mado2',
 
 subdir('code/libmado')
 subdir('code/test')
+subdir('code/cli')

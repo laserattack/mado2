@@ -1,4 +1,4 @@
-# mado2 — markdown organizer
+# mado — markdown organizer
 
 In progress...
 
