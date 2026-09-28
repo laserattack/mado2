@@ -56,8 +56,6 @@ std::unique_ptr<Ast_Node> parse(const std::string &query) {
 
 } // namespace
 
-// open
-
 static void test_open_finds_mado() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -82,8 +80,6 @@ static void test_open_returns_nullopt_when_missing() {
     auto repo = Repository::open(tmp.path());
     test(!repo.has_value());
 }
-
-// find
 
 static void test_find_empty_repo() {
     Temp_Dir tmp;
@@ -150,8 +146,6 @@ static void test_find_multiple_entries() {
     test(entries.size() == 3);
 }
 
-// find + filter
-
 static void test_find_filter_name() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: fix bug\n");
@@ -198,8 +192,6 @@ static void test_find_filter_no_match() {
 
     test(entries.empty());
 }
-
-// load_one: parsing of fields
 
 static void test_load_all_fields() {
     Temp_Dir tmp;
@@ -319,26 +311,99 @@ static void test_load_unicode_name() {
     test(entries.size() == 1);
 }
 
+static void test_load_duplicate_tags_ignored() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME: x\n"
+               "- TAGS: bug, bug, crit, bug\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].tags().size() == 2 &&
+         entries[0].tags()[0] == "bug" &&
+         entries[0].tags()[1] == "crit");
+}
+
+static void test_load_tags_with_empty_token() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME: x\n"
+               "- TAGS: tag1,,tag2\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].tags().size() == 3 &&
+         entries[0].tags()[0] == "tag1" &&
+         entries[0].tags()[1].empty() &&
+         entries[0].tags()[2] == "tag2");
+}
+
+static void test_load_tags_with_empty_token_at_end() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME: x\n"
+               "- TAGS: tag1,\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].tags().size() == 2 &&
+         entries[0].tags()[0] == "tag1" &&
+         entries[0].tags()[1].empty());
+}
+
+static void test_load_tags_with_empty_token_at_start() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME: x\n"
+               "- TAGS: ,tag1\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].tags().size() == 2 &&
+         entries[0].tags()[0].empty() &&
+         entries[0].tags()[1] == "tag1");
+}
+
+static void test_load_repeated_field_ignored() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME: first\n"
+               "- NAME: second\n"
+               "- STATUS: opened\n"
+               "- STATUS: closed\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].name() == "first" &&
+         entries[0].status() == "opened");
+}
+
 // entry point
 
 int main() {
     std::vector<Test_Case> tests = {
-        // open
         {"Open finds MADO", "Repository::open finds MADO in cwd", test_open_finds_mado},
         {"Open finds MADO above", "Repository::open walks up the tree", test_open_finds_mado_above},
         {"Open returns nullopt", "no MADO anywhere", test_open_returns_nullopt_when_missing},
-        // find
         {"Find empty repo", "no entries", test_find_empty_repo},
         {"Find one entry", "single entry with fields", test_find_one_entry},
         {"Find skips non-timestamp dirs", "non-timestamp dirs ignored", test_find_skips_non_timestamp_dirs},
         {"Find skips entries without MAIN.md", "missing MAIN.md", test_find_skips_entry_without_main_md},
         {"Find multiple entries", "3 entries", test_find_multiple_entries},
-        // find + filter
         {"Find filter name", "name = 'fix bug'", test_find_filter_name},
         {"Find filter status", "status = opened", test_find_filter_status},
         {"Find filter tags", "tag = crit", test_find_filter_tags},
         {"Find filter no match", "no entries match", test_find_filter_no_match},
-        // load_one
         {"Load all fields", "NAME, PRIORITY, TAGS, STATUS, DEADLINE", test_load_all_fields},
         {"Load defaults", "only NAME, rest are defaults", test_load_defaults},
         {"Load invalid priority ignored", "PRIORITY: abc -> 0", test_load_invalid_priority_ignored},
@@ -347,6 +412,11 @@ int main() {
         {"Load empty tags", "TAGS: -> ['']", test_load_empty_tags},
         {"Load tags with spaces", "TAGS:  bug ,  crit , feature", test_load_tags_with_spaces},
         {"Load unicode name", "name = лалала matches ЛАЛАЛА", test_load_unicode_name},
+        {"Load duplicate tags", "TAGS: bug, bug, crit, bug -> [bug, crit]", test_load_duplicate_tags_ignored},
+        {"Load tags empty token", "TAGS: tag1,,tag2 -> [tag1, '', tag2]", test_load_tags_with_empty_token},
+        {"Load tags empty token at end", "TAGS: tag1, -> [tag1, '']", test_load_tags_with_empty_token_at_end},
+        {"Load tags empty token at start", "TAGS: ,tag1 -> ['', tag1]", test_load_tags_with_empty_token_at_start},
+        {"Load repeated field ignored", "NAME/STATUS taken from first occurrence", test_load_repeated_field_ignored},
     };
     return run_tests(tests);
 }

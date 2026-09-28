@@ -11,6 +11,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace mado::repository {
@@ -38,12 +39,20 @@ file_time_to_system_clock(std::filesystem::file_time_type ft) {
 
 std::vector<std::string> split_tags(const std::string &s) {
     std::vector<std::string> tags;
+    std::unordered_set<std::string> seen;
+
     std::stringstream ss(s);
     std::string item;
     while (std::getline(ss, item, ',')) {
         std::string t = mado::common::trim(item);
-        if (!t.empty())
+        if (seen.insert(t).second)
             tags.push_back(t);
+    }
+
+    // getline does not produce a trailing empty token for "a,"
+    if (!s.empty() && s.back() == ',') {
+        if (seen.insert("").second)
+            tags.push_back("");
     }
 
     if (tags.empty())
@@ -155,7 +164,13 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
 
     std::string line;
     int line_number = 0;
-    std::vector<std::string> tags = {""};
+    std::vector<std::string> tags;
+
+    bool has_name = false;
+    bool has_tags = false;
+    bool has_status = false;
+    bool has_priority = false;
+    bool has_deadline = false;
 
     while (line_number < MAX_HEADER_LINES && std::getline(in, line)) {
         ++line_number;
@@ -164,7 +179,6 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
         if (t.empty())
             continue;
 
-        // Header lines look like "- KEY: value".
         if (!t.starts_with("- "))
             continue;
 
@@ -175,18 +189,23 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
         const std::string key = mado::common::trim(t.substr(2, colon - 2));
         const std::string value = mado::common::trim(t.substr(colon + 1));
 
-        if (key == "NAME") {
+        if (key == "NAME" && !has_name) {
             e.set_name(value);
-        } else if (key == "TAGS") {
+            has_name = true;
+        } else if (key == "TAGS" && !has_tags) {
             e.set_tags(split_tags(value));
-        } else if (key == "STATUS") {
+            has_tags = true;
+        } else if (key == "STATUS" && !has_status) {
             e.set_status(value);
-        } else if (key == "PRIORITY") {
+            has_status = true;
+        } else if (key == "PRIORITY" && !has_priority) {
             if (auto p = parse_priority(value))
                 e.set_priority(*p);
-        } else if (key == "DEADLINE") {
+            has_priority = true;
+        } else if (key == "DEADLINE" && !has_deadline) {
             if (mado::common::is_timestamp(value))
                 e.set_deadline(value);
+            has_deadline = true;
         }
     }
 
