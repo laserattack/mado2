@@ -1,5 +1,5 @@
 - NAME: full unicode support
 - TAGS: feat, unicode
-- STATUS: opened
+- STATUS: closed
 
 чтобы нормально работал регистронезависимый поиск

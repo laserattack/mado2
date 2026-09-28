@@ -1,6 +1,7 @@
 #include <mado/interpreter/interpreter.hpp>
 
 #include <mado/common/fuzzy_match.hpp>
+#include <mado/common/text_utils.hpp>
 
 namespace mado::interpreter {
 
@@ -9,37 +10,48 @@ namespace {
 bool check_string(const std::string &value,
                   const std::string &pattern,
                   mado::query::Ast_Comparison_Operator op) {
+
+    const std::string value_lower = mado::common::utf8_tolower(value);
+    const std::string pattern_lower = mado::common::utf8_tolower(pattern);
+
     switch (op) {
-    case mado::query::Ast_Comparison_Operator::Eq:
-        return value == pattern;
-    case mado::query::Ast_Comparison_Operator::Ne:
-        return value != pattern;
-    case mado::query::Ast_Comparison_Operator::Substr:
-        return value.find(pattern) != std::string::npos;
-    case mado::query::Ast_Comparison_Operator::Nsubstr:
-        return value.find(pattern) == std::string::npos;
-    case mado::query::Ast_Comparison_Operator::Starts:
-        return value.starts_with(pattern);
-    case mado::query::Ast_Comparison_Operator::Nstarts:
-        return !value.starts_with(pattern);
-    case mado::query::Ast_Comparison_Operator::Ends:
-        return value.ends_with(pattern);
-    case mado::query::Ast_Comparison_Operator::Nends:
-        return !value.ends_with(pattern);
-    case mado::query::Ast_Comparison_Operator::Fuzzy:
-        return mado::common::fuzzy_match(pattern, value, true).has_value();
-    case mado::query::Ast_Comparison_Operator::Nfuzzy:
-        return !mado::common::fuzzy_match(pattern, value, true).has_value();
-    case mado::query::Ast_Comparison_Operator::Gt:
-        return value > pattern;
-    case mado::query::Ast_Comparison_Operator::Lt:
-        return value < pattern;
-    case mado::query::Ast_Comparison_Operator::Ge:
-        return value >= pattern;
-    case mado::query::Ast_Comparison_Operator::Le:
-        return value <= pattern;
-    case mado::query::Ast_Comparison_Operator::Glob:
-    case mado::query::Ast_Comparison_Operator::Nglob:
+    case mado::query::Ast_Comparison_Operator::Eq: // =
+        return value_lower == pattern_lower;
+    case mado::query::Ast_Comparison_Operator::Ne: // !=
+        return value_lower != pattern_lower;
+
+    case mado::query::Ast_Comparison_Operator::Substr: // ~
+        return value_lower.find(pattern_lower) != std::string::npos;
+    case mado::query::Ast_Comparison_Operator::Nsubstr: // !~
+        return value_lower.find(pattern_lower) == std::string::npos;
+
+    case mado::query::Ast_Comparison_Operator::Starts: // ^~
+        return value_lower.starts_with(pattern_lower);
+    case mado::query::Ast_Comparison_Operator::Nstarts: // !^~
+        return !value_lower.starts_with(pattern_lower);
+
+    case mado::query::Ast_Comparison_Operator::Ends: // $~
+        return value_lower.ends_with(pattern_lower);
+    case mado::query::Ast_Comparison_Operator::Nends: // !$~
+        return !value_lower.ends_with(pattern_lower);
+
+    case mado::query::Ast_Comparison_Operator::Fuzzy: // ~~
+        return mado::common::fuzzy_match(pattern_lower, value_lower, false).has_value();
+    case mado::query::Ast_Comparison_Operator::Nfuzzy: // !~~
+        return !mado::common::fuzzy_match(pattern_lower, value_lower, false).has_value();
+
+    case mado::query::Ast_Comparison_Operator::Gt: // >
+        return value_lower > pattern_lower;
+    case mado::query::Ast_Comparison_Operator::Lt: // <
+        return value_lower < pattern_lower;
+
+    case mado::query::Ast_Comparison_Operator::Ge: // >=
+        return value_lower >= pattern_lower;
+    case mado::query::Ast_Comparison_Operator::Le: // <=
+        return value_lower <= pattern_lower;
+
+    case mado::query::Ast_Comparison_Operator::Glob:  // %~
+    case mado::query::Ast_Comparison_Operator::Nglob: // !%~
         // TODO: glob matching
         return false;
     }

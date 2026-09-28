@@ -7,6 +7,11 @@ namespace mado::common {
 // Case-insensitive string comparison
 bool equals_ignore_case(const std::string &str1, const std::string &str2);
 
+// Returns a copy of str with all codepoints converted to lowercase
+// using Unicode simple case folding (via utf8proc). Invalid UTF-8
+// bytes are passed through unchanged.
+std::string utf8_tolower(const std::string &str);
+
 // Checks whether the character is a digit (0-9)
 bool is_digit(char c);
 

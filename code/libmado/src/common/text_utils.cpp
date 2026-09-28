@@ -1,5 +1,7 @@
 #include <mado/common/text_utils.hpp>
 
+#include <utf8proc/utf8proc.h>
+
 #include <cctype>
 #include <string>
 
@@ -51,10 +53,48 @@ bool equals_ignore_case(const std::string &str1, const std::string &str2) {
     return true;
 }
 
+std::string utf8_tolower(const std::string &str) {
+    std::string result;
+    result.reserve(str.size());
+
+    size_t i = 0;
+    while (i < str.size()) {
+        utf8proc_int32_t cp = 0;
+        utf8proc_ssize_t n = utf8proc_iterate(
+            reinterpret_cast<const utf8proc_uint8_t *>(str.data() + i),
+            static_cast<utf8proc_ssize_t>(str.size() - i),
+            &cp);
+
+        if (n < 0) {
+            // Invalid UTF-8: pass the byte through unchanged
+            result.push_back(str[i]);
+            i += 1;
+            continue;
+        }
+
+        utf8proc_int32_t lower = utf8proc_tolower(cp);
+
+        utf8proc_uint8_t buf[4];
+        utf8proc_ssize_t written = utf8proc_encode_char(lower, buf);
+        if (written <= 0) {
+            // Encoding failure: pass the original bytes through
+            result.append(str, i, static_cast<size_t>(n));
+        } else {
+            result.append(reinterpret_cast<const char *>(buf),
+                          static_cast<size_t>(written));
+        }
+
+        i += static_cast<size_t>(n);
+    }
+
+    return result;
+}
+
 bool is_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
+// TODO: maybe utf8 support here
 bool is_letter_or_underscore(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }

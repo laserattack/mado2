@@ -261,6 +261,113 @@ static void test_match_tag_substr() {
     test(matches(e, ast.get()));
 }
 
+// utf8 case insensitive
+
+static void test_match_name_unicode_ci_eq() {
+    Entry e;
+    e.set_name("ЛАЛАЛА");
+    auto ast = parse("name = 'лалала'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_ne() {
+    Entry e;
+    e.set_name("ЛАЛАЛА");
+    auto ast = parse("name != 'лалала'");
+    test(!matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_ne_true() {
+    Entry e;
+    e.set_name("ЛАЛАЛА");
+    auto ast = parse("name != 'ЛЯЛЯЛЯ'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_substr() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name ~ 'ала'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_nsubstr() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name !~ 'xyz'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_starts() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name ^~ 'лала'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_nstarts() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name !^~ 'xyz'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_ends() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name $~ 'лала'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_nends() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name !$~ 'xyz'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_fuzzy() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name ~~ 'ллл'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_nfuzzy() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name !~~ 'xyz'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_gt() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name > 'ааа'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_lt() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name < 'яяя'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_ge() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name >= 'лалала'");
+    test(matches(e, ast.get()));
+}
+
+static void test_match_name_unicode_ci_le() {
+    Entry e;
+    e.set_name("ЛаЛаЛа");
+    auto ast = parse("name <= 'лалала'");
+    test(matches(e, ast.get()));
+}
+
 // entry point
 
 int main() {
@@ -299,6 +406,21 @@ int main() {
         {"Not false", "not name = bug on feature", test_match_not_false},
         {"Any number as priority", "any = 5 matches priority", test_match_any_number_as_priority},
         {"Tag substr", "tag ~ crit", test_match_tag_substr},
+        {"Name unicode CI eq", "name = лалала matches ЛАЛАЛА", test_match_name_unicode_ci_eq},
+        {"Name unicode CI ne", "name != лалала doesn't match ЛАЛАЛА", test_match_name_unicode_ci_ne},
+        {"Name unicode CI ne true", "name != ЛЯЛЯЛЯ matches ЛАЛАЛА", test_match_name_unicode_ci_ne_true},
+        {"Name unicode CI substr", "name ~ ала matches ЛаЛаЛа", test_match_name_unicode_ci_substr},
+        {"Name unicode CI nsubstr", "name !~ xyz matches ЛаЛаЛа", test_match_name_unicode_ci_nsubstr},
+        {"Name unicode CI starts", "name ^~ лала matches ЛаЛаЛа", test_match_name_unicode_ci_starts},
+        {"Name unicode CI nstarts", "name !^~ xyz matches ЛаЛаЛа", test_match_name_unicode_ci_nstarts},
+        {"Name unicode CI ends", "name $~ лала matches ЛаЛаЛа", test_match_name_unicode_ci_ends},
+        {"Name unicode CI nends", "name !$~ xyz matches ЛаЛаЛа", test_match_name_unicode_ci_nends},
+        {"Name unicode CI fuzzy", "name ~~ ллл matches ЛаЛаЛа", test_match_name_unicode_ci_fuzzy},
+        {"Name unicode CI nfuzzy", "name !~~ xyz matches ЛаЛаЛа", test_match_name_unicode_ci_nfuzzy},
+        {"Name unicode CI gt", "name > ааа matches ЛаЛаЛа", test_match_name_unicode_ci_gt},
+        {"Name unicode CI lt", "name < яяя matches ЛаЛаЛа", test_match_name_unicode_ci_lt},
+        {"Name unicode CI ge", "name >= лалала matches ЛаЛаЛа", test_match_name_unicode_ci_ge},
+        {"Name unicode CI le", "name <= лалала matches ЛаЛаЛа", test_match_name_unicode_ci_le},
     };
     return run_tests(tests);
 }
