@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace mado::cli {
+namespace cli {
 
 namespace {
 
@@ -107,4 +107,4 @@ bool version_run(const std::string &program_name,
 
 } // namespace
 
-} // namespace mado::cli
+} // namespace cli

@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace mado::cli {
+namespace cli {
 
 // A single CLI subcommand. Each command is a self-contained unit that
 // parses its own arguments and performs its own work.
@@ -37,4 +37,4 @@ void print_available_commands();
 // Prints the usage line for a single command.
 void print_command_usage(const Command &command, const std::string &program_name);
 
-} // namespace mado::cli
+} // namespace cli
