@@ -124,18 +124,14 @@ std::vector<mado::entry::Entry> Repository::find(const mado::query::Ast_Node *fi
 
         const std::string name = dir_entry.path().filename().string();
 
-        // Entry directories are named after a timestamp
-        if (!mado::common::is_timestamp(name))
-            continue;
-
         try {
             mado::entry::Entry e = load_one(dir_entry.path());
             if (interp.evaluate(filter, e))
                 result.push_back(std::move(e));
         } catch (const Repository_Error &) {
-            // Skip invalid entries
+            // MAIN.md is missing
         } catch (const mado::entry::Entry_Error &) {
-            // Skip invalid entries
+            // The directory name is not a valid timestamp
         }
     }
 
@@ -175,7 +171,10 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
 
     // Time comes from the directory name. Throws Entry_Error if the
     // directory name is not a valid timestamp.
-    e.set_time(entry_dir.filename().string());
+    std::string dir_name = entry_dir.filename().string();
+    if (dir_name.size() > 15)
+        dir_name.resize(15);
+    e.set_time(dir_name); // exception if not valid timestamp
 
     // mtime comes from the MAIN.md modification time.
     auto ftime = std::filesystem::last_write_time(main_md, ec);
