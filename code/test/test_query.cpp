@@ -1105,7 +1105,7 @@ int main(int argc, char **argv) {
 
     if (argc >= 2 && std::string(argv[1]) == "--query") {
         if (argc < 3) {
-            std::fprintf(stderr, "Usage: %s --query <query>\n", argv[0]);
+            fprintf(stderr, "Usage: %s --query <query>\n", argv[0]);
             return 1;
         }
 
@@ -1119,7 +1119,7 @@ int main(int argc, char **argv) {
             auto ast = parser.parse();
             ast_print(ast.get());
         } catch (const Parse_Error &e) {
-            std::fprintf(stderr, "%s", e.format(query).c_str());
+            fprintf(stderr, "%s", e.format(query).c_str());
             return 1;
         }
 

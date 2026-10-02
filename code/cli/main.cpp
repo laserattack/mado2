@@ -9,7 +9,7 @@ int main(int argc, char **argv) {
 
     if (argc <= 1) {
         cli::print_available_commands();
-        std::fprintf(stderr, "No command is provided\n");
+        fprintf(stderr, "No command is provided\n");
         return 1;
     }
 
@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     const cli::Command *cmd = cli::find_command(command_name);
     if (!cmd) {
         cli::print_available_commands();
-        std::fprintf(stderr, "Unknown command: %s\n", command_name.c_str());
+        fprintf(stderr, "Unknown command: %s\n", command_name.c_str());
         return 1;
     }
 

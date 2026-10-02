@@ -45,7 +45,7 @@ const Command *find_command(const std::string &name) {
 }
 
 void print_available_commands() {
-    std::fprintf(stderr, "Available commands:\n");
+    fprintf(stderr, "Available commands:\n");
 
     std::size_t max_width = 0;
     for (const auto &cmd : COMMANDS) {
@@ -54,20 +54,20 @@ void print_available_commands() {
     }
 
     for (const auto &cmd : COMMANDS) {
-        std::fprintf(stderr, "  %-*s - %s\n",
-                     static_cast<int>(max_width), cmd.name.c_str(),
-                     cmd.description.c_str());
+        fprintf(stderr, "  %-*s - %s\n",
+                static_cast<int>(max_width), cmd.name.c_str(),
+                cmd.description.c_str());
     }
 }
 
 void print_command_usage(const Command &command, const std::string &program_name) {
     if (command.signature.empty()) {
-        std::fprintf(stderr, "Usage: %s %s\n",
-                     program_name.c_str(), command.name.c_str());
+        fprintf(stderr, "Usage: %s %s\n",
+                program_name.c_str(), command.name.c_str());
     } else {
-        std::fprintf(stderr, "Usage: %s %s %s\n",
-                     program_name.c_str(), command.name.c_str(),
-                     command.signature.c_str());
+        fprintf(stderr, "Usage: %s %s %s\n",
+                program_name.c_str(), command.name.c_str(),
+                command.signature.c_str());
     }
 }
 
@@ -82,7 +82,7 @@ bool help_run(const std::string &program_name,
     if (!args.empty()) {
         const Command *cmd = find_command(args[0]);
         if (!cmd) {
-            std::fprintf(stderr, "Unknown command: %s\n", args[0].c_str());
+            fprintf(stderr, "Unknown command: %s\n", args[0].c_str());
             print_available_commands();
             return false;
         }
@@ -90,8 +90,8 @@ bool help_run(const std::string &program_name,
         return true;
     }
 
-    std::fprintf(stderr, "mado - markdown organizer\n");
-    std::fprintf(stderr, "Usage: %s <command> [OPTIONS]\n", program_name.c_str());
+    fprintf(stderr, "mado - markdown organizer\n");
+    fprintf(stderr, "Usage: %s <command> [OPTIONS]\n", program_name.c_str());
     print_available_commands();
     return true;
 }
