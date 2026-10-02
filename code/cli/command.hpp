@@ -10,10 +10,11 @@ namespace cli {
 //
 // The command name is what the user types after the program name
 // (e.g. "ls" in `mado ls`). `signature` is the part that appears in
-// the Usage line, e.g. "[OPTIONS] [QUERY...]". `description` is a
+// the Usage line, e.g. "[OPTIONS] [QUERY]". `description` is a
 // one-line summary shown in the command list.
 //
 // `run` receives:
+//   - self: the Command being run (for usage messages)
 //   - program_name: argv[0] as invoked (for usage messages)
 //   - args: the remaining arguments after the command name
 // It returns true on success, false on failure.
@@ -21,7 +22,8 @@ struct Command {
     std::string name;
     std::string signature;
     std::string description;
-    bool (*run)(const std::string &program_name,
+    bool (*run)(const Command &self,
+                const std::string &program_name,
                 const std::vector<std::string> &args);
 };
 

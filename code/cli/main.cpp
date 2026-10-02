@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     for (int i = 2; i < argc; ++i)
         args.emplace_back(argv[i]);
 
-    if (!cmd->run(program_name, args))
+    if (!cmd->run(*cmd, program_name, args))
         return 1;
 
     return 0;
