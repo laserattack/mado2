@@ -47,11 +47,74 @@ class Path_Entry_Info_Formatter : public Entry_Info_Formatter {
 };
 
 class Jsonl_Entry_Info_Formatter : public Entry_Info_Formatter {
+    // Writes a JSON string literal to os.
+    static void print_json_string(const std::string &str, std::ostream &os) {
+        os << '"';
+        for (char c : str) {
+            switch (c) {
+            case '"':
+                os << "\\\"";
+                break;
+            case '\\':
+                os << "\\\\";
+                break;
+            default:
+                os << c;
+            }
+        }
+        os << '"';
+    }
+
   public:
     void write(const mado::entry::Entry &e, std::ostream &os) const override {
-        (void)e;
-        (void)os;
-        // TODO: impl
+        os << "{";
+
+        bool has_any = false;
+        auto sep = [&]() {
+            if (has_any)
+                os << ",";
+            has_any = true;
+        };
+
+        sep();
+        os << "\"path\":";
+        print_json_string(e.path().string(), os);
+
+        sep();
+        os << "\"time\":";
+        print_json_string(e.time(), os);
+
+        sep();
+        os << "\"mtime\":";
+        print_json_string(e.mtime(), os);
+
+        sep();
+        os << "\"name\":";
+        print_json_string(e.name(), os);
+
+        sep();
+        os << "\"priority\":" << e.priority();
+
+        sep();
+        os << "\"deadline\":";
+        print_json_string(e.deadline(), os);
+
+        sep();
+        os << "\"status\":";
+        print_json_string(e.status(), os);
+
+        sep();
+        os << "\"tags\":[";
+        bool first_tag = true;
+        for (const auto &tag : e.tags()) {
+            if (!first_tag)
+                os << ",";
+            print_json_string(tag, os);
+            first_tag = false;
+        }
+        os << "]";
+
+        os << "}\n";
     }
 };
 
