@@ -15,6 +15,8 @@ class Default_Entry_Info_Formatter : public Entry_Info_Formatter {
   public:
     void write(const mado::entry::Entry &e, std::ostream &os) const override {
         os << e.path().string() << ":1:";
+
+        // fields
         os << " PATH:[" << e.path().string() << "]";
         os << " TIME:[" << e.time() << "]";
         os << " MTIME:[" << e.mtime() << "]";
@@ -31,6 +33,8 @@ class Default_Entry_Info_Formatter : public Entry_Info_Formatter {
             first = false;
         }
         os << "]";
+        //
+
         os << "\n";
     }
 };

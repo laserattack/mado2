@@ -6,6 +6,9 @@
 #include <mado/query/parser.hpp>
 #include <mado/repository/repository.hpp>
 
+#define FLAG_IMPLEMENTATION
+#include "flag_context.hpp"
+
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
@@ -26,12 +29,12 @@ class Help_Command : public Command {
     }
 
     bool run(const std::string &program_name,
-             const std::vector<std::string> &args) const override {
+             int argc, char **argv) const override {
         // `mado help <command>` prints usage for a specific command.
-        if (!args.empty()) {
-            const Command *cmd = find_command(args[0]);
+        if (argc > 0) {
+            const Command *cmd = find_command(argv[0]);
             if (!cmd) {
-                fprintf(stderr, "Unknown command: %s\n", args[0].c_str());
+                fprintf(stderr, "Unknown command: %s\n", argv[0]);
                 print_available_commands();
                 return false;
             }
@@ -55,9 +58,10 @@ class Version_Command : public Command {
     }
 
     bool run(const std::string &program_name,
-             const std::vector<std::string> &args) const override {
+             int argc, char **argv) const override {
         (void)program_name;
-        (void)args;
+        (void)argc;
+        (void)argv;
 
         std::printf("mado version %s\n", mado::version);
         return true;
@@ -68,18 +72,43 @@ class Ls_Command : public Command {
   public:
     Ls_Command() {
         name = "ls";
-        signature = "[QUERY]";
+        signature = "[-format <default|path|jsonl>] [QUERY]";
         description = "List entries";
     }
 
     bool run(const std::string &program_name,
-             const std::vector<std::string> &args) const override {
-        if (args.size() > 1) {
+             int argc, char **argv) const override {
+
+        Flag_Context c(name.c_str());
+
+        // Declare flags
+        char *format_name = nullptr;
+        flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        //
+
+        // Parse flags
+        if (!flag_c_parse(c, argc, argv)) {
             print_command_usage(*this, program_name);
             return false;
         }
+        argc = flag_c_rest_argc(c);
+        argv = flag_c_rest_argv(c);
+        //
 
-        const std::string query = args.empty() ? "" : args[0];
+        if (argc > 1) {
+            print_command_usage(*this, program_name);
+            fprintf(stderr, "QUERY must be a single argument\n");
+            return false;
+        }
+
+        const std::string query = (argc == 0) ? "" : argv[0];
+
+        auto fmt_opt = parse_entry_info_format(format_name);
+        if (!fmt_opt) {
+            fprintf(stderr, "Unknown format: %s\n", format_name);
+            return false;
+        }
+        auto fmt = *fmt_opt;
 
         // Open the repository from the current working directory.
         auto repo = mado::repository::Repository::open(std::filesystem::current_path());
@@ -105,7 +134,7 @@ class Ls_Command : public Command {
         // Empty query = all entries
         auto entries = repo->find(ast.get());
 
-        auto formatter = make_entry_info_formatter(Entry_Info_Format::Default);
+        auto formatter = make_entry_info_formatter(fmt);
         for (const auto &e : entries)
             formatter->write(e, std::cout);
 

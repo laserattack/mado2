@@ -21,7 +21,6 @@ meson compile -C build
 
 # License
 
-This project is distributed under the WTFPL, except for the vendored
-utf8proc library, which is distributed under its own licenses (MIT and
-Unicode Data License). See
-[code/libmado/3rdparty/utf8proc/LICENSE.md](code/libmado/3rdparty/utf8proc/LICENSE.md)
+- This project: WTFPL
+- Vendored `utf8proc`: MIT and Unicode Data License
+- Vendored `flag.h`: MIT

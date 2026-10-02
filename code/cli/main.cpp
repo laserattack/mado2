@@ -2,7 +2,6 @@
 
 #include <cstdio>
 #include <string>
-#include <vector>
 
 int main(int argc, char **argv) {
     std::string program_name = (argc > 0) ? argv[0] : "mado";
@@ -22,13 +21,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Collect the remaining arguments.
-    std::vector<std::string> args;
-    args.reserve(argc - 2);
-    for (int i = 2; i < argc; ++i)
-        args.emplace_back(argv[i]);
-
-    if (!cmd->run(program_name, args))
+    if (!cmd->run(program_name, argc - 2, argv + 2))
         return 1;
 
     return 0;
