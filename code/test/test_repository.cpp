@@ -401,6 +401,19 @@ static void test_load_entry_suffix_dir() {
          entries[0].path() == entry_dir / "MAIN.md");
 }
 
+static void test_load_entry_old_t_separator() {
+    Temp_Dir tmp;
+    auto entry_dir = make_entry(tmp.path(), "20260920T215549", "- NAME: x\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].name() == "x" &&
+         entries[0].time() == "20260920-215549" &&
+         entries[0].path() == entry_dir / "MAIN.md");
+}
+
 // entry point
 
 int main() {
@@ -431,6 +444,7 @@ int main() {
         {"Load tags empty token at start", "TAGS: ,tag1 -> ['', tag1]", test_load_tags_with_empty_token_at_start},
         {"Load repeated field ignored", "NAME/STATUS taken from first occurrence", test_load_repeated_field_ignored},
         {"Load entry dir suffix", "20260920-215549-serr", test_load_entry_suffix_dir},
+        {"Load entry old T separator", "20260920T215549 -> 20260920-215549", test_load_entry_old_t_separator},
     };
-    return run_tests(tests);
+    return run_tests(tests, "repository: ");
 }

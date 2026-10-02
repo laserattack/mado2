@@ -169,11 +169,17 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
         throw Repository_Error("No " + std::string(ENTRY_FILE) +
                                " in " + entry_dir.string());
 
-    // Time comes from the directory name. Throws Entry_Error if the
-    // directory name is not a valid timestamp.
+    // Time comes from the directory name.
     std::string dir_name = entry_dir.filename().string();
+
+    // Allow suffixes in dir names after timestamp part.
     if (dir_name.size() > 15)
         dir_name.resize(15);
+
+    // Old format uses 'T' as the date/time separator - accept it too.
+    if (dir_name.size() > 8 && dir_name[8] == 'T')
+        dir_name[8] = '-';
+
     e.set_time(dir_name); // exception if not valid timestamp
 
     // mtime comes from the MAIN.md modification time.

@@ -1200,5 +1200,5 @@ int main(int argc, char **argv) {
         {"Parser range wrong type", "parse 'priority in [a..z]' throws", test_parser_range_wrong_type_throws},
     };
 
-    return run_tests(tests);
+    return run_tests(tests, "query: ");
 }

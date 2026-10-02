@@ -422,5 +422,5 @@ int main() {
         {"Name unicode CI ge", "name >= лалала matches ЛаЛаЛа", test_match_name_unicode_ci_ge},
         {"Name unicode CI le", "name <= лалала matches ЛаЛаЛа", test_match_name_unicode_ci_le},
     };
-    return run_tests(tests);
+    return run_tests(tests, "interpreter: ");
 }

@@ -12,4 +12,4 @@ struct Test_Case {
 size_t &total_tests();
 size_t &failed_tests();
 void test(bool check);
-int run_tests(const std::vector<Test_Case> &tests);
+int run_tests(const std::vector<Test_Case> &tests, const char *prefix);
