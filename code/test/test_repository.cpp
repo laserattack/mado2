@@ -535,7 +535,7 @@ int main() {
         {"Init creates MADO", "init creates MADO/ and returns repo", test_init_creates_mado},
         {"Init fails if MADO exists here", "init refuses existing MADO/", test_init_fails_if_mado_exists_here},
         {"Init fails if MADO exists above", "init refuses nested MADO/ without force", test_init_fails_if_mado_exists_above},
-        {"Init force allows nested", "init --force creates nested MADO/", test_init_force_allows_nested},
+        {"Init force allows nested", "init -force creates nested MADO/", test_init_force_allows_nested},
         {"Init then open", "open finds MADO/ created by init", test_init_then_open},
     };
     return run_tests(tests, "repository: ");

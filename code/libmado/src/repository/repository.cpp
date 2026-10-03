@@ -125,8 +125,7 @@ Repository Repository::init(const std::filesystem::path &where, bool force) {
     // Refuse if MADO/ is found above, unless force.
     if (!force) {
         if (open(abs_where.parent_path()))
-            throw Repository_Error("MADO/ already exists above " + abs_where.string() +
-                                   " (use --force to create a nested one)");
+            throw Repository_Error("MADO/ already exists above " + abs_where.string());
     }
 
     // Create MADO/.

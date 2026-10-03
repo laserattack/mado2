@@ -1103,9 +1103,9 @@ static void test_parser_range_wrong_type_throws() {
 
 int main(int argc, char **argv) {
 
-    if (argc >= 2 && std::string(argv[1]) == "--query") {
+    if (argc >= 2 && std::string(argv[1]) == "-query") {
         if (argc < 3) {
-            fprintf(stderr, "Usage: %s --query <query>\n", argv[0]);
+            fprintf(stderr, "Usage: %s -query <query>\n", argv[0]);
             return 1;
         }
 

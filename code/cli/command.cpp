@@ -221,12 +221,60 @@ class Rm_Command : public Command {
     }
 };
 
+class Init_Command : public Command {
+  public:
+    Init_Command() {
+        name = "init";
+        signature = "[-force]";
+        description = "Create MADO/ in the current directory";
+    }
+
+    bool run(const std::string &program_name,
+             int argc, char **argv) const override {
+
+        Flag_Context c(name.c_str());
+
+        // Declare flags
+        bool force = false;
+        flag_c_bool_var(c, &force, "force", false, "Create MADO/ even if one exists above");
+        //
+
+        // Parse flags
+        if (!flag_c_parse(c, argc, argv)) {
+            print_command_usage(*this, program_name);
+            flag_c_print_error(c, stderr);
+            return false;
+        }
+        argc = flag_c_rest_argc(c);
+        argv = flag_c_rest_argv(c);
+        //
+
+        if (argc > 0) {
+            print_command_usage(*this, program_name);
+            fprintf(stderr, "init takes no positional arguments\n");
+            return false;
+        }
+
+        try {
+            auto repo = mado::repository::Repository::init(
+                std::filesystem::current_path(), force);
+            std::printf("%s\n", repo.root().c_str());
+        } catch (const std::exception &e) {
+            fprintf(stderr, "%s\n", e.what());
+            return false;
+        }
+
+        return true;
+    }
+};
+
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     std::vector<std::unique_ptr<Command>> cmds;
     cmds.push_back(std::make_unique<Help_Command>());
     cmds.push_back(std::make_unique<Version_Command>());
     cmds.push_back(std::make_unique<Ls_Command>());
     cmds.push_back(std::make_unique<Rm_Command>());
+    cmds.push_back(std::make_unique<Init_Command>());
     return cmds;
 }();
 
