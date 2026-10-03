@@ -108,10 +108,20 @@ std::optional<Repository> Repository::open(const std::filesystem::path &from) {
 
 std::vector<mado::entry::Entry> Repository::find(const mado::query::Ast_Node *filter) const {
     std::vector<mado::entry::Entry> result;
+    for_each_matching(filter, [&](mado::entry::Entry e) {
+        result.push_back(std::move(e));
+        return true;
+    });
+    return result;
+}
+
+template <class Action>
+void Repository::for_each_matching(const mado::query::Ast_Node *filter,
+                                   Action action) const {
 
     std::error_code ec;
     if (!std::filesystem::is_directory(root_, ec))
-        return result;
+        return;
 
     mado::interpreter::Interpreter interp;
 
@@ -122,20 +132,18 @@ std::vector<mado::entry::Entry> Repository::find(const mado::query::Ast_Node *fi
         if (!dir_entry.is_directory())
             continue;
 
-        const std::string name = dir_entry.path().filename().string();
-
         try {
             mado::entry::Entry e = load_one(dir_entry.path());
-            if (interp.evaluate(filter, e))
-                result.push_back(std::move(e));
+            if (interp.evaluate(filter, e)) {
+                if (!action(std::move(e)))
+                    return;
+            }
         } catch (const Repository_Error &) {
             // MAIN.md is missing
         } catch (const mado::entry::Entry_Error &) {
             // The directory name is not a valid timestamp
         }
     }
-
-    return result;
 }
 
 // Loads one entry from MADO/<timestamp>/.
