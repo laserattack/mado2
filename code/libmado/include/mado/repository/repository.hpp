@@ -18,6 +18,10 @@ class Repository {
     // Invalid entries are skipped. Only matching entries are kept in memory.
     std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;
 
+    // Finds entries matching the filter, removes their directories, and
+    // returns the removed entries.
+    std::vector<mado::entry::Entry> find_and_remove(const mado::query::Ast_Node *filter) const;
+
     // Iterates over entries matching the filter and calls `action` for
     // each. The action receives the entry by value, so it can move it
     // out. If the action returns false, iteration stops early.

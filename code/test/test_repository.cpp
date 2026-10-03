@@ -414,6 +414,35 @@ static void test_load_entry_old_t_separator() {
          entries[0].path() == entry_dir / "MAIN.md");
 }
 
+static void test_find_and_remove() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000", "- NAME: a\n");
+    make_entry(tmp.path(), "20260202-130000", "- NAME: b\n");
+    make_entry(tmp.path(), "20260303-140000", "- NAME: c\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto ast = parse("name = b");
+    auto removed = repo->find_and_remove(ast.get());
+
+    test(removed.size() == 1 &&
+         removed[0].name() == "b" &&
+         !std::filesystem::exists(tmp.path() / "MADO" / "20260202-130000") &&
+         std::filesystem::exists(tmp.path() / "MADO" / "20260101-120000") &&
+         std::filesystem::exists(tmp.path() / "MADO" / "20260303-140000"));
+}
+
+static void test_find_and_remove_no_match() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000", "- NAME: a\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto ast = parse("name = nonexistent");
+    auto removed = repo->find_and_remove(ast.get());
+
+    test(removed.empty() &&
+         std::filesystem::exists(tmp.path() / "MADO" / "20260101-120000"));
+}
+
 // entry point
 
 int main() {
@@ -445,6 +474,8 @@ int main() {
         {"Load repeated field ignored", "NAME/STATUS taken from first occurrence", test_load_repeated_field_ignored},
         {"Load entry dir suffix", "20260920-215549-serr", test_load_entry_suffix_dir},
         {"Load entry old T separator", "20260920T215549 -> 20260920-215549", test_load_entry_old_t_separator},
+        {"Find and remove", "name = b removes only b", test_find_and_remove},
+        {"Find and remove no match", "nothing removed", test_find_and_remove_no_match},
     };
     return run_tests(tests, "repository: ");
 }

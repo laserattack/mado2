@@ -106,10 +106,30 @@ std::optional<Repository> Repository::open(const std::filesystem::path &from) {
     return std::nullopt;
 }
 
-std::vector<mado::entry::Entry> Repository::find(const mado::query::Ast_Node *filter) const {
+std::vector<mado::entry::Entry> Repository::find(
+    const mado::query::Ast_Node *filter) const {
+
     std::vector<mado::entry::Entry> result;
     for_each_matching(filter, [&](mado::entry::Entry e) {
         result.push_back(std::move(e));
+        return true;
+    });
+    return result;
+}
+
+std::vector<mado::entry::Entry> Repository::find_and_remove(
+    const mado::query::Ast_Node *filter) const {
+
+    std::vector<mado::entry::Entry> result;
+    for_each_matching(filter, [&](mado::entry::Entry e) {
+        std::error_code ec;
+        std::filesystem::remove_all(e.path().parent_path(), ec);
+        // TODO: decide what to do when remove_all fails. Options:
+        //   - skip silently (current)
+        //   - throw std::filesystem::filesystem_error
+        //   - return something like Remove_Result with both removed and failed entries
+        if (!ec)
+            result.push_back(std::move(e));
         return true;
     });
     return result;
