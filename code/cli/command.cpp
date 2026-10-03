@@ -34,8 +34,9 @@ class Help_Command : public Command {
         if (argc > 0) {
             const Command *cmd = find_command(argv[0]);
             if (!cmd) {
-                fprintf(stderr, "Unknown command: %s\n", argv[0]);
                 print_available_commands();
+                fprintf(stderr, "\n");
+                fprintf(stderr, "Unknown command: %s\n", argv[0]);
                 return false;
             }
             print_command_usage(*cmd, program_name);
@@ -367,6 +368,11 @@ void print_available_commands() {
                 static_cast<int>(max_width), cmd->name.c_str(),
                 cmd->description.c_str());
     }
+
+    // handling global flags in main.cpp
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Global flags (before the command):\n");
+    fprintf(stderr, "  -C <path> - Change to <path> before running\n");
 }
 
 void print_command_usage(const Command &command, const std::string &program_name) {
