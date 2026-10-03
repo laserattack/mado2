@@ -14,6 +14,15 @@ class Repository {
     // Find MADO/ starting from `from`, going up the tree.
     static std::optional<Repository> open(const std::filesystem::path &from);
 
+    // Creates MADO/ in `where`. Returns the opened Repository.
+    //
+    // Throws:
+    //   - Repository_Error: MADO/ already exists in `where`, or it is
+    //     found above `where` and `force` is false.
+    //   - std::runtime_error: the directory cannot be resolved or
+    //     created (I/O problem).
+    static Repository init(const std::filesystem::path &where, bool force = false);
+
     // Load entries matching the filter.
     // Invalid entries are skipped. Only matching entries are kept in memory.
     std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;

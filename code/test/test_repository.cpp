@@ -443,6 +443,62 @@ static void test_remove_no_match() {
          std::filesystem::exists(tmp.path() / "MADO" / "20260101-120000"));
 }
 
+static void test_init_creates_mado() {
+    Temp_Dir tmp;
+
+    auto repo = Repository::init(tmp.path());
+    test(std::filesystem::is_directory(tmp.path() / "MADO") &&
+         repo.root() == tmp.path() / "MADO");
+}
+
+static void test_init_fails_if_mado_exists_here() {
+    Temp_Dir tmp;
+    std::filesystem::create_directories(tmp.path() / "MADO");
+
+    bool thrown = false;
+    try {
+        Repository::init(tmp.path());
+    } catch (const std::runtime_error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_init_fails_if_mado_exists_above() {
+    Temp_Dir tmp;
+    std::filesystem::create_directories(tmp.path() / "MADO");
+    auto nested = tmp.path() / "a" / "b";
+    std::filesystem::create_directories(nested);
+
+    bool thrown = false;
+    try {
+        Repository::init(nested);
+    } catch (const std::runtime_error &) {
+        thrown = true;
+    }
+    test(thrown);
+}
+
+static void test_init_force_allows_nested() {
+    Temp_Dir tmp;
+    std::filesystem::create_directories(tmp.path() / "MADO");
+    auto nested = tmp.path() / "a" / "b";
+    std::filesystem::create_directories(nested);
+
+    auto repo = Repository::init(nested, true);
+    test(std::filesystem::is_directory(nested / "MADO") &&
+         repo.root() == nested / "MADO");
+}
+
+static void test_init_then_open() {
+    Temp_Dir tmp;
+
+    Repository::init(tmp.path());
+    auto repo = Repository::open(tmp.path());
+    test(repo.has_value() &&
+         repo->root() == tmp.path() / "MADO");
+}
+
 // entry point
 
 int main() {
@@ -476,6 +532,11 @@ int main() {
         {"Load entry old T separator", "20260920T215549 -> 20260920-215549", test_load_entry_old_t_separator},
         {"Remove", "name = b removes only b", test_remove},
         {"Remove no match", "nothing removed", test_remove_no_match},
+        {"Init creates MADO", "init creates MADO/ and returns repo", test_init_creates_mado},
+        {"Init fails if MADO exists here", "init refuses existing MADO/", test_init_fails_if_mado_exists_here},
+        {"Init fails if MADO exists above", "init refuses nested MADO/ without force", test_init_fails_if_mado_exists_above},
+        {"Init force allows nested", "init --force creates nested MADO/", test_init_force_allows_nested},
+        {"Init then open", "open finds MADO/ created by init", test_init_then_open},
     };
     return run_tests(tests, "repository: ");
 }

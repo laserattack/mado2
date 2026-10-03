@@ -106,6 +106,38 @@ std::optional<Repository> Repository::open(const std::filesystem::path &from) {
     return std::nullopt;
 }
 
+Repository Repository::init(const std::filesystem::path &where, bool force) {
+    std::error_code ec;
+
+    const auto abs_where = std::filesystem::absolute(where, ec);
+    if (ec)
+        throw std::runtime_error("Cannot resolve path " + where.string() + ": " + ec.message());
+
+    const auto mado_dir = abs_where / ENTRY_DIR;
+
+    // Refuse if MADO/ already exists in `where` itself.
+    const bool exists_here = std::filesystem::exists(mado_dir, ec);
+    if (ec)
+        throw std::runtime_error("Cannot check " + mado_dir.string() + ": " + ec.message());
+    if (exists_here)
+        throw Repository_Error("MADO/ already exists in " + abs_where.string());
+
+    // Refuse if MADO/ is found above, unless force.
+    if (!force) {
+        if (open(abs_where.parent_path()))
+            throw Repository_Error("MADO/ already exists above " + abs_where.string() +
+                                   " (use --force to create a nested one)");
+    }
+
+    // Create MADO/.
+    if (!std::filesystem::create_directory(mado_dir, ec)) {
+        if (ec)
+            throw std::runtime_error("Cannot create " + mado_dir.string() + ": " + ec.message());
+    }
+
+    return Repository(mado_dir);
+}
+
 std::vector<mado::entry::Entry> Repository::find(
     const mado::query::Ast_Node *filter) const {
 
