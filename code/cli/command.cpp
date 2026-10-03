@@ -242,7 +242,6 @@ class Init_Command : public Command {
         // Parse flags
         if (!flag_c_parse(c, argc, argv)) {
             print_command_usage(*this, program_name);
-            flag_c_print_error(c, stderr);
             return false;
         }
         argc = flag_c_rest_argc(c);
@@ -268,6 +267,67 @@ class Init_Command : public Command {
     }
 };
 
+class New_Command : public Command {
+  public:
+    New_Command() {
+        name = "new";
+        signature = "[-suffix <str>] [-format <default|path|jsonl>]";
+        description = "Create a new entry";
+    }
+
+    bool run(const std::string &program_name,
+             int argc, char **argv) const override {
+
+        Flag_Context c(name.c_str());
+
+        // Declare flags
+        char *suffix = nullptr;
+        flag_c_str_var(c, &suffix, "suffix", "", "Optional suffix for the entry directory name");
+        char *format_name = nullptr;
+        flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        //
+
+        // Parse flags
+        if (!flag_c_parse(c, argc, argv)) {
+            print_command_usage(*this, program_name);
+            return false;
+        }
+        argc = flag_c_rest_argc(c);
+        argv = flag_c_rest_argv(c);
+        //
+
+        if (argc > 0) {
+            print_command_usage(*this, program_name);
+            fprintf(stderr, "new takes no positional arguments\n");
+            return false;
+        }
+
+        auto fmt_opt = parse_entry_info_format(format_name);
+        if (!fmt_opt) {
+            fprintf(stderr, "Unknown format: %s\n", format_name);
+            return false;
+        }
+        auto fmt = *fmt_opt;
+
+        auto repo = mado::repository::Repository::open(std::filesystem::current_path());
+        if (!repo) {
+            fprintf(stderr, "No MADO/ directory found\n");
+            return false;
+        }
+
+        try {
+            auto entry = repo->create(suffix);
+            auto formatter = make_entry_info_formatter(fmt);
+            formatter->write(entry, std::cout);
+        } catch (const std::exception &e) {
+            fprintf(stderr, "%s\n", e.what());
+            return false;
+        }
+
+        return true;
+    }
+};
+
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     std::vector<std::unique_ptr<Command>> cmds;
     cmds.push_back(std::make_unique<Help_Command>());
@@ -275,6 +335,7 @@ const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     cmds.push_back(std::make_unique<Ls_Command>());
     cmds.push_back(std::make_unique<Rm_Command>());
     cmds.push_back(std::make_unique<Init_Command>());
+    cmds.push_back(std::make_unique<New_Command>());
     return cmds;
 }();
 
