@@ -1,15 +1,31 @@
 #include <mado/common/time_utils.hpp>
 
+#include <ctime>
+#include <string>
+
 namespace mado::common {
 
-std::tm localtime_threadsafe(std::time_t t) {
+namespace {
+
+std::tm gmtime(std::time_t t) {
     std::tm bt{};
 #if defined(_MSC_VER)
-    localtime_s(&bt, &t);
+    gmtime_s(&bt, &t);
 #else
-    localtime_r(&t, &bt);
+    gmtime_r(&t, &bt);
 #endif
     return bt;
+}
+
+} // namespace
+
+// Returns the current UTC time in YYYYMMDD-HHMMSS.
+std::string current_timestamp_utc() {
+    std::time_t t = std::time(nullptr);
+    std::tm tm = gmtime(t);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", &tm);
+    return buf;
 }
 
 } // namespace mado::common

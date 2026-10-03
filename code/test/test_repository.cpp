@@ -499,6 +499,36 @@ static void test_init_then_open() {
          repo->root() == tmp.path() / "MADO");
 }
 
+static void test_create() {
+    Temp_Dir tmp;
+    std::filesystem::create_directories(tmp.path() / "MADO");
+
+    auto repo = Repository::open(tmp.path());
+    auto e = repo->create();
+
+    test(std::filesystem::exists(e.path()) &&
+         std::filesystem::is_regular_file(e.path()) &&
+         e.path().filename() == "MAIN.md" &&
+         e.path().parent_path().parent_path() == tmp.path() / "MADO");
+}
+
+static void test_create_then_find() {
+    Temp_Dir tmp;
+    std::filesystem::create_directories(tmp.path() / "MADO");
+
+    auto repo = Repository::open(tmp.path());
+    repo->create();
+
+    auto entries = repo->find(nullptr);
+    test(entries.size() == 1 &&
+         entries[0].name().empty() &&
+         entries[0].priority() == 0 &&
+         entries[0].status().empty() &&
+         entries[0].tags().size() == 1 &&
+         entries[0].tags()[0].empty() &&
+         entries[0].deadline() == "99990101-000000");
+}
+
 // entry point
 
 int main() {
@@ -537,6 +567,8 @@ int main() {
         {"Init fails if MADO exists above", "init refuses nested MADO/ without force", test_init_fails_if_mado_exists_above},
         {"Init force allows nested", "init -force creates nested MADO/", test_init_force_allows_nested},
         {"Init then open", "open finds MADO/ created by init", test_init_then_open},
+        {"Create", "create makes MAIN.md", test_create},
+        {"Create then find", "created entry is found by find", test_create_then_find},
     };
     return run_tests(tests, "repository: ");
 }

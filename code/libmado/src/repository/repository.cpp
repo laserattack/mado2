@@ -197,6 +197,44 @@ void Repository::for_each_matching(const mado::query::Ast_Node *filter,
     }
 }
 
+// TODO: validate suffix?? what if the suffix contains / ?
+mado::entry::Entry Repository::create(const std::string &suffix) const {
+    std::string dir_name = mado::common::current_timestamp_utc();
+    if (!suffix.empty())
+        dir_name += suffix;
+
+    const auto entry_dir = root_ / dir_name;
+    const auto main_md = entry_dir / ENTRY_FILE;
+
+    std::error_code ec;
+
+    // Refuse if the directory already exists. This can happen if two
+    // entries are created within the same second.
+    const bool exists = std::filesystem::exists(entry_dir, ec);
+    if (ec)
+        throw std::runtime_error("Cannot check " + entry_dir.string() + ": " + ec.message());
+    if (exists)
+        throw std::runtime_error("Entry " + dir_name + " already exists; try again in a second");
+
+    // Create MADO/<timestamp>/.
+    std::filesystem::create_directory(entry_dir, ec);
+    if (ec)
+        throw std::runtime_error("Cannot create " + entry_dir.string() + ": " + ec.message());
+
+    // Write the empty header to MAIN.md.
+    std::ofstream out(main_md);
+    if (!out)
+        throw std::runtime_error("Cannot create " + main_md.string());
+
+    out << "- NAME:\n"
+        << "- PRIORITY:\n"
+        << "- TAGS:\n"
+        << "- STATUS:\n"
+        << "- DEADLINE:\n";
+
+    return load_one(entry_dir);
+}
+
 // Loads one entry from MADO/<timestamp>/.
 //
 // The entry directory name must be a valid timestamp; otherwise

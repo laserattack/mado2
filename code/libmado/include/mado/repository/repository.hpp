@@ -31,6 +31,23 @@ class Repository {
     // returns the removed entries.
     std::vector<mado::entry::Entry> remove(const mado::query::Ast_Node *filter) const;
 
+    // Creates a new entry in MADO/ with an empty header:
+    //
+    //   - NAME:
+    //   - PRIORITY:
+    //   - TAGS:
+    //   - STATUS:
+    //   - DEADLINE:
+    //
+    // The directory name is the current UTC time in YYYYMMDD-HHMMSS,
+    // optionally followed by <suffix>.
+    // Returns the created Entry.
+    //
+    // Throws:
+    //   - std::runtime_error: cannot create the directory or file, or
+    //     the generated name collides with an existing one.
+    mado::entry::Entry create(const std::string &suffix = "") const;
+
     // Iterates over entries matching the filter and calls `action` for
     // each. The action receives the entry by value, so it can move it
     // out. If the action returns false, iteration stops early.

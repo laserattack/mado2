@@ -1,11 +1,10 @@
 #pragma once
 
-#include <ctime>
+#include <string>
 
 namespace mado::common {
 
-// Thread-safe localtime.
-// localtime_r on POSIX, localtime_s on MSVC.
-std::tm localtime_threadsafe(std::time_t t);
+// Returns the current UTC time in YYYYMMDD-HHMMSS.
+std::string current_timestamp_utc();
 
 } // namespace mado::common
