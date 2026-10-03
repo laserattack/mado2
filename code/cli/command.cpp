@@ -142,11 +142,91 @@ class Ls_Command : public Command {
     }
 };
 
+class Rm_Command : public Command {
+  public:
+    Rm_Command() {
+        name = "rm";
+        signature = "[-format <default|path|jsonl>] <QUERY>";
+        description = "Remove entries";
+    }
+
+    bool run(const std::string &program_name,
+             int argc, char **argv) const override {
+
+        Flag_Context c(name.c_str());
+
+        // Declare flags
+        char *format_name = nullptr;
+        flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        //
+
+        // Parse flags
+        if (!flag_c_parse(c, argc, argv)) {
+            print_command_usage(*this, program_name);
+            return false;
+        }
+        argc = flag_c_rest_argc(c);
+        argv = flag_c_rest_argv(c);
+        //
+
+        if (argc == 0) {
+            print_command_usage(*this, program_name);
+            fprintf(stderr, "QUERY is required\n");
+            return false;
+        }
+
+        if (argc > 1) {
+            print_command_usage(*this, program_name);
+            fprintf(stderr, "QUERY must be a single argument\n");
+            return false;
+        }
+
+        const std::string query = argv[0];
+
+        auto fmt_opt = parse_entry_info_format(format_name);
+        if (!fmt_opt) {
+            fprintf(stderr, "Unknown format: %s\n", format_name);
+            return false;
+        }
+        auto fmt = *fmt_opt;
+
+        // Parse the query.
+        std::unique_ptr<mado::query::Ast_Node> ast;
+        {
+            mado::query::Lexer lexer(query);
+            auto tokens = lexer.tokenize();
+            mado::query::Parser parser(std::move(tokens));
+            try {
+                ast = parser.parse();
+            } catch (const mado::query::Parse_Error &e) {
+                fprintf(stderr, "%s", e.format(query).c_str());
+                return false;
+            }
+        }
+
+        // Open the repository from the current working directory.
+        auto repo = mado::repository::Repository::open(std::filesystem::current_path());
+        if (!repo) {
+            fprintf(stderr, "No MADO/ directory found\n");
+            return false;
+        }
+
+        auto removed = repo->remove(ast.get());
+
+        auto formatter = make_entry_info_formatter(fmt);
+        for (const auto &e : removed)
+            formatter->write(e, std::cout);
+
+        return true;
+    }
+};
+
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     std::vector<std::unique_ptr<Command>> cmds;
     cmds.push_back(std::make_unique<Help_Command>());
     cmds.push_back(std::make_unique<Version_Command>());
     cmds.push_back(std::make_unique<Ls_Command>());
+    cmds.push_back(std::make_unique<Rm_Command>());
     return cmds;
 }();
 

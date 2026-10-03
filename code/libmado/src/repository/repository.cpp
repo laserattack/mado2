@@ -117,7 +117,7 @@ std::vector<mado::entry::Entry> Repository::find(
     return result;
 }
 
-std::vector<mado::entry::Entry> Repository::find_and_remove(
+std::vector<mado::entry::Entry> Repository::remove(
     const mado::query::Ast_Node *filter) const {
 
     std::vector<mado::entry::Entry> result;
