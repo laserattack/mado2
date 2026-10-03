@@ -303,6 +303,9 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     while (line_number < MAX_HEADER_LINES && std::getline(in, line)) {
         ++line_number;
 
+        if (has_name && has_tags && has_status && has_priority && has_deadline)
+            break;
+
         const std::string t = mado::common::trim(line);
         if (t.empty())
             continue;
