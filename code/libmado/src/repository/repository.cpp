@@ -190,7 +190,7 @@ void Repository::for_each_matching(const mado::query::Ast_Node *filter,
                     return;
             }
         } catch (const Repository_Error &) {
-            // MAIN.md is missing
+            // MAIN.md is missing or cannot be opened
         } catch (const mado::entry::Entry_Error &) {
             // The directory name is not a valid timestamp
         }
@@ -252,8 +252,8 @@ mado::entry::Entry Repository::create(const std::string &suffix) const {
 // malformed DEADLINE) are ignored, and the field keeps its default.
 //
 // Errors:
-//   - Repository_Error: MAIN.md is missing.
-//   - std::runtime_error: MAIN.md cannot be stat'ed or opened;
+//   - Repository_Error: MAIN.md is missing or cannot be opened.
+//   - std::runtime_error: MAIN.md cannot be stat'ed;
 //     this indicates an I/O problem, not a malformed entry.
 //   - Entry_Error: the directory name is not a valid timestamp.
 mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) const {
@@ -261,10 +261,9 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
 
     const auto main_md = entry_dir / ENTRY_FILE;
 
-    std::error_code ec;
-    if (!std::filesystem::is_regular_file(main_md, ec))
-        throw Repository_Error("No " + std::string(ENTRY_FILE) +
-                               " in " + entry_dir.string());
+    std::ifstream in(main_md);
+    if (!in)
+        throw Repository_Error("Cannot open " + main_md.string());
 
     // Time comes from the directory name.
     std::string dir_name = entry_dir.filename().string();
@@ -280,6 +279,7 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     e.set_time(dir_name); // exception if not valid timestamp
 
     // mtime comes from the MAIN.md modification time.
+    std::error_code ec;
     auto ftime = std::filesystem::last_write_time(main_md, ec);
     if (ec)
         throw std::runtime_error("Cannot stat " + main_md.string());
@@ -289,10 +289,6 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
                                 file_time_to_system_clock(ftime))));
 
     e.set_path(main_md);
-
-    std::ifstream in(main_md);
-    if (!in)
-        throw std::runtime_error("Cannot open " + main_md.string());
 
     std::string line;
     int line_number = 0;
