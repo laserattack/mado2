@@ -26,5 +26,6 @@ bool is_timestamp(const std::string &str);
 
 // Trims leading and trailing whitespace
 std::string trim(const std::string &s);
+void trim_inplace(std::string &s);
 
 } // namespace mado::common

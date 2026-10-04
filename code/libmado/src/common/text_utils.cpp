@@ -32,6 +32,17 @@ bool is_valid_date(int year, int month, int day) {
 
 } // namespace
 
+void trim_inplace(std::string &s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) {
+        s.clear();
+        return;
+    }
+    size_t end = s.find_last_not_of(" \t\r\n");
+    s.erase(end + 1);
+    s.erase(0, start);
+}
+
 std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     size_t end = s.find_last_not_of(" \t\r\n");

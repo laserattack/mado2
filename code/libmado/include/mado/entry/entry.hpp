@@ -27,14 +27,14 @@ class Entry {
     const std::string &deadline() const { return deadline_; }
 
     // Setters
-    void set_path(const std::filesystem::path &p);
-    void set_name(const std::string &n);
-    void set_status(const std::string &s);
+    void set_path(std::filesystem::path p);
+    void set_name(std::string n);
+    void set_status(std::string s);
     void set_priority(uint16_t p);
-    void set_tags(const std::vector<std::string> &t);
-    void set_time(const std::string &t);
-    void set_mtime(const std::string &t);
-    void set_deadline(const std::string &t);
+    void set_tags(std::vector<std::string> t);
+    void set_time(std::string t);
+    void set_mtime(std::string t);
+    void set_deadline(std::string t);
 
   private:
     std::filesystem::path path_ = "";

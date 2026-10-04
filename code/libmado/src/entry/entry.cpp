@@ -3,16 +3,16 @@
 
 namespace mado::entry {
 
-void Entry::set_path(const std::filesystem::path &p) {
-    path_ = p;
+void Entry::set_path(std::filesystem::path p) {
+    path_ = std::move(p);
 }
 
-void Entry::set_name(const std::string &n) {
-    name_ = n;
+void Entry::set_name(std::string n) {
+    name_ = std::move(n);
 }
 
-void Entry::set_status(const std::string &s) {
-    status_ = s;
+void Entry::set_status(std::string s) {
+    status_ = std::move(s);
 }
 
 void Entry::set_priority(uint16_t p) {
@@ -22,28 +22,28 @@ void Entry::set_priority(uint16_t p) {
 }
 
 // {""} represents "no tags"; an empty vector is invalid.
-void Entry::set_tags(const std::vector<std::string> &t) {
+void Entry::set_tags(std::vector<std::string> t) {
     if (t.empty())
         throw Entry_Error("Tags must not be empty");
-    tags_ = t;
+    tags_ = std::move(t);
 }
 
-void Entry::set_time(const std::string &t) {
+void Entry::set_time(std::string t) {
     if (!mado::common::is_timestamp(t))
         throw Entry_Error("Invalid timestamp: " + t);
-    time_ = t;
+    time_ = std::move(t);
 }
 
-void Entry::set_mtime(const std::string &t) {
+void Entry::set_mtime(std::string t) {
     if (!mado::common::is_timestamp(t))
         throw Entry_Error("Invalid timestamp: " + t);
-    mtime_ = t;
+    mtime_ = std::move(t);
 }
 
-void Entry::set_deadline(const std::string &t) {
+void Entry::set_deadline(std::string t) {
     if (!mado::common::is_timestamp(t))
         throw Entry_Error("Invalid timestamp: " + t);
-    deadline_ = t;
+    deadline_ = std::move(t);
 }
 
 } // namespace mado::entry

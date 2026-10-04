@@ -258,7 +258,7 @@ mado::entry::Entry Repository::create(const std::string &suffix) const {
 mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) const {
     mado::entry::Entry e;
 
-    const auto main_md = entry_dir / ENTRY_FILE;
+    auto main_md = entry_dir / ENTRY_FILE;
 
     std::ifstream in(main_md);
     if (!in)
@@ -288,11 +288,10 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
             std::chrono::floor<std::chrono::seconds>(
                 file_time_to_system_clock(ftime)))));
 
-    e.set_path(main_md);
+    e.set_path(std::move(main_md));
 
     std::string line;
     int line_number = 0;
-    std::vector<std::string> tags;
 
     bool has_name = false;
     bool has_tags = false;
@@ -306,36 +305,36 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
         if (has_name && has_tags && has_status && has_priority && has_deadline)
             break;
 
-        const std::string t = mado::common::trim(line);
-        if (t.empty())
+        mado::common::trim_inplace(line);
+        if (line.empty())
             continue;
 
-        if (!t.starts_with("- "))
-            continue;
-
-        const auto colon = t.find(':');
-        if (colon == std::string::npos)
-            continue;
-
-        const std::string key = mado::common::trim(t.substr(2, colon - 2));
-        const std::string value = mado::common::trim(t.substr(colon + 1));
-
-        if (key == "NAME" && !has_name) {
-            e.set_name(value);
+        if (!has_name && line.starts_with("- NAME:")) {
+            line.erase(0, 7);
+            mado::common::trim_inplace(line);
+            e.set_name(std::move(line));
             has_name = true;
-        } else if (key == "TAGS" && !has_tags) {
-            e.set_tags(split_tags(value));
+        } else if (!has_tags && line.starts_with("- TAGS:")) {
+            line.erase(0, 7);
+            mado::common::trim_inplace(line);
+            e.set_tags(split_tags(line));
             has_tags = true;
-        } else if (key == "STATUS" && !has_status) {
-            e.set_status(value);
+        } else if (!has_status && line.starts_with("- STATUS:")) {
+            line.erase(0, 9);
+            mado::common::trim_inplace(line);
+            e.set_status(std::move(line));
             has_status = true;
-        } else if (key == "PRIORITY" && !has_priority) {
-            if (auto p = parse_priority(value))
+        } else if (!has_priority && line.starts_with("- PRIORITY:")) {
+            line.erase(0, 11);
+            mado::common::trim_inplace(line);
+            if (auto p = parse_priority(line))
                 e.set_priority(*p);
             has_priority = true;
-        } else if (key == "DEADLINE" && !has_deadline) {
-            if (mado::common::is_timestamp(value))
-                e.set_deadline(value);
+        } else if (!has_deadline && line.starts_with("- DEADLINE:")) {
+            line.erase(0, 11);
+            mado::common::trim_inplace(line);
+            if (mado::common::is_timestamp(line))
+                e.set_deadline(std::move(line));
             has_deadline = true;
         }
     }
