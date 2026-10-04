@@ -5,7 +5,6 @@
 #include <mado/interpreter/interpreter.hpp>
 
 #include <chrono>
-#include <format>
 #include <fstream>
 #include <optional>
 #include <sstream>
@@ -284,9 +283,10 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     if (ec)
         throw std::runtime_error("Cannot stat " + main_md.string());
 
-    e.set_mtime(std::format("{:%Y%m%d-%H%M%S}",
-                            std::chrono::floor<std::chrono::seconds>(
-                                file_time_to_system_clock(ftime))));
+    e.set_mtime(mado::common::format_timestamp_utc(
+        std::chrono::system_clock::to_time_t(
+            std::chrono::floor<std::chrono::seconds>(
+                file_time_to_system_clock(ftime)))));
 
     e.set_path(main_md);
 

@@ -19,9 +19,11 @@ std::tm gmtime(std::time_t t) {
 
 } // namespace
 
-// Returns the current UTC time in YYYYMMDD-HHMMSS.
 std::string current_timestamp_utc() {
-    std::time_t t = std::time(nullptr);
+    return format_timestamp_utc(std::time(nullptr));
+}
+
+std::string format_timestamp_utc(std::time_t t) {
     std::tm tm = gmtime(t);
     char buf[32];
     std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", &tm);
