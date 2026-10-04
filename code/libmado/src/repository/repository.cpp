@@ -49,9 +49,9 @@ std::vector<std::string> split_tags(const std::string &s) {
     std::stringstream ss(s);
     std::string item;
     while (std::getline(ss, item, ',')) {
-        std::string t = mado::common::trim(item);
-        if (seen.insert(t).second)
-            tags.push_back(t);
+        mado::common::trim_inplace(item);
+        if (seen.insert(item).second)
+            tags.push_back(item);
     }
 
     // getline does not produce a trailing empty token for "a,"

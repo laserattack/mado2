@@ -529,6 +529,49 @@ static void test_create_then_find() {
          entries[0].deadline() == "99990101-000000");
 }
 
+static void test_load_all_fields_empty() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME:\n"
+               "- PRIORITY:\n"
+               "- TAGS:\n"
+               "- STATUS:\n"
+               "- DEADLINE:\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].name().empty() &&
+         entries[0].priority() == 0 &&
+         entries[0].tags().size() == 1 &&
+         entries[0].tags()[0].empty() &&
+         entries[0].status().empty() &&
+         entries[0].deadline() == "99990101-000000" &&
+         entries[0].time() == "20260101-120000");
+}
+
+static void test_load_all_fields_whitespace() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME:   \n"
+               "- PRIORITY:   \n"
+               "- TAGS:   \n"
+               "- STATUS:   \n"
+               "- DEADLINE:   \n");
+
+    auto repo = Repository::open(tmp.path());
+    auto entries = repo->find(nullptr);
+
+    test(entries.size() == 1 &&
+         entries[0].name().empty() &&
+         entries[0].priority() == 0 &&
+         entries[0].tags().size() == 1 &&
+         entries[0].tags()[0].empty() &&
+         entries[0].status().empty() &&
+         entries[0].deadline() == "99990101-000000");
+}
+
 // entry point
 
 int main() {
@@ -547,6 +590,8 @@ int main() {
         {"Find filter no match", "no entries match", test_find_filter_no_match},
         {"Load all fields", "NAME, PRIORITY, TAGS, STATUS, DEADLINE", test_load_all_fields},
         {"Load defaults", "only NAME, rest are defaults", test_load_defaults},
+        {"Load all fields empty", "all 5 fields present but empty -> defaults", test_load_all_fields_empty},
+        {"Load all fields whitespace", "all 5 fields present but whitespace -> defaults", test_load_all_fields_whitespace},
         {"Load invalid priority ignored", "PRIORITY: abc -> 0", test_load_invalid_priority_ignored},
         {"Load priority too large ignored", "PRIORITY: 1000 -> 0", test_load_priority_too_large_ignored},
         {"Load invalid deadline ignored", "DEADLINE: not-a-date -> default", test_load_invalid_deadline_ignored},
