@@ -3,7 +3,6 @@ project('mado',
         default_options: [
           'cpp_std=c++20',
           'optimization=2',
-          'debug=false',
           'warning_level=2',
         ]
        )
