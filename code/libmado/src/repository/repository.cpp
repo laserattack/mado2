@@ -196,8 +196,18 @@ void Repository::for_each_matching(const mado::query::Ast_Node *filter,
     }
 }
 
-// TODO: validate suffix?? what if the suffix contains / ?
 mado::entry::Entry Repository::create(const std::string &suffix) const {
+    auto is_safe_suffix = [](const std::string &s) {
+        for (char c : s) {
+            if (c == '\\' || c == '/' || c == '.')
+                return false;
+        }
+        return true;
+    };
+
+    if (!is_safe_suffix(suffix))
+        throw Repository_Error("Invalid suffix '" + suffix + "': must not contain '/', '\\', or '.'");
+
     std::string dir_name = mado::common::current_timestamp_utc();
     if (!suffix.empty())
         dir_name += suffix;

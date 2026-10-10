@@ -572,6 +572,20 @@ static void test_load_all_fields_whitespace() {
          entries[0].deadline() == "99990101-000000");
 }
 
+static void test_create_rejects_dotdot_slash_in_suffix() {
+    Temp_Dir tmp;
+    std::filesystem::create_directories(tmp.path() / "MADO");
+    auto repo = Repository::open(tmp.path());
+
+    try {
+        repo->create("../");
+    } catch (const std::runtime_error &) { /* expected */
+    }
+
+    auto it = std::filesystem::directory_iterator(tmp.path() / "MADO");
+    test(it == std::filesystem::directory_iterator{});
+}
+
 // entry point
 
 int main() {
@@ -614,6 +628,7 @@ int main() {
         {"Init then open", "open finds MADO/ created by init", test_init_then_open},
         {"Create", "create makes MAIN.md", test_create},
         {"Create then find", "created entry is found by find", test_create_then_find},
+        {"Create rejects ../ suffix", "../ rejected, no leftover dir", test_create_rejects_dotdot_slash_in_suffix},
     };
     return run_tests(tests, "repository: ");
 }
