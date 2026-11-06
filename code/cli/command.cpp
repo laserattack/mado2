@@ -74,7 +74,7 @@ class Ls_Command : public Command {
   public:
     Ls_Command() {
         name = "ls";
-        signature = "[-format <default|path|jsonl>] [-sort <[+|-]field,...>] [QUERY]";
+        signature = "[-format <default|path|jsonl>] [-sort <[+|-]field,...>] [-hide-<field> ...] [-only-hidden] [QUERY]";
         description = "List entries";
     }
 
@@ -88,6 +88,25 @@ class Ls_Command : public Command {
         flag_c_str_var(c, &format_name, "format", "default", "Output format");
         char *sort_spec = nullptr;
         flag_c_str_var(c, &sort_spec, "sort", nullptr, "Sort entries by [+|-]field,...");
+        Hidden_Entry_Fields hidden;
+        const struct {
+            const char *name;
+            const char *description;
+            bool Hidden_Entry_Fields::*field;
+        } hide_flags[] = {
+            {"hide-path", "Hide path field", &Hidden_Entry_Fields::path},
+            {"hide-time", "Hide time field", &Hidden_Entry_Fields::time},
+            {"hide-mtime", "Hide mtime field", &Hidden_Entry_Fields::mtime},
+            {"hide-name", "Hide name field", &Hidden_Entry_Fields::name},
+            {"hide-priority", "Hide priority field", &Hidden_Entry_Fields::priority},
+            {"hide-deadline", "Hide deadline field", &Hidden_Entry_Fields::deadline},
+            {"hide-status", "Hide status field", &Hidden_Entry_Fields::status},
+            {"hide-tags", "Hide tags field", &Hidden_Entry_Fields::tags},
+        };
+        for (const auto &flag : hide_flags)
+            flag_c_bool_var(c, &(hidden.*flag.field), flag.name, false, flag.description);
+        bool only_hidden = false;
+        flag_c_bool_var(c, &only_hidden, "only-hidden", false, "Show only fields selected by -hide flags");
         //
 
         // Parse flags
@@ -150,9 +169,14 @@ class Ls_Command : public Command {
 
         sort_entries(entries, sort_criteria);
 
+        if (only_hidden) {
+            for (const auto &flag : hide_flags)
+                hidden.*flag.field = !(hidden.*flag.field);
+        }
+
         auto formatter = make_entry_info_formatter(fmt);
         for (const auto &e : entries)
-            formatter->write(e, std::cout);
+            formatter->write(e, std::cout, hidden);
 
         return true;
     }
