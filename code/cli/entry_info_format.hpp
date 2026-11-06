@@ -36,7 +36,7 @@ class Entry_Info_Formatter {
                        const Hidden_Entry_Fields &hidden = {}) const = 0;
 };
 
-// Parses a format name. Returns nullopt if unknown.
+// Prefers an exact format name, then tries fuzzy matching.
 std::optional<Entry_Info_Format> parse_entry_info_format(const std::string &name);
 
 // Creates a formatter for the given format.

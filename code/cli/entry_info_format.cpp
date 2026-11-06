@@ -1,5 +1,8 @@
 #include "entry_info_format.hpp"
 
+#include <mado/common/fuzzy_match.hpp>
+#include <mado/common/text_utils.hpp>
+
 #include <format>
 #include <memory>
 #include <optional>
@@ -175,11 +178,22 @@ const std::vector<Format_Info> FORMATS = {
 } // namespace
 
 std::optional<Entry_Info_Format> parse_entry_info_format(const std::string &name) {
+    if (name.empty())
+        return std::nullopt;
+
+    std::optional<Entry_Info_Format> best_format;
+    std::optional<int32_t> best_score;
     for (const auto &f : FORMATS) {
-        if (name == f.name)
+        if (mado::common::equals_ignore_case(name, f.name))
             return f.format;
+
+        auto score = mado::common::fuzzy_match(name, f.name, true);
+        if (score && (!best_score || *score > *best_score)) {
+            best_score = score;
+            best_format = f.format;
+        }
     }
-    return std::nullopt;
+    return best_format;
 }
 
 std::unique_ptr<Entry_Info_Formatter> make_entry_info_formatter(Entry_Info_Format fmt) {
