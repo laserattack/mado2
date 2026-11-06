@@ -298,7 +298,7 @@ class Init_Command : public Command {
         try {
             auto repo = mado::repository::Repository::init(
                 std::filesystem::current_path(), force);
-            std::printf("%s\n", repo.root().c_str());
+            std::cout << repo.root().string() << '\n';
         } catch (const std::exception &e) {
             fprintf(stderr, "%s\n", e.what());
             return false;

@@ -8,5 +8,5 @@ project('mado',
        )
 
 subdir('code/libmado')
-subdir('code/test')
 subdir('code/cli')
+subdir('code/test')

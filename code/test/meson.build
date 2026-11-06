@@ -23,3 +23,6 @@ test_repository_exe = executable('test_repository',
 test('query', test_query_exe)
 test('interpreter', test_interpreter_exe)
 test('repository', test_repository_exe)
+test('cli', import('python').find_installation(),
+     args: [files('test_cli.py'), cli_exe, meson.project_source_root()],
+     timeout: 120)
