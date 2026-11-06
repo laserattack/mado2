@@ -9,6 +9,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <unistd.h>
 
 using namespace mado::query;
 using namespace mado::repository;
