@@ -1,5 +1,6 @@
 #include "command.hpp"
 #include "entry_info_format.hpp"
+#include "entry_sort.hpp"
 
 #include <mado/mado.hpp>
 #include <mado/query/lexer.hpp>
@@ -73,7 +74,7 @@ class Ls_Command : public Command {
   public:
     Ls_Command() {
         name = "ls";
-        signature = "[-format <default|path|jsonl>] [QUERY]";
+        signature = "[-format <default|path|jsonl>] [-sort <[+|-]field,...>] [QUERY]";
         description = "List entries";
     }
 
@@ -85,6 +86,8 @@ class Ls_Command : public Command {
         // Declare flags
         char *format_name = nullptr;
         flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        char *sort_spec = nullptr;
+        flag_c_str_var(c, &sort_spec, "sort", nullptr, "Sort entries by [+|-]field,...");
         //
 
         // Parse flags
@@ -111,6 +114,16 @@ class Ls_Command : public Command {
         }
         auto fmt = *fmt_opt;
 
+        std::vector<Sort_Criterion> sort_criteria;
+        if (sort_spec) {
+            auto criteria = parse_sort(sort_spec);
+            if (!criteria) {
+                fprintf(stderr, "Invalid sort specification: %s\n", sort_spec);
+                return false;
+            }
+            sort_criteria = std::move(*criteria);
+        }
+
         // Open the repository from the current working directory.
         auto repo = mado::repository::Repository::open(std::filesystem::current_path());
         if (!repo) {
@@ -134,6 +147,8 @@ class Ls_Command : public Command {
 
         // Empty query = all entries
         auto entries = repo->find(ast.get());
+
+        sort_entries(entries, sort_criteria);
 
         auto formatter = make_entry_info_formatter(fmt);
         for (const auto &e : entries)

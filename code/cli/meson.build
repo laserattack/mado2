@@ -6,6 +6,7 @@ cli_exe = executable('mado',
                        'main.cpp',
                        'command.cpp',
                        'entry_info_format.cpp',
+                       'entry_sort.cpp',
                      ],
                      include_directories: thirdparty_inc,
                      dependencies: libmado_dep)
