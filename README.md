@@ -7,6 +7,8 @@ entry lives in its own directory, so it can include attachments alongside
 `MAIN.md`. Use queries to filter entries by metadata, then sort and format
 the results for your editor or scripts.
 
+![A girl reviewing her notes with mado in an evening room](assets/mado-notes-evening-660.png)
+
 ## Build
 
 Requirements are a C compiler, a C++20 compiler, Meson, Ninja.
