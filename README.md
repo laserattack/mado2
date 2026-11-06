@@ -18,8 +18,10 @@ meson setup build
 meson compile -C build
 ```
 
-On Linux and macOS, the executable is `build/code/cli/mado`. The
-examples below assume the executable is on your `PATH`.
+On Linux and macOS, the executable is `build/code/cli/mado`. If the build
+succeeds on Windows, the executable should be at `build\code\cli\mado.exe`.
+I haven't tested the Windows build. The examples below assume the
+executable is on your `PATH`.
 
 ## Quick start
 
