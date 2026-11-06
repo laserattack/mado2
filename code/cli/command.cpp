@@ -267,7 +267,7 @@ class Init_Command : public Command {
     Init_Command() {
         name = "init";
         signature = "[-force]";
-        description = "Create MADO/ in the current directory";
+        description = "Initialize MADO/ and restore default templates";
     }
 
     bool run(const std::string &program_name,
@@ -312,7 +312,7 @@ class New_Command : public Command {
   public:
     New_Command() {
         name = "new";
-        signature = "[-suffix <str>] [-format <default|path|jsonl>]";
+        signature = "[-suffix <str>] [-template <name>] [-format <default|path|jsonl>]";
         description = "Create a new entry";
     }
 
@@ -324,6 +324,8 @@ class New_Command : public Command {
         // Declare flags
         char *suffix = nullptr;
         flag_c_str_var(c, &suffix, "suffix", "", "Optional suffix for the entry directory name");
+        char *template_name = nullptr;
+        flag_c_str_var(c, &template_name, "template", nullptr, "Create the entry from a named template");
         char *format_name = nullptr;
         flag_c_str_var(c, &format_name, "format", "default", "Output format");
         //
@@ -357,7 +359,10 @@ class New_Command : public Command {
         }
 
         try {
-            auto entry = repo->create(suffix);
+            std::optional<std::string> selected_template;
+            if (template_name)
+                selected_template = template_name;
+            auto entry = repo->create(suffix, selected_template);
             auto formatter = make_entry_info_formatter(fmt);
             formatter->write(entry, std::cout);
         } catch (const std::exception &e) {

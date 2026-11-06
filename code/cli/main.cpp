@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 
 int main(int argc, char **argv) {
@@ -49,8 +50,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (!cmd->run(program_name, argc - 1, argv + 1))
+    try {
+        return cmd->run(program_name, argc - 1, argv + 1) ? 0 : 1;
+    } catch (const std::runtime_error &e) {
+        fprintf(stderr, "%s\n", e.what());
         return 1;
-
-    return 0;
+    }
 }

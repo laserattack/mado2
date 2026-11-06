@@ -14,13 +14,8 @@ class Repository {
     // Find MADO/ starting from `from`, going up the tree.
     static std::optional<Repository> open(const std::filesystem::path &from);
 
-    // Creates MADO/ in `where`. Returns the opened Repository.
-    //
-    // Throws:
-    //   - Repository_Error: MADO/ already exists in `where`, or it is
-    //     found above `where` and `force` is false.
-    //   - std::runtime_error: the directory cannot be resolved or
-    //     created (I/O problem).
+    // Initializes the nearest repository and restores its default templates.
+    // With force, initializes a repository in `where` even if one exists above.
     static Repository init(const std::filesystem::path &where, bool force = false);
 
     // Load entries matching the filter.
@@ -46,7 +41,9 @@ class Repository {
     // Throws:
     //   - std::runtime_error: cannot create the directory or file, or
     //     the generated name collides with an existing one.
-    mado::entry::Entry create(const std::string &suffix = "") const;
+    mado::entry::Entry create(
+        const std::string &suffix = "",
+        const std::optional<std::string> &template_name = std::nullopt) const;
 
     // Iterates over entries matching the filter and calls `action` for
     // each. The action receives the entry by value, so it can move it

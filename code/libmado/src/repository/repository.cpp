@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -19,6 +20,8 @@ namespace {
 
 constexpr const char *ENTRY_DIR = "MADO";
 constexpr const char *ENTRY_FILE = "MAIN.md";
+constexpr const char *TASK_TEMPLATE = "- NAME:\n- PRIORITY:\n- TAGS:\n- STATUS:\n- DEADLINE:\n";
+constexpr const char *NOTE_TEMPLATE = "- NAME:\n- TAGS:\n";
 constexpr int MAX_HEADER_LINES = 30;
 
 class Repository_Error : public std::runtime_error {
@@ -26,6 +29,28 @@ class Repository_Error : public std::runtime_error {
     explicit Repository_Error(const std::string &message)
         : std::runtime_error(message) {}
 };
+
+std::optional<std::filesystem::path> find_templates(const std::filesystem::path &root) {
+    for (const auto *name : {"templates", ".templates", "_templates"}) {
+        auto dir = root / name;
+        if (std::filesystem::is_directory(dir))
+            return dir;
+    }
+    return std::nullopt;
+}
+
+void write_default_template(const std::filesystem::path &path, const std::string &content) {
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (in && std::string(std::istreambuf_iterator<char>(in), {}) == content)
+            return;
+    }
+    std::ofstream out(path, std::ios::binary);
+    out << content;
+    out.close();
+    if (!out)
+        throw std::runtime_error("Cannot write template " + path.string());
+}
 
 // Converts a std::filesystem::file_time_type to
 // std::chrono::system_clock::time_point.
@@ -112,27 +137,17 @@ Repository Repository::init(const std::filesystem::path &where, bool force) {
     if (ec)
         throw std::runtime_error("Cannot resolve path " + where.string() + ": " + ec.message());
 
-    const auto mado_dir = abs_where / ENTRY_DIR;
-
-    // Refuse if MADO/ already exists in `where` itself.
-    const bool exists_here = std::filesystem::exists(mado_dir, ec);
-    if (ec)
-        throw std::runtime_error("Cannot check " + mado_dir.string() + ": " + ec.message());
-    if (exists_here)
-        throw Repository_Error("MADO/ already exists in " + abs_where.string());
-
-    // Refuse if MADO/ is found above, unless force.
-    if (!force) {
-        if (open(abs_where.parent_path()))
-            throw Repository_Error("MADO/ already exists above " + abs_where.string());
+    auto mado_dir = abs_where / ENTRY_DIR;
+    if (!force && !std::filesystem::exists(mado_dir)) {
+        if (auto repo = open(abs_where))
+            mado_dir = repo->root();
     }
+    std::filesystem::create_directory(mado_dir);
 
-    // Create MADO/.
-    if (!std::filesystem::create_directory(mado_dir, ec)) {
-        if (ec)
-            throw std::runtime_error("Cannot create " + mado_dir.string() + ": " + ec.message());
-    }
-
+    const auto templates = find_templates(mado_dir).value_or(mado_dir / "templates");
+    std::filesystem::create_directory(templates);
+    write_default_template(templates / "note.md", NOTE_TEMPLATE);
+    write_default_template(templates / "task.md", TASK_TEMPLATE);
     return Repository(mado_dir);
 }
 
@@ -189,24 +204,49 @@ void Repository::for_each_matching(const mado::query::Ast_Node *filter,
                     return;
             }
         } catch (const Repository_Error &) {
-            // MAIN.md is missing or cannot be opened
+            // MAIN.md is missing or is not a regular file.
         } catch (const mado::entry::Entry_Error &) {
             // The directory name is not a valid timestamp
         }
     }
 }
 
-mado::entry::Entry Repository::create(const std::string &suffix) const {
+mado::entry::Entry Repository::create(
+    const std::string &suffix, const std::optional<std::string> &template_name) const {
     auto is_safe_suffix = [](const std::string &s) {
         for (char c : s) {
-            if (c == '\\' || c == '/' || c == '.')
+            if (c == '\\' || c == '/' || c == '.' || c == ':')
                 return false;
         }
         return true;
     };
 
     if (!is_safe_suffix(suffix))
-        throw Repository_Error("Invalid suffix '" + suffix + "': must not contain '/', '\\', or '.'");
+        throw Repository_Error("Invalid suffix '" + suffix + "': must not contain '/', '\\', '.', or ':'");
+
+    std::string content = TASK_TEMPLATE;
+    if (template_name) {
+        if (template_name->empty() || template_name->find_first_of("/\\:") != std::string::npos ||
+            template_name->find('\0') != std::string::npos)
+            throw Repository_Error("Invalid template name: " + *template_name);
+
+        const auto templates = find_templates(root_);
+        if (!templates)
+            throw Repository_Error("No templates directory found. Run 'mado init' to create it.");
+
+        const auto path = *templates / (*template_name + ".md");
+        if (!std::filesystem::is_regular_file(path))
+            throw Repository_Error("Template '" + *template_name +
+                                   "' not found. Run 'mado init' to restore default templates.");
+        std::ifstream in(path, std::ios::binary);
+        if (!in)
+            throw std::runtime_error("Cannot read template " + path.string());
+        std::ostringstream buffer;
+        buffer << in.rdbuf();
+        if (buffer.bad() || in.bad())
+            throw std::runtime_error("Cannot read template " + path.string());
+        content = std::move(buffer).str();
+    }
 
     std::string dir_name = mado::common::current_timestamp_utc();
     if (!suffix.empty())
@@ -223,23 +263,23 @@ mado::entry::Entry Repository::create(const std::string &suffix) const {
     if (ec)
         throw std::runtime_error("Cannot check " + entry_dir.string() + ": " + ec.message());
     if (exists)
-        throw std::runtime_error("Entry " + dir_name + " already exists; try again in a second");
+        throw Repository_Error("Entry " + dir_name + " already exists; try again in a second");
 
     // Create MADO/<timestamp>/.
-    std::filesystem::create_directory(entry_dir, ec);
+    const bool created = std::filesystem::create_directory(entry_dir, ec);
     if (ec)
         throw std::runtime_error("Cannot create " + entry_dir.string() + ": " + ec.message());
+    if (!created)
+        throw Repository_Error("Entry " + dir_name + " already exists; try again in a second");
 
-    // Write the empty header to MAIN.md.
-    std::ofstream out(main_md);
-    if (!out)
-        throw std::runtime_error("Cannot create " + main_md.string());
-
-    out << "- NAME:\n"
-        << "- PRIORITY:\n"
-        << "- TAGS:\n"
-        << "- STATUS:\n"
-        << "- DEADLINE:\n";
+    std::ofstream out(main_md, std::ios::binary);
+    out << content;
+    out.close();
+    if (!out) {
+        std::filesystem::remove(main_md, ec);
+        std::filesystem::remove(entry_dir, ec);
+        throw std::runtime_error("Cannot write " + main_md.string());
+    }
 
     return load_one(entry_dir);
 }
@@ -261,9 +301,8 @@ mado::entry::Entry Repository::create(const std::string &suffix) const {
 // malformed DEADLINE) are ignored, and the field keeps its default.
 //
 // Errors:
-//   - Repository_Error: MAIN.md is missing or cannot be opened.
-//   - std::runtime_error: MAIN.md cannot be stat'ed;
-//     this indicates an I/O problem, not a malformed entry.
+//   - Repository_Error: MAIN.md is missing or is not a regular file.
+//   - std::runtime_error: an I/O operation on MAIN.md failed.
 //   - Entry_Error: the directory name is not a valid timestamp.
 mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) const {
     mado::entry::Entry e;
@@ -271,8 +310,11 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     auto main_md = entry_dir / ENTRY_FILE;
 
     std::ifstream in(main_md);
-    if (!in)
-        throw Repository_Error("Cannot open " + main_md.string());
+    if (!in) {
+        if (!std::filesystem::is_regular_file(main_md))
+            throw Repository_Error("Missing regular file " + main_md.string());
+        throw std::runtime_error("Cannot open " + main_md.string());
+    }
 
     // Time comes from the directory name.
     std::string dir_name = entry_dir.filename().string();
@@ -291,7 +333,7 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     std::error_code ec;
     auto ftime = std::filesystem::last_write_time(main_md, ec);
     if (ec)
-        throw std::runtime_error("Cannot stat " + main_md.string());
+        throw std::runtime_error("Cannot stat " + main_md.string() + ": " + ec.message());
 
     e.set_mtime(mado::common::format_timestamp_utc(
         std::chrono::system_clock::to_time_t(
@@ -347,6 +389,12 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
                 e.set_deadline(std::move(line));
             has_deadline = true;
         }
+    }
+
+    if (in.bad()) {
+        if (!std::filesystem::is_regular_file(e.path()))
+            throw Repository_Error("Missing regular file " + e.path().string());
+        throw std::runtime_error("Cannot read " + e.path().string());
     }
 
     return e;

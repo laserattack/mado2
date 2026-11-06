@@ -447,37 +447,38 @@ static void test_remove_no_match() {
 static void test_init_creates_mado() {
     Temp_Dir tmp;
 
-    auto repo = Repository::init(tmp.path());
+    auto repo = Repository::init(tmp.path(), true);
     test(std::filesystem::is_directory(tmp.path() / "MADO") &&
-         repo.root() == tmp.path() / "MADO");
+         repo.root() == tmp.path() / "MADO" &&
+         std::filesystem::is_regular_file(repo.root() / "templates" / "note.md") &&
+         std::filesystem::is_regular_file(repo.root() / "templates" / "task.md"));
 }
 
-static void test_init_fails_if_mado_exists_here() {
+static void test_init_restores_templates_here() {
     Temp_Dir tmp;
-    std::filesystem::create_directories(tmp.path() / "MADO");
+    const auto templates = tmp.path() / "MADO" / ".templates";
+    std::filesystem::create_directories(templates);
+    std::ofstream(templates / "note.md") << "changed";
 
-    bool thrown = false;
-    try {
-        Repository::init(tmp.path());
-    } catch (const std::runtime_error &) {
-        thrown = true;
-    }
-    test(thrown);
+    auto repo = Repository::init(tmp.path());
+    std::ifstream note(templates / "note.md");
+    std::string first_line;
+    std::getline(note, first_line);
+    test(repo.root() == tmp.path() / "MADO" &&
+         first_line == "- NAME:" &&
+         std::filesystem::is_regular_file(templates / "task.md"));
 }
 
-static void test_init_fails_if_mado_exists_above() {
+static void test_init_restores_templates_above() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
     auto nested = tmp.path() / "a" / "b";
     std::filesystem::create_directories(nested);
 
-    bool thrown = false;
-    try {
-        Repository::init(nested);
-    } catch (const std::runtime_error &) {
-        thrown = true;
-    }
-    test(thrown);
+    auto repo = Repository::init(nested);
+    test(repo.root() == tmp.path() / "MADO" &&
+         std::filesystem::is_regular_file(repo.root() / "templates" / "note.md") &&
+         !std::filesystem::exists(nested / "MADO"));
 }
 
 static void test_init_force_allows_nested() {
@@ -494,7 +495,7 @@ static void test_init_force_allows_nested() {
 static void test_init_then_open() {
     Temp_Dir tmp;
 
-    Repository::init(tmp.path());
+    Repository::init(tmp.path(), true);
     auto repo = Repository::open(tmp.path());
     test(repo.has_value() &&
          repo->root() == tmp.path() / "MADO");
@@ -623,8 +624,8 @@ int main() {
         {"Remove", "name = b removes only b", test_remove},
         {"Remove no match", "nothing removed", test_remove_no_match},
         {"Init creates MADO", "init creates MADO/ and returns repo", test_init_creates_mado},
-        {"Init fails if MADO exists here", "init refuses existing MADO/", test_init_fails_if_mado_exists_here},
-        {"Init fails if MADO exists above", "init refuses nested MADO/ without force", test_init_fails_if_mado_exists_above},
+        {"Init restores templates here", "init restores templates in existing MADO/", test_init_restores_templates_here},
+        {"Init restores templates above", "init restores templates in ancestor MADO/", test_init_restores_templates_above},
         {"Init force allows nested", "init -force creates nested MADO/", test_init_force_allows_nested},
         {"Init then open", "open finds MADO/ created by init", test_init_then_open},
         {"Create", "create makes MAIN.md", test_create},
