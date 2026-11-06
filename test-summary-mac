@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+find ./build/code/test -maxdepth 1 -type f -perm +111 -name 'test_*' -exec {} \; | grep "tests passed"
