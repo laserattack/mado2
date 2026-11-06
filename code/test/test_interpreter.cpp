@@ -240,6 +240,17 @@ static void test_fuzzy() {
     test(matches(e, ast.get()));
 }
 
+static void test_glob() {
+    Entry e;
+    e.set_name("FIX-42");
+
+    test(matches(e, parse(R"(name %~ "fix-[45]?*")").get()) &&
+         !matches(e, parse(R"(name !%~ "fix-[45]?*")").get()) &&
+         matches(e, parse(R"(name !%~ "fix-[67]?")").get()) &&
+         !matches(e, parse(R"(name %~ "fix-[")").get()) &&
+         !matches(e, parse(R"(name !%~ "fix-[")").get()));
+}
+
 static void test_match_not_false() {
     Entry e;
     e.set_name("feature");
@@ -403,6 +414,7 @@ int main() {
         {"Deadline", "deadline > 20260101-000000", test_match_deadline},
         {"Xor both true", "xor both true = false", test_match_xor_both_true},
         {"Fuzzy name", "name ~~ fbeer", test_fuzzy},
+        {"Glob name", "glob matching, negation and invalid patterns", test_glob},
         {"Not false", "not name = bug on feature", test_match_not_false},
         {"Any number as priority", "any = 5 matches priority", test_match_any_number_as_priority},
         {"Tag substr", "tag ~ crit", test_match_tag_substr},

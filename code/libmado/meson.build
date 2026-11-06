@@ -7,6 +7,7 @@ libmado_src = [
 
   # utils
   'src/common/fuzzy_match.cpp',
+  'src/common/glob.c',
   'src/common/text_utils.cpp',
   'src/common/time_utils.cpp',
 

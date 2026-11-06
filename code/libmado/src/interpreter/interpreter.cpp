@@ -1,6 +1,7 @@
 #include <mado/interpreter/interpreter.hpp>
 
 #include <mado/common/fuzzy_match.hpp>
+#include <mado/common/glob_pattern.hpp>
 #include <mado/common/text_utils.hpp>
 
 namespace mado::interpreter {
@@ -50,10 +51,10 @@ bool check_string(const std::string &value,
     case mado::query::Ast_Comparison_Operator::Le: // <=
         return value_lower <= pattern_lower;
 
-    case mado::query::Ast_Comparison_Operator::Glob:  // %~
+    case mado::query::Ast_Comparison_Operator::Glob: // %~
+        return mado::common::Glob_Pattern(pattern_lower.c_str()).matches(value_lower) == true;
     case mado::query::Ast_Comparison_Operator::Nglob: // !%~
-        // TODO: glob matching
-        return false;
+        return mado::common::Glob_Pattern(pattern_lower.c_str()).matches(value_lower) == false;
     }
     return false;
 }
