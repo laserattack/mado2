@@ -232,7 +232,9 @@ Token Lexer::parse_identifier_and_keyword() {
     assert(mado::common::is_letter_or_underscore(get_it()) &&
            "parse_identifier_and_keyword called without letter or underscore");
 
-    while (!is_at_end() && mado::common::is_identifier_char(get_it())) {
+    // Bare words may contain hyphens after the initial letter or underscore.
+    // В словах без кавычек дефис допустим после первой буквы или подчёркивания.
+    while (mado::common::is_identifier_char(get_it()) || get_it() == '-') {
         eat_it();
     }
 

@@ -1465,6 +1465,15 @@ static void test_parser_invalid_time_macro_syntax() {
     test(rejected);
 }
 
+// Checks that hyphenated bare values have the same AST as quoted values.
+// Проверяет, что значения с дефисом без кавычек дают тот же AST, что и с кавычками.
+static void test_parser_hyphenated_value() {
+    test(same_ast(parse_query("tag = foo-bar").get(),
+                  parse_query("tag = \"foo-bar\"").get()) &&
+         same_ast(parse_query("name in (_a-2, foo--bar, foo-)").get(),
+                  parse_query("name in (\"_a-2\", \"foo--bar\", \"foo-\")").get()));
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1544,6 +1553,7 @@ int main(int argc, char **argv) {
 // Парсер.
         {"Parser number", "parse 'priority > 5'", test_parser_number_condition},
         {"Parser string", "parse 'tag = bug'", test_parser_string_condition},
+        {"Parser hyphenated value", "parse bare words containing hyphens", test_parser_hyphenated_value},
         {"Parser keyword as string", "parse 'tag = all and status = and and name = or and any = not'", test_parser_keyword_as_string_value},
         {"Parser and", "parse 'priority > 5 and tag = bug'", test_parser_binary_and},
         {"Parser not", "parse 'not status = closed'", test_parser_not},
