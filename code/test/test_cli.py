@@ -418,6 +418,49 @@ class Cli_Tests(unittest.TestCase):
                                     "Binary: And\n  Comparison: Priority Eq 3\n"
                                     "  Unary: Not\n    All\n"))
 
+    # Checks that macro operands produce the same AST as literal timestamps.
+    # unittest reports subprocess and assertion failures.
+    # Проверяет, что макросы дают тот же AST, что и литералы времени.
+    # unittest регистрирует сбои процесса и проверок.
+    def test_debug_time_macro_syntax(self):
+        cases = [
+            ("deadline in [@never-1..@never]", "deadline in [99981231-000000..99990101-000000]"),
+            ("deadline in [@never - 1..]", "deadline in [99981231-000000..]"),
+            ("deadline in [..@never]", "deadline in [..99990101-000000]"),
+            ("deadline >= anyof(@never-1, @never)", "deadline >= anyof(99981231-000000, 99990101-000000)"),
+            ("deadline != allof(@never-1, @never)", "deadline != allof(99981231-000000, 99990101-000000)"),
+            ("deadline = anyof(@never)", "deadline = anyof(99990101-000000)"),
+            ("deadline = allof(@never)", "deadline = allof(99990101-000000)"),
+            ("time in (@never, @never+1)", "time in (99990101-000000, 99990102-000000)"),
+            ("mtime has (@never-1, @never)", "mtime has (99981231-000000, 99990101-000000)"),
+            ("any = anyof(7, @never)", "any = anyof(7, 99990101-000000)"),
+            ("not (deadline = @never or time < @never-1) and mtime <= @never xor all",
+             "not (deadline = 99990101-000000 or time < 99981231-000000) and mtime <= 99990101-000000 xor all"),
+        ]
+        # Exercise all comparison operators through the same parser entry point.
+        # Проверяем все операторы сравнения через одну точку входа парсера.
+        for op in ("=", "!=", "<", "<=", ">", ">=", "~", "!~", "^~", "!^~", "$~", "!$~",
+                   "~~", "!~~", "%~", "!%~"):
+            cases.append((f"deadline {op} @never", f"deadline {op} 99990101-000000"))
+
+        # The literal form must parse successfully before it can serve as a reference.
+        # Литеральная форма должна успешно разбираться, чтобы служить эталоном.
+        for query, expanded in cases:
+            with self.subTest(query=query):
+                expected = self.run_mado("debug", expanded)
+                actual = self.run_mado("debug", query)
+                self.test(expected.returncode == 0 and expected.stderr == "" and
+                          bool(expected.stdout) and self.check_output(actual, expected.stdout))
+
+    # Checks rejection of malformed macro operands inside nested syntax.
+    # Проверяет отклонение неверных макросов во вложенных конструкциях.
+    def test_debug_invalid_time_macro_syntax(self):
+        for query in ("deadline in [@unknown..@never]", "deadline in (@never+)",
+                      "deadline = anyof(@never, @today+)", "deadline = allof(@never+365)",
+                      "not (deadline = @)"):
+            with self.subTest(query=query):
+                self.test(self.check_error(self.run_mado("debug", query), "got Invalid"))
+
     # Checks that an invalid query produces a diagnostic and no AST.
     # Проверяет диагностику неверного запроса и отсутствие AST в выводе.
     def test_debug_invalid_query(self):
