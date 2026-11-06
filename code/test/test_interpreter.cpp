@@ -11,6 +11,8 @@ using namespace mado::query;
 
 // helpers
 
+// Builds the complete query AST. Throws Parse_Error for empty or invalid
+// queries and std::bad_alloc on allocation failure.
 static std::unique_ptr<Ast_Node> parse(const std::string &query) {
     Lexer lexer(query);
     auto tokens = lexer.tokenize();
@@ -18,30 +20,35 @@ static std::unique_ptr<Ast_Node> parse(const std::string &query) {
     return parser.parse();
 }
 
+// Evaluates the filter against the fixture. Allocation failures propagate.
 static bool matches(const Entry &e, const Ast_Node *filter) {
-    static Interpreter interp;
+    const Interpreter interp;
     return interp.evaluate(filter, e);
 }
 
 // test
 
+// Checks evaluate(nullptr) = true. Unexpected exceptions fail the test.
 static void test_match_null_filter() {
     Entry e;
     test(matches(e, nullptr));
 }
 
+// Checks all node. Unexpected exceptions fail the test.
 static void test_match_all() {
     Entry e;
     auto ast = parse("all");
     test(matches(e, ast.get()));
 }
 
+// Checks untagged on default. Unexpected exceptions fail the test.
 static void test_match_untagged_default() {
     Entry e;
     auto ast = parse("untagged");
     test(matches(e, ast.get()));
 }
 
+// Checks untagged on tagged. Unexpected exceptions fail the test.
 static void test_match_untagged_tagged() {
     Entry e;
     e.set_tags({"bug"});
@@ -49,12 +56,14 @@ static void test_match_untagged_tagged() {
     test(!matches(e, ast.get()));
 }
 
+// Checks unstatused on default. Unexpected exceptions fail the test.
 static void test_match_unstatused_default() {
     Entry e;
     auto ast = parse("unstatused");
     test(matches(e, ast.get()));
 }
 
+// Checks unstatused on statused. Unexpected exceptions fail the test.
 static void test_match_unstatused_statused() {
     Entry e;
     e.set_status("opened");
@@ -62,12 +71,14 @@ static void test_match_unstatused_statused() {
     test(!matches(e, ast.get()));
 }
 
+// Checks unnamed on default. Unexpected exceptions fail the test.
 static void test_match_unnamed_default() {
     Entry e;
     auto ast = parse("unnamed");
     test(matches(e, ast.get()));
 }
 
+// Checks unnamed on named. Unexpected exceptions fail the test.
 static void test_match_unnamed_named() {
     Entry e;
     e.set_name("bug");
@@ -75,12 +86,14 @@ static void test_match_unnamed_named() {
     test(!matches(e, ast.get()));
 }
 
+// Checks unprioritized on default. Unexpected exceptions fail the test.
 static void test_match_unprioritized_default() {
     Entry e;
     auto ast = parse("unprioritized");
     test(matches(e, ast.get()));
 }
 
+// Checks unprioritized on prioritized. Unexpected exceptions fail the test.
 static void test_match_unprioritized_prioritized() {
     Entry e;
     e.set_priority(5);
@@ -88,12 +101,14 @@ static void test_match_unprioritized_prioritized() {
     test(!matches(e, ast.get()));
 }
 
+// Checks undeadlined on default. Unexpected exceptions fail the test.
 static void test_match_undeadlined_default() {
     Entry e;
     auto ast = parse("undeadlined");
     test(matches(e, ast.get()));
 }
 
+// Checks undeadlined on deadlined. Unexpected exceptions fail the test.
 static void test_match_undeadlined_deadlined() {
     Entry e;
     e.set_deadline("20260101-000000");
@@ -101,6 +116,7 @@ static void test_match_undeadlined_deadlined() {
     test(!matches(e, ast.get()));
 }
 
+// Checks priority > 3 and name = bug. Unexpected exceptions fail the test.
 static void test_match_and_true() {
     Entry e;
     e.set_priority(5);
@@ -109,6 +125,7 @@ static void test_match_and_true() {
     test(matches(e, ast.get()));
 }
 
+// Checks priority = 67 or name = bug. Unexpected exceptions fail the test.
 static void test_match_or_true() {
     Entry e;
     e.set_priority(5);
@@ -117,6 +134,7 @@ static void test_match_or_true() {
     test(matches(e, ast.get()));
 }
 
+// Checks priority > 3 xor name = bug. Unexpected exceptions fail the test.
 static void test_match_xor_true() {
     Entry e;
     e.set_priority(1);
@@ -127,6 +145,7 @@ static void test_match_xor_true() {
 
 // unary
 
+// Checks not name = bug. Unexpected exceptions fail the test.
 static void test_match_not_true() {
     Entry e;
     e.set_name("bug");
@@ -136,6 +155,7 @@ static void test_match_not_true() {
 
 // tags
 
+// Checks tag = crit. Unexpected exceptions fail the test.
 static void test_match_tag_eq_any() {
     Entry e;
     e.set_tags({"bug", "crit"});
@@ -143,6 +163,7 @@ static void test_match_tag_eq_any() {
     test(matches(e, ast.get()));
 }
 
+// Checks tag = feature. Unexpected exceptions fail the test.
 static void test_match_tag_eq_none() {
     Entry e;
     e.set_tags({"bug", "crit"});
@@ -150,18 +171,21 @@ static void test_match_tag_eq_none() {
     test(!matches(e, ast.get()));
 }
 
+// Checks tag = ''. Unexpected exceptions fail the test.
 static void test_match_tag_empty_default() {
     Entry e;
     auto ast = parse("tag = ''");
     test(matches(e, ast.get()));
 }
 
+// Checks name = '' on default. Unexpected exceptions fail the test.
 static void test_match_name_empty_eq() {
     Entry e;
     auto ast = parse("name = ''");
     test(matches(e, ast.get()));
 }
 
+// Checks name = '' on named. Unexpected exceptions fail the test.
 static void test_match_name_empty_ne() {
     Entry e;
     e.set_name("bug");
@@ -169,6 +193,7 @@ static void test_match_name_empty_ne() {
     test(!matches(e, ast.get()));
 }
 
+// Checks any = test, name matches. Unexpected exceptions fail the test.
 static void test_match_any_name() {
     Entry e;
     e.set_name("test");
@@ -176,6 +201,7 @@ static void test_match_any_name() {
     test(matches(e, ast.get()));
 }
 
+// Checks any = 5, name matches. Unexpected exceptions fail the test.
 static void test_match_any_number_as_name() {
     Entry e;
     e.set_name("5");
@@ -183,6 +209,8 @@ static void test_match_any_number_as_name() {
     test(matches(e, ast.get()));
 }
 
+// Checks any = 20260920-101010, name matches. Unexpected exceptions fail the
+// test.
 static void test_match_any_time_as_name() {
     Entry e;
     e.set_name("20260920-101010");
@@ -190,6 +218,7 @@ static void test_match_any_time_as_name() {
     test(matches(e, ast.get()));
 }
 
+// Checks priority = 5. Unexpected exceptions fail the test.
 static void test_match_priority_eq() {
     Entry e;
     e.set_priority(5);
@@ -197,6 +226,7 @@ static void test_match_priority_eq() {
     test(matches(e, ast.get()));
 }
 
+// Checks priority > 3. Unexpected exceptions fail the test.
 static void test_match_priority_gt() {
     Entry e;
     e.set_priority(5);
@@ -204,6 +234,7 @@ static void test_match_priority_gt() {
     test(matches(e, ast.get()));
 }
 
+// Checks status = opened. Unexpected exceptions fail the test.
 static void test_match_status() {
     Entry e;
     e.set_status("opened");
@@ -211,6 +242,7 @@ static void test_match_status() {
     test(matches(e, ast.get()));
 }
 
+// Checks path ~ MADO. Unexpected exceptions fail the test.
 static void test_match_path() {
     Entry e;
     e.set_path("/home/user/MADO/20260101-120000/MAIN.md");
@@ -218,6 +250,7 @@ static void test_match_path() {
     test(matches(e, ast.get()));
 }
 
+// Checks deadline > 20260101-000000. Unexpected exceptions fail the test.
 static void test_match_deadline() {
     Entry e;
     e.set_deadline("20260201-000000");
@@ -225,6 +258,7 @@ static void test_match_deadline() {
     test(matches(e, ast.get()));
 }
 
+// Checks xor both true = false. Unexpected exceptions fail the test.
 static void test_match_xor_both_true() {
     Entry e;
     e.set_priority(5);
@@ -233,6 +267,7 @@ static void test_match_xor_both_true() {
     test(!matches(e, ast.get()));
 }
 
+// Checks name ~~ fbeer. Unexpected exceptions fail the test.
 static void test_fuzzy() {
     Entry e;
     e.set_name("fix bug in lexer");
@@ -240,6 +275,8 @@ static void test_fuzzy() {
     test(matches(e, ast.get()));
 }
 
+// Checks glob matching, negation and invalid patterns. Unexpected exceptions
+// fail the test.
 static void test_glob() {
     Entry e;
     e.set_name("FIX-42");
@@ -251,6 +288,7 @@ static void test_glob() {
          !matches(e, parse(R"(name !%~ "fix-[")").get()));
 }
 
+// Checks not name = bug on feature. Unexpected exceptions fail the test.
 static void test_match_not_false() {
     Entry e;
     e.set_name("feature");
@@ -258,6 +296,7 @@ static void test_match_not_false() {
     test(matches(e, ast.get()));
 }
 
+// Checks any = 5 matches priority. Unexpected exceptions fail the test.
 static void test_match_any_number_as_priority() {
     Entry e;
     e.set_priority(5);
@@ -265,6 +304,7 @@ static void test_match_any_number_as_priority() {
     test(matches(e, ast.get()));
 }
 
+// Checks tag ~ crit. Unexpected exceptions fail the test.
 static void test_match_tag_substr() {
     Entry e;
     e.set_tags({"critical"});
@@ -274,6 +314,7 @@ static void test_match_tag_substr() {
 
 // utf8 case insensitive
 
+// Checks name = лалала matches ЛАЛАЛА. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_eq() {
     Entry e;
     e.set_name("ЛАЛАЛА");
@@ -281,6 +322,8 @@ static void test_match_name_unicode_ci_eq() {
     test(matches(e, ast.get()));
 }
 
+// Checks name != лалала doesn't match ЛАЛАЛА. Unexpected exceptions fail the
+// test.
 static void test_match_name_unicode_ci_ne() {
     Entry e;
     e.set_name("ЛАЛАЛА");
@@ -288,6 +331,7 @@ static void test_match_name_unicode_ci_ne() {
     test(!matches(e, ast.get()));
 }
 
+// Checks name != ЛЯЛЯЛЯ matches ЛАЛАЛА. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_ne_true() {
     Entry e;
     e.set_name("ЛАЛАЛА");
@@ -295,6 +339,7 @@ static void test_match_name_unicode_ci_ne_true() {
     test(matches(e, ast.get()));
 }
 
+// Checks name ~ ала matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_substr() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -302,6 +347,7 @@ static void test_match_name_unicode_ci_substr() {
     test(matches(e, ast.get()));
 }
 
+// Checks name !~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_nsubstr() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -309,6 +355,7 @@ static void test_match_name_unicode_ci_nsubstr() {
     test(matches(e, ast.get()));
 }
 
+// Checks name ^~ лала matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_starts() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -316,6 +363,7 @@ static void test_match_name_unicode_ci_starts() {
     test(matches(e, ast.get()));
 }
 
+// Checks name !^~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_nstarts() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -323,6 +371,7 @@ static void test_match_name_unicode_ci_nstarts() {
     test(matches(e, ast.get()));
 }
 
+// Checks name $~ лала matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_ends() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -330,6 +379,7 @@ static void test_match_name_unicode_ci_ends() {
     test(matches(e, ast.get()));
 }
 
+// Checks name !$~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_nends() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -337,6 +387,7 @@ static void test_match_name_unicode_ci_nends() {
     test(matches(e, ast.get()));
 }
 
+// Checks name ~~ ллл matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_fuzzy() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -344,6 +395,7 @@ static void test_match_name_unicode_ci_fuzzy() {
     test(matches(e, ast.get()));
 }
 
+// Checks name !~~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_nfuzzy() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -351,6 +403,7 @@ static void test_match_name_unicode_ci_nfuzzy() {
     test(matches(e, ast.get()));
 }
 
+// Checks name > ааа matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_gt() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -358,6 +411,7 @@ static void test_match_name_unicode_ci_gt() {
     test(matches(e, ast.get()));
 }
 
+// Checks name < яяя matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_lt() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -365,6 +419,7 @@ static void test_match_name_unicode_ci_lt() {
     test(matches(e, ast.get()));
 }
 
+// Checks name >= лалала matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_ge() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -372,6 +427,7 @@ static void test_match_name_unicode_ci_ge() {
     test(matches(e, ast.get()));
 }
 
+// Checks name <= лалала matches ЛаЛаЛа. Unexpected exceptions fail the test.
 static void test_match_name_unicode_ci_le() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -381,6 +437,7 @@ static void test_match_name_unicode_ci_le() {
 
 // entry point
 
+// Runs this test suite and returns 1 on failure or 0 on success.
 int main() {
     std::vector<Test_Case> tests = {
         {"Null filter", "evaluate(nullptr) = true", test_match_null_filter},

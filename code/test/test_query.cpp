@@ -13,6 +13,7 @@ using namespace mado::query;
 
 // token
 
+// Checks creation of token with values. Unexpected exceptions fail the test.
 static void test_token_creation() {
     Token t{Token_Type::Number, "42", 0};
 
@@ -21,6 +22,7 @@ static void test_token_creation() {
          t.position == 0);
 }
 
+// Checks creation of default token. Unexpected exceptions fail the test.
 static void test_token_creation_default() {
     Token t;
 
@@ -29,6 +31,7 @@ static void test_token_creation_default() {
          t.position == 0);
 }
 
+// Checks conversion of type to string. Unexpected exceptions fail the test.
 static void test_token_type_to_string() {
     test(token_type_to_string(Token_Type::Number) == "Number" &&
          token_type_to_string(Token_Type::Gt) == "Gt" &&
@@ -38,6 +41,7 @@ static void test_token_type_to_string() {
 
 // lexer
 
+// Checks tokenization of empty query. Unexpected exceptions fail the test.
 static void test_lexer_empty_query() {
     Lexer lexer("");
     auto tokens = lexer.tokenize();
@@ -46,6 +50,7 @@ static void test_lexer_empty_query() {
          tokens[0].type == Token_Type::End);
 }
 
+// Checks tokenization of numbers. Unexpected exceptions fail the test.
 static void test_lexer_numbers() {
     Lexer lexer("42 999 0");
     auto tokens = lexer.tokenize();
@@ -60,6 +65,7 @@ static void test_lexer_numbers() {
          tokens[3].type == Token_Type::End);
 }
 
+// Checks tokenization of keywords. Unexpected exceptions fail the test.
 static void test_lexer_keywords() {
     Lexer lexer("priority and tag");
     auto tokens = lexer.tokenize();
@@ -74,6 +80,7 @@ static void test_lexer_keywords() {
          tokens[3].type == Token_Type::End);
 }
 
+// Checks tokenization of quoted strings. Unexpected exceptions fail the test.
 static void test_lexer_strings() {
     Lexer lexer("\"hello\" 'world'");
     auto tokens = lexer.tokenize();
@@ -86,6 +93,7 @@ static void test_lexer_strings() {
          tokens[2].type == Token_Type::End);
 }
 
+// Checks tokenization of operators. Unexpected exceptions fail the test.
 static void test_lexer_operators() {
     Lexer lexer("> >= < <= = != ~ !~ ~~ !~~");
     auto tokens = lexer.tokenize();
@@ -104,6 +112,7 @@ static void test_lexer_operators() {
          tokens[10].type == Token_Type::End);
 }
 
+// Checks tokenization of punctuation. Unexpected exceptions fail the test.
 static void test_lexer_punctuation() {
     Lexer lexer("( ) , [ ] ..");
     auto tokens = lexer.tokenize();
@@ -118,6 +127,7 @@ static void test_lexer_punctuation() {
          tokens[6].type == Token_Type::End);
 }
 
+// Checks tokenization of query. Unexpected exceptions fail the test.
 static void test_lexer_query() {
     Lexer lexer("priority > 5 and tag = bug");
     auto tokens = lexer.tokenize();
@@ -135,6 +145,7 @@ static void test_lexer_query() {
          tokens[7].type == Token_Type::End);
 }
 
+// Checks tokenization of with whitespace. Unexpected exceptions fail the test.
 static void test_lexer_whitespace() {
     Lexer lexer("    priority\t   >\n  5  ");
     auto tokens = lexer.tokenize();
@@ -146,6 +157,7 @@ static void test_lexer_whitespace() {
          tokens[3].type == Token_Type::End);
 }
 
+// Checks token positions. Unexpected exceptions fail the test.
 static void test_lexer_position() {
     Lexer lexer("priority > 5");
     auto tokens = lexer.tokenize();
@@ -155,6 +167,7 @@ static void test_lexer_position() {
          tokens[2].position == 11);
 }
 
+// Checks tokenization of invalid operators. Unexpected exceptions fail the test.
 static void test_lexer_invalid_operators() {
     Lexer lexer("^ $ % f g . * ! !~&");
     auto tokens = lexer.tokenize();
@@ -183,6 +196,7 @@ static void test_lexer_invalid_operators() {
          tokens[10].type == Token_Type::End);
 }
 
+// Checks tokenization of unterminated string. Unexpected exceptions fail the test.
 static void test_lexer_unterminated_string() {
     Lexer lexer("\"hello");
     auto tokens = lexer.tokenize();
@@ -193,6 +207,7 @@ static void test_lexer_unterminated_string() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `2026`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_yyyy() {
     Lexer lexer("2026");
     auto tokens = lexer.tokenize();
@@ -203,6 +218,7 @@ static void test_lexer_timestamp_yyyy() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `202609`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_yyyymm() {
     Lexer lexer("202609");
     auto tokens = lexer.tokenize();
@@ -213,6 +229,7 @@ static void test_lexer_timestamp_yyyymm() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `20260911`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_yyyymmdd() {
     Lexer lexer("20260911");
     auto tokens = lexer.tokenize();
@@ -223,6 +240,7 @@ static void test_lexer_timestamp_yyyymmdd() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `20260911-123045`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_full() {
     Lexer lexer("20260911-123045");
     auto tokens = lexer.tokenize();
@@ -233,6 +251,7 @@ static void test_lexer_timestamp_full() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `20260911-`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_with_t_only() {
     Lexer lexer("20260911-");
     auto tokens = lexer.tokenize();
@@ -243,6 +262,7 @@ static void test_lexer_timestamp_with_t_only() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `20260230`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_invalid_date() {
     Lexer lexer("20260230");
     auto tokens = lexer.tokenize();
@@ -252,6 +272,7 @@ static void test_lexer_timestamp_invalid_date() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `202613`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_invalid_month() {
     Lexer lexer("202613");
     auto tokens = lexer.tokenize();
@@ -261,6 +282,7 @@ static void test_lexer_timestamp_invalid_month() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks how the lexer classifies `12345`. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_invalid_length() {
     Lexer lexer("12345");
     auto tokens = lexer.tokenize();
@@ -270,6 +292,7 @@ static void test_lexer_timestamp_invalid_length() {
          tokens[1].type == Token_Type::End);
 }
 
+// Checks deadline < 20260911-123045. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_in_query() {
     Lexer lexer("deadline < 20260911-123045");
     auto tokens = lexer.tokenize();
@@ -282,6 +305,7 @@ static void test_lexer_timestamp_in_query() {
          tokens[3].type == Token_Type::End);
 }
 
+// Checks 42 20260911 0. Unexpected exceptions fail the test.
 static void test_lexer_timestamp_numbers_still_work() {
     Lexer lexer("42 20260911 0");
     auto tokens = lexer.tokenize();
@@ -298,6 +322,7 @@ static void test_lexer_timestamp_numbers_still_work() {
 
 // ast
 
+// Checks creation of comparison node. Unexpected exceptions fail the test.
 static void test_ast_comparison_node() {
     auto node = ast_make_comparison(
         Ast_Comparison_Field::Priority,
@@ -313,6 +338,8 @@ static void test_ast_comparison_node() {
          comp->as_number() == 5);
 }
 
+// Checks creation of comparison node with string. Unexpected exceptions fail the
+// test.
 static void test_ast_comparison_node_string() {
     auto node = ast_make_comparison(
         Ast_Comparison_Field::Tag,
@@ -325,6 +352,7 @@ static void test_ast_comparison_node_string() {
          comp->as_string() == "bug");
 }
 
+// Checks creation of binary node. Unexpected exceptions fail the test.
 static void test_ast_binary_node() {
     auto left = ast_make_comparison(
         Ast_Comparison_Field::Priority,
@@ -351,6 +379,7 @@ static void test_ast_binary_node() {
          bin->right->type == Ast_Node_Type::Comparison_Operator);
 }
 
+// Checks creation of unary node. Unexpected exceptions fail the test.
 static void test_ast_unary_node() {
     auto expr = ast_make_comparison(
         Ast_Comparison_Field::Status,
@@ -369,6 +398,7 @@ static void test_ast_unary_node() {
          un->expr->type == Ast_Node_Type::Comparison_Operator);
 }
 
+// Checks creation of special nodes. Unexpected exceptions fail the test.
 static void test_ast_special_nodes() {
     auto all_node = ast_make_special(Ast_Node_Type::All);
     auto untagged_node = ast_make_special(Ast_Node_Type::Untagged);
@@ -381,6 +411,7 @@ static void test_ast_special_nodes() {
 
 // parser
 
+// Checks parse 'priority > 5'. Unexpected exceptions fail the test.
 static void test_parser_number_condition() {
     Lexer lexer("priority > 5");
     auto tokens = lexer.tokenize();
@@ -396,6 +427,7 @@ static void test_parser_number_condition() {
          comp->as_number() == 5);
 }
 
+// Checks parse 'tag = bug'. Unexpected exceptions fail the test.
 static void test_parser_string_condition() {
     Lexer lexer("tag = bug");
     auto tokens = lexer.tokenize();
@@ -410,6 +442,8 @@ static void test_parser_string_condition() {
          comp->as_string() == "bug");
 }
 
+// Checks parse 'tag = all and status = and and name = or and any = not'.
+// Unexpected exceptions fail the test.
 static void test_parser_keyword_as_string_value() {
     Lexer lexer("tag = all and status = and and name = or and any = not");
     auto tokens = lexer.tokenize();
@@ -449,6 +483,8 @@ static void test_parser_keyword_as_string_value() {
          any->as_string() == "not");
 }
 
+// Checks parse 'priority > 5 and tag = bug'. Unexpected exceptions fail the
+// test.
 static void test_parser_binary_and() {
     Lexer lexer("priority > 5 and tag = bug");
     auto tokens = lexer.tokenize();
@@ -476,6 +512,7 @@ static void test_parser_binary_and() {
          right->as_string() == "bug");
 }
 
+// Checks parse 'not status = closed'. Unexpected exceptions fail the test.
 static void test_parser_not() {
     Lexer lexer("not status = closed");
     auto tokens = lexer.tokenize();
@@ -489,6 +526,8 @@ static void test_parser_not() {
          un->expr->type == Ast_Node_Type::Comparison_Operator);
 }
 
+// Checks parse '(priority > 5 or priority < 2) and tag = bug'. Unexpected
+// exceptions fail the test.
 static void test_parser_parentheses() {
     Lexer lexer("(priority > 5 or priority < 2) and tag = bug");
     auto tokens = lexer.tokenize();
@@ -527,6 +566,7 @@ static void test_parser_parentheses() {
          right->as_string() == "bug");
 }
 
+// Checks parse 'all'. Unexpected exceptions fail the test.
 static void test_parser_special() {
     Lexer lexer("all");
     auto tokens = lexer.tokenize();
@@ -537,6 +577,8 @@ static void test_parser_special() {
     test(ast->type == Ast_Node_Type::All);
 }
 
+// Checks parse 'not not priority > 1 or priority > 2 xor priority > 3 and not
+// priority > 4'. Unexpected exceptions fail the test.
 static void test_parser_priority() {
     /*
         Or
@@ -611,6 +653,7 @@ static void test_parser_priority() {
          d->as_number() == 4);
 }
 
+// Checks empty query throws. Unexpected exceptions fail the test.
 static void test_parser_empty_throws() {
     Lexer lexer("");
     auto tokens = lexer.tokenize();
@@ -625,6 +668,7 @@ static void test_parser_empty_throws() {
     test(thrown);
 }
 
+// Checks unexpected token throws. Unexpected exceptions fail the test.
 static void test_parser_unexpected_token_throws() {
     Lexer lexer("priority > ");
     auto tokens = lexer.tokenize();
@@ -639,6 +683,8 @@ static void test_parser_unexpected_token_throws() {
     test(thrown);
 }
 
+// Checks parse 'priority = anyof(1, 2, 3)'. Unexpected exceptions fail the
+// test.
 static void test_parser_anyof_number() {
     Lexer lexer("priority = anyof(1, 2, 3)");
     auto tokens = lexer.tokenize();
@@ -674,6 +720,7 @@ static void test_parser_anyof_number() {
          three->as_number() == 3);
 }
 
+// Checks parse 'priority = allof(1, 2)'. Unexpected exceptions fail the test.
 static void test_parser_allof_number() {
     Lexer lexer("priority = allof(1, 2)");
     auto tokens = lexer.tokenize();
@@ -690,6 +737,7 @@ static void test_parser_allof_number() {
          right->is_number() && right->as_number() == 2);
 }
 
+// Checks parse 'tag = anyof(bug, crit)'. Unexpected exceptions fail the test.
 static void test_parser_anyof_string() {
     Lexer lexer("tag = anyof(bug, crit)");
     auto tokens = lexer.tokenize();
@@ -707,6 +755,7 @@ static void test_parser_anyof_string() {
          right->is_string() && right->as_string() == "crit");
 }
 
+// Checks parse 'tag = allof(a, b, c)'. Unexpected exceptions fail the test.
 static void test_parser_allof_string() {
     Lexer lexer("tag = allof(a, b, c)");
     auto tokens = lexer.tokenize();
@@ -721,6 +770,8 @@ static void test_parser_allof_string() {
          inner->op == Ast_Binary_Operator::And);
 }
 
+// Checks parse 'deadline = anyof(20260101, 20260202)'. Unexpected exceptions
+// fail the test.
 static void test_parser_anyof_time() {
     Lexer lexer("deadline = anyof(20260101, 20260202)");
     auto tokens = lexer.tokenize();
@@ -738,6 +789,8 @@ static void test_parser_anyof_time() {
          right->is_string() && right->as_string() == "20260202");
 }
 
+// Checks parse 'any = anyof(1, foo, 20260101)'. Unexpected exceptions fail the
+// test.
 static void test_parser_anyof_any() {
     Lexer lexer("any = anyof(1, foo, 20260101)");
     auto tokens = lexer.tokenize();
@@ -759,6 +812,7 @@ static void test_parser_anyof_any() {
          ts->is_string() && ts->as_string() == "20260101");
 }
 
+// Checks parse 'priority = anyof(5)'. Unexpected exceptions fail the test.
 static void test_parser_anyof_single_value() {
     Lexer lexer("priority = anyof(5)");
     auto tokens = lexer.tokenize();
@@ -775,6 +829,7 @@ static void test_parser_anyof_single_value() {
          comp->as_number() == 5);
 }
 
+// Checks parse 'priority > anyof(1, 2)'. Unexpected exceptions fail the test.
 static void test_parser_anyof_with_operator() {
     Lexer lexer("priority > anyof(1, 2)");
     auto tokens = lexer.tokenize();
@@ -790,6 +845,7 @@ static void test_parser_anyof_with_operator() {
          left->is_number() && left->as_number() == 1);
 }
 
+// Checks parse 'tag = anyof()' throws. Unexpected exceptions fail the test.
 static void test_parser_anyof_empty_throws() {
     Lexer lexer("tag = anyof()");
     auto tokens = lexer.tokenize();
@@ -804,6 +860,8 @@ static void test_parser_anyof_empty_throws() {
     test(thrown);
 }
 
+// Checks parse 'tag = anyof(a, b,)' throws. Unexpected exceptions fail the
+// test.
 static void test_parser_anyof_trailing_comma_throws() {
     Lexer lexer("tag = anyof(a, b,)");
     auto tokens = lexer.tokenize();
@@ -818,6 +876,7 @@ static void test_parser_anyof_trailing_comma_throws() {
     test(thrown);
 }
 
+// Checks parse 'tag = anyof(a b)' throws. Unexpected exceptions fail the test.
 static void test_parser_anyof_missing_comma_throws() {
     Lexer lexer("tag = anyof(a b)");
     auto tokens = lexer.tokenize();
@@ -832,6 +891,7 @@ static void test_parser_anyof_missing_comma_throws() {
     test(thrown);
 }
 
+// Checks parse 'tag = anyof(a, b' throws. Unexpected exceptions fail the test.
 static void test_parser_anyof_unclosed_throws() {
     Lexer lexer("tag = anyof(a, b");
     auto tokens = lexer.tokenize();
@@ -846,6 +906,8 @@ static void test_parser_anyof_unclosed_throws() {
     test(thrown);
 }
 
+// Checks parse 'priority = anyof(a, b)' throws. Unexpected exceptions fail the
+// test.
 static void test_parser_anyof_wrong_type_throws() {
     Lexer lexer("priority = anyof(a, b)");
     auto tokens = lexer.tokenize();
@@ -860,6 +922,8 @@ static void test_parser_anyof_wrong_type_throws() {
     test(thrown);
 }
 
+// Checks parse 'tag = anyof(a, b) and priority > 5'. Unexpected exceptions
+// fail the test.
 static void test_parser_anyof_in_expression() {
     Lexer lexer("tag = anyof(a, b) and priority > 5");
     auto tokens = lexer.tokenize();
@@ -877,6 +941,8 @@ static void test_parser_anyof_in_expression() {
          right->is_number() && right->as_number() == 5);
 }
 
+// Checks parse 'status in (opened, reopened)'. Unexpected exceptions fail the
+// test.
 static void test_parser_in() {
     Lexer lexer("status in (opened, reopened)");
     auto tokens = lexer.tokenize();
@@ -895,6 +961,7 @@ static void test_parser_in() {
          right->is_string() && right->as_string() == "reopened");
 }
 
+// Checks parse 'tag has (bug, crit)'. Unexpected exceptions fail the test.
 static void test_parser_has() {
     Lexer lexer("tag has (bug, crit)");
     auto tokens = lexer.tokenize();
@@ -907,6 +974,7 @@ static void test_parser_has() {
     test(root->op == Ast_Binary_Operator::And);
 }
 
+// Checks parse 'status in (opened)'. Unexpected exceptions fail the test.
 static void test_parser_in_single_value() {
     Lexer lexer("status in (opened)");
     auto tokens = lexer.tokenize();
@@ -921,6 +989,7 @@ static void test_parser_in_single_value() {
          comp->is_string() && comp->as_string() == "opened");
 }
 
+// Checks parse 'priority in [50..100]'. Unexpected exceptions fail the test.
 static void test_parser_range_both() {
     Lexer lexer("priority in [50..100]");
     auto tokens = lexer.tokenize();
@@ -940,6 +1009,7 @@ static void test_parser_range_both() {
          right->is_number() && right->as_number() == 100);
 }
 
+// Checks parse 'priority in [50..]'. Unexpected exceptions fail the test.
 static void test_parser_range_low_only() {
     Lexer lexer("priority in [50..]");
     auto tokens = lexer.tokenize();
@@ -955,6 +1025,7 @@ static void test_parser_range_low_only() {
          comp->is_number() && comp->as_number() == 50);
 }
 
+// Checks parse 'priority in [..50]'. Unexpected exceptions fail the test.
 static void test_parser_range_high_only() {
     Lexer lexer("priority in [..50]");
     auto tokens = lexer.tokenize();
@@ -970,6 +1041,7 @@ static void test_parser_range_high_only() {
          comp->is_number() && comp->as_number() == 50);
 }
 
+// Checks parse 'name in [a..z]'. Unexpected exceptions fail the test.
 static void test_parser_range_string() {
     Lexer lexer("name in [a..z]");
     auto tokens = lexer.tokenize();
@@ -989,6 +1061,8 @@ static void test_parser_range_string() {
          right->is_string() && right->as_string() == "z");
 }
 
+// Checks parse 'deadline in [20260101..20260202]'. Unexpected exceptions fail
+// the test.
 static void test_parser_range_time() {
     Lexer lexer("deadline in [20260101..20260202]");
     auto tokens = lexer.tokenize();
@@ -1008,6 +1082,7 @@ static void test_parser_range_time() {
          right->is_string() && right->as_string() == "20260202");
 }
 
+// Checks parse 'any in [1..20260101]'. Unexpected exceptions fail the test.
 static void test_parser_range_any() {
     Lexer lexer("any in [1..20260101]");
     auto tokens = lexer.tokenize();
@@ -1026,6 +1101,8 @@ static void test_parser_range_any() {
          right->is_string() && right->as_string() == "20260101");
 }
 
+// Checks parse 'priority in [50..100] and tag = bug'. Unexpected exceptions
+// fail the test.
 static void test_parser_range_in_expression() {
     Lexer lexer("priority in [50..100] and tag = bug");
     auto tokens = lexer.tokenize();
@@ -1043,6 +1120,7 @@ static void test_parser_range_in_expression() {
          right->is_string() && right->as_string() == "bug");
 }
 
+// Checks parse 'priority in [..]' throws. Unexpected exceptions fail the test.
 static void test_parser_range_empty_throws() {
     Lexer lexer("priority in [..]");
     auto tokens = lexer.tokenize();
@@ -1057,6 +1135,7 @@ static void test_parser_range_empty_throws() {
     test(thrown);
 }
 
+// Checks parse 'priority in [50]' throws. Unexpected exceptions fail the test.
 static void test_parser_range_missing_dotdot_throws() {
     Lexer lexer("priority in [50]");
     auto tokens = lexer.tokenize();
@@ -1071,6 +1150,8 @@ static void test_parser_range_missing_dotdot_throws() {
     test(thrown);
 }
 
+// Checks parse 'priority in [50..100' throws. Unexpected exceptions fail the
+// test.
 static void test_parser_range_unclosed_throws() {
     Lexer lexer("priority in [50..100");
     auto tokens = lexer.tokenize();
@@ -1085,6 +1166,8 @@ static void test_parser_range_unclosed_throws() {
     test(thrown);
 }
 
+// Checks parse 'priority in [a..z]' throws. Unexpected exceptions fail the
+// test.
 static void test_parser_range_wrong_type_throws() {
     Lexer lexer("priority in [a..z]");
     auto tokens = lexer.tokenize();
@@ -1101,6 +1184,7 @@ static void test_parser_range_wrong_type_throws() {
 
 // entry point
 
+// Runs this test suite and returns 1 on failure or 0 on success.
 int main(int argc, char **argv) {
 
     if (argc >= 2 && std::string(argv[1]) == "-query") {

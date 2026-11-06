@@ -13,6 +13,7 @@ namespace mado::query {
 //   values, or system tokens (e.g. ">", "(", "42", End, Invalid)
 constexpr uint16_t MAX_KEYWORD_VALUE = 1000;
 
+// Identifies query lexemes, including invalid input and the end sentinel.
 enum class Token_Type {
     // keywords
 
@@ -96,6 +97,7 @@ enum class Token_Type {
     Invalid,
 };
 
+// Stores a token kind, source value, and byte position.
 struct Token {
     Token_Type type{Token_Type::Invalid};
     std::string value;
@@ -107,8 +109,10 @@ struct Token {
         : type(t), value(std::move(v)), position(pos) {}
 };
 
+// Returns the diagnostic name for a token kind. May throw std::bad_alloc.
 std::string token_type_to_string(Token_Type type);
 
+// Tests whether the token kind lies in the keyword range. No exceptions.
 bool token_is_keyword(Token_Type type);
 
 } // namespace mado::query

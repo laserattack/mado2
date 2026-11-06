@@ -8,6 +8,8 @@ namespace mado::interpreter {
 
 namespace {
 
+// Applies a case-insensitive string comparison. An invalid glob returns false
+// for either glob operator. May throw std::bad_alloc.
 bool check_string(const std::string &value,
                   const std::string &pattern,
                   mado::query::Ast_Comparison_Operator op) {
@@ -59,6 +61,8 @@ bool check_string(const std::string &value,
     return false;
 }
 
+// Applies a comparison to numeric operands, using equality for text operators.
+// No exceptions.
 bool check_number(uint16_t value,
                   uint16_t pattern,
                   mado::query::Ast_Comparison_Operator op) {
@@ -91,6 +95,8 @@ bool check_number(uint16_t value,
 
 } // namespace
 
+// Tests the filter against an entry. A null filter matches every entry. String
+// comparison may throw std::bad_alloc.
 bool Interpreter::evaluate(const mado::query::Ast_Node *node,
                            const mado::entry::Entry &entry) const {
     if (!node)

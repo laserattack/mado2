@@ -7,28 +7,29 @@
 
 namespace mado::query {
 
+// Converts a query string to positioned tokens.
 class Lexer {
   public:
-    // Creates a lexer for the given query string
+    // Takes ownership of the query string. Moving it does not throw.
     explicit Lexer(std::string query) : query_(std::move(query)) {}
 
     // Tokenizes the query string
-    // Always appends a Token_Type::End token at the end
+    // Appends End and uses Invalid for malformed input. May throw std::bad_alloc.
     std::vector<Token> tokenize();
 
   private:
     std::string query_; // the source query string
     size_t pos_{0};     // current position in the string
 
-    // Skips whitespace characters
+    // Skips whitespace characters. No exceptions.
     void skip_whitespace();
 
-    // Whether the end of the string has been reached
+    // Checks whether the input is exhausted. No exceptions.
     bool is_at_end() const;
 
     // Returns the character at offset n from the current position
     // without advancing. get_it() returns the current character.
-    // Returns '\0' if the position is past the end
+    // Returns '\0' past the end. No exceptions.
     char get_it(size_t n = 0) const;
 
     // Returns the current character and advances forward.
@@ -36,19 +37,35 @@ class Lexer {
     char eat_it();
 
     // Advances forward by n characters.
-    // Does nothing if n would move past the end
+    // Stops at the end. No exceptions.
     void eat_it(size_t n);
 
     // Creates a token of the given type from the substring [start, pos_)
     Token make_token(Token_Type type, size_t start) const;
 
-    // Creates a token with explicit value
+    // Moves an explicit value into a token. No exceptions while moving.
     Token make_token(Token_Type type, std::string value, size_t start) const;
 
-    Token parse_number_and_timestamp();     // Parses numbers and timestamps
-    Token parse_quoted_string();            // Parses a quoted string (single or double quotes)
-    Token parse_identifier_and_keyword();   // Parses identifiers and a keywords
-    Token parse_operator_and_punctuation(); // Parses operators and punctuation
+    // Scans a number or timestamp and emits Invalid for malformed values. May
+    // throw std::bad_alloc.
+    // Scans numbers and timestamps. Invalid input yields Invalid.
+    // May throw std::bad_alloc.
+    Token parse_number_and_timestamp();
+    // Scans quoted text and emits Invalid when the quote is unterminated. May
+    // throw std::bad_alloc.
+    // Scans quoted text. Unterminated input yields Invalid.
+    // May throw std::bad_alloc.
+    Token parse_quoted_string();
+    // Scans an identifier and prefers exact keyword matches over fuzzy
+    // matches. May throw std::bad_alloc.
+    // Scans a name and resolves exact or fuzzy keywords.
+    // May throw std::bad_alloc.
+    Token parse_identifier_and_keyword();
+    // Scans an operator or punctuation, emitting Invalid for unknown input.
+    // May throw std::bad_alloc.
+    // Scans punctuation. Unknown input yields Invalid.
+    // May throw std::bad_alloc.
+    Token parse_operator_and_punctuation();
 };
 
 } // namespace mado::query

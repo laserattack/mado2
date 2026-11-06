@@ -10,14 +10,23 @@
 namespace mado::common {
 namespace {
 
+// Base score adjustment per unmatched input byte.
 constexpr int32_t UNMATCHED_LETTER_PENALTY = -1;
+// Reward for adjacent matched characters.
 constexpr int32_t ADJACENCY_BONUS = 15;
+// Reward for matching after a word separator.
 constexpr int32_t SEPARATOR_BONUS = 30;
+// Reward for matching at a camel-case boundary.
 constexpr int32_t CAMEL_BONUS = 30;
+// Reward for matching at the start of the input.
 constexpr int32_t FIRST_LETTER_BONUS = 15;
+// Penalty per skipped byte before the first match.
 constexpr int32_t LEADING_LETTER_PENALTY = -5;
+// Caps the total leading-byte penalty.
 constexpr int32_t MAX_LEADING_LETTER_PENALTY = -15;
 
+// Scores a fuzzy-match step using position and boundary bonuses. No
+// exceptions.
 int32_t compute_score(size_t jump, bool first_char,
                       char current, char previous) {
 
@@ -48,6 +57,8 @@ int32_t compute_score(size_t jump, bool first_char,
     return score;
 }
 
+// Finds the best subsequence score from the current search state. Returns
+// nullopt when there is no match.
 std::optional<int32_t> match_recurse(const std::string &pattern,
                                      const std::string &str,
                                      size_t from, size_t pattern_pos,
@@ -94,6 +105,8 @@ std::optional<int32_t> match_recurse(const std::string &pattern,
 
 } // namespace
 
+// Returns the best subsequence score or nullopt if the pattern cannot match.
+// May throw std::bad_alloc.
 std::optional<int32_t> fuzzy_match(const std::string &pattern,
                                    const std::string &str,
                                    bool ignore_case) {

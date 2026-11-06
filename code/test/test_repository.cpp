@@ -16,8 +16,10 @@ using namespace mado::repository;
 
 namespace {
 
+// Owns a unique project-local test directory and removes it at scope exit.
 class Temp_Dir {
   public:
+    // Creates a unique fixture directory. I/O failures throw filesystem_error.
     Temp_Dir() {
         const std::filesystem::path root(MADO_TEST_ROOT);
         const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -32,17 +34,21 @@ class Temp_Dir {
     Temp_Dir(const Temp_Dir &) = delete;
     Temp_Dir &operator=(const Temp_Dir &) = delete;
 
+    // Removes the fixture tree. Suppresses filesystem cleanup errors.
     ~Temp_Dir() {
         std::error_code ec;
         std::filesystem::remove_all(path_, ec);
     }
 
+    // Returns the fixture directory. No exceptions.
     const std::filesystem::path &path() const { return path_; }
 
   private:
     std::filesystem::path path_;
 };
 
+// Creates a fixture entry and writes its contents. Directory creation can
+// throw filesystem_error.
 std::filesystem::path make_entry(const std::filesystem::path &repo_root,
                                  const std::string &timestamp,
                                  const std::string &content) {
@@ -54,6 +60,8 @@ std::filesystem::path make_entry(const std::filesystem::path &repo_root,
     return entry_dir;
 }
 
+// Builds the complete query AST. Throws Parse_Error for empty or invalid
+// queries and std::bad_alloc on allocation failure.
 std::unique_ptr<Ast_Node> parse(const std::string &query) {
     Lexer lexer(query);
     auto tokens = lexer.tokenize();
@@ -63,6 +71,8 @@ std::unique_ptr<Ast_Node> parse(const std::string &query) {
 
 } // namespace
 
+// Checks Repository::open finds MADO in cwd. Unexpected exceptions fail the
+// test.
 static void test_open_finds_mado() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -71,6 +81,8 @@ static void test_open_finds_mado() {
     test(repo.has_value());
 }
 
+// Checks Repository::open walks up the tree. Unexpected exceptions fail the
+// test.
 static void test_open_finds_mado_above() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -81,6 +93,7 @@ static void test_open_finds_mado_above() {
     test(repo.has_value());
 }
 
+// Checks no MADO anywhere. Unexpected exceptions fail the test.
 static void test_open_returns_nullopt_when_missing() {
     // Start at the filesystem root so the project repository cannot
     // affect the result and no test directory needs to be created.
@@ -92,6 +105,7 @@ static void test_open_returns_nullopt_when_missing() {
              : !repo);
 }
 
+// Checks no entries. Unexpected exceptions fail the test.
 static void test_find_empty_repo() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -100,6 +114,7 @@ static void test_find_empty_repo() {
     test(repo.has_value() && repo->find(nullptr).empty());
 }
 
+// Checks single entry with fields. Unexpected exceptions fail the test.
 static void test_find_one_entry() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -118,6 +133,7 @@ static void test_find_one_entry() {
          entries[0].time() == "20260101-120000");
 }
 
+// Checks non-timestamp dirs ignored. Unexpected exceptions fail the test.
 static void test_find_skips_non_timestamp_dirs() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: x\n");
@@ -132,6 +148,7 @@ static void test_find_skips_non_timestamp_dirs() {
     test(entries.size() == 1 && entries[0].name() == "x");
 }
 
+// Checks missing MAIN.md. Unexpected exceptions fail the test.
 static void test_find_skips_entry_without_main_md() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: x\n");
@@ -145,6 +162,7 @@ static void test_find_skips_entry_without_main_md() {
     test(entries.size() == 1);
 }
 
+// Checks 3 entries. Unexpected exceptions fail the test.
 static void test_find_multiple_entries() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: first\n");
@@ -157,6 +175,7 @@ static void test_find_multiple_entries() {
     test(entries.size() == 3);
 }
 
+// Checks name = 'fix bug'. Unexpected exceptions fail the test.
 static void test_find_filter_name() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: fix bug\n");
@@ -169,6 +188,7 @@ static void test_find_filter_name() {
     test(entries.size() == 1 && entries[0].name() == "fix bug");
 }
 
+// Checks status = opened. Unexpected exceptions fail the test.
 static void test_find_filter_status() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n- STATUS: opened\n");
@@ -181,6 +201,7 @@ static void test_find_filter_status() {
     test(entries.size() == 1 && entries[0].name() == "a");
 }
 
+// Checks tag = crit. Unexpected exceptions fail the test.
 static void test_find_filter_tags() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n- TAGS: bug, crit\n");
@@ -193,6 +214,7 @@ static void test_find_filter_tags() {
     test(entries.size() == 1 && entries[0].name() == "a");
 }
 
+// Checks no entries match. Unexpected exceptions fail the test.
 static void test_find_filter_no_match() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: fix\n");
@@ -204,6 +226,8 @@ static void test_find_filter_no_match() {
     test(entries.empty());
 }
 
+// Checks NAME, PRIORITY, TAGS, STATUS, DEADLINE. Unexpected exceptions fail
+// the test.
 static void test_load_all_fields() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -228,6 +252,7 @@ static void test_load_all_fields() {
          entries[0].time() == "20260101-120000");
 }
 
+// Checks only NAME, rest are defaults. Unexpected exceptions fail the test.
 static void test_load_defaults() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: minimal\n");
@@ -244,6 +269,7 @@ static void test_load_defaults() {
          entries[0].deadline() == "99990101-000000");
 }
 
+// Checks PRIORITY: abc -> 0. Unexpected exceptions fail the test.
 static void test_load_invalid_priority_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -256,6 +282,7 @@ static void test_load_invalid_priority_ignored() {
     test(entries.size() == 1 && entries[0].priority() == 0);
 }
 
+// Checks PRIORITY: 1000 -> 0. Unexpected exceptions fail the test.
 static void test_load_priority_too_large_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -268,6 +295,7 @@ static void test_load_priority_too_large_ignored() {
     test(entries.size() == 1 && entries[0].priority() == 0);
 }
 
+// Checks DEADLINE: not-a-date -> default. Unexpected exceptions fail the test.
 static void test_load_invalid_deadline_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -281,6 +309,7 @@ static void test_load_invalid_deadline_ignored() {
          entries[0].deadline() == "99990101-000000");
 }
 
+// Checks TAGS: -> ['']. Unexpected exceptions fail the test.
 static void test_load_empty_tags() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -295,6 +324,7 @@ static void test_load_empty_tags() {
          entries[0].tags()[0].empty());
 }
 
+// Checks TAGS:  bug ,  crit , feature. Unexpected exceptions fail the test.
 static void test_load_tags_with_spaces() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -311,6 +341,7 @@ static void test_load_tags_with_spaces() {
          entries[0].tags()[2] == "feature");
 }
 
+// Checks name = лалала matches ЛАЛАЛА. Unexpected exceptions fail the test.
 static void test_load_unicode_name() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: ЛАЛАЛА\n");
@@ -322,6 +353,8 @@ static void test_load_unicode_name() {
     test(entries.size() == 1);
 }
 
+// Checks TAGS: bug, bug, crit, bug -> [bug, crit]. Unexpected exceptions fail
+// the test.
 static void test_load_duplicate_tags_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -337,6 +370,8 @@ static void test_load_duplicate_tags_ignored() {
          entries[0].tags()[1] == "crit");
 }
 
+// Checks TAGS: tag1,,tag2 -> [tag1, '', tag2]. Unexpected exceptions fail the
+// test.
 static void test_load_tags_with_empty_token() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -353,6 +388,7 @@ static void test_load_tags_with_empty_token() {
          entries[0].tags()[2] == "tag2");
 }
 
+// Checks TAGS: tag1, -> [tag1, '']. Unexpected exceptions fail the test.
 static void test_load_tags_with_empty_token_at_end() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -368,6 +404,7 @@ static void test_load_tags_with_empty_token_at_end() {
          entries[0].tags()[1].empty());
 }
 
+// Checks TAGS: ,tag1 -> ['', tag1]. Unexpected exceptions fail the test.
 static void test_load_tags_with_empty_token_at_start() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -383,6 +420,8 @@ static void test_load_tags_with_empty_token_at_start() {
          entries[0].tags()[1] == "tag1");
 }
 
+// Checks NAME/STATUS taken from first occurrence. Unexpected exceptions fail
+// the test.
 static void test_load_repeated_field_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -399,6 +438,7 @@ static void test_load_repeated_field_ignored() {
          entries[0].status() == "opened");
 }
 
+// Checks 20260920-215549-serr. Unexpected exceptions fail the test.
 static void test_load_entry_suffix_dir() {
     Temp_Dir tmp;
     auto entry_dir = make_entry(tmp.path(), "20260920-215549-serr", "- NAME: x\n");
@@ -412,6 +452,8 @@ static void test_load_entry_suffix_dir() {
          entries[0].path() == entry_dir / "MAIN.md");
 }
 
+// Checks 20260920T215549 -> 20260920-215549. Unexpected exceptions fail the
+// test.
 static void test_load_entry_old_t_separator() {
     Temp_Dir tmp;
     auto entry_dir = make_entry(tmp.path(), "20260920T215549", "- NAME: x\n");
@@ -425,6 +467,7 @@ static void test_load_entry_old_t_separator() {
          entries[0].path() == entry_dir / "MAIN.md");
 }
 
+// Checks name = b removes only b. Unexpected exceptions fail the test.
 static void test_remove() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n");
@@ -442,6 +485,7 @@ static void test_remove() {
          std::filesystem::exists(tmp.path() / "MADO" / "20260303-140000"));
 }
 
+// Checks nothing removed. Unexpected exceptions fail the test.
 static void test_remove_no_match() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n");
@@ -454,6 +498,8 @@ static void test_remove_no_match() {
          std::filesystem::exists(tmp.path() / "MADO" / "20260101-120000"));
 }
 
+// Checks init creates MADO/ and returns repo. Unexpected exceptions fail the
+// test.
 static void test_init_creates_mado() {
     Temp_Dir tmp;
 
@@ -464,6 +510,8 @@ static void test_init_creates_mado() {
          std::filesystem::is_regular_file(repo.root() / "templates" / "task.md"));
 }
 
+// Checks init restores templates in existing MADO/. Unexpected exceptions fail
+// the test.
 static void test_init_restores_templates_here() {
     Temp_Dir tmp;
     const auto templates = tmp.path() / "MADO" / ".templates";
@@ -479,6 +527,8 @@ static void test_init_restores_templates_here() {
          std::filesystem::is_regular_file(templates / "task.md"));
 }
 
+// Checks init restores templates in ancestor MADO/. Unexpected exceptions fail
+// the test.
 static void test_init_restores_templates_above() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -491,6 +541,8 @@ static void test_init_restores_templates_above() {
          !std::filesystem::exists(nested / "MADO"));
 }
 
+// Checks init -force creates nested MADO/. Unexpected exceptions fail the
+// test.
 static void test_init_force_allows_nested() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -502,15 +554,21 @@ static void test_init_force_allows_nested() {
          repo.root() == nested / "MADO");
 }
 
+// Checks open finds MADO/ created by init. Unexpected exceptions fail the
+// test.
 static void test_init_then_open() {
     Temp_Dir tmp;
 
+    // Initializes the nearest repository and restores its default templates.
+    // Force selects the given directory. I/O failures throw std::runtime_error
+    // or a filesystem_error.
     Repository::init(tmp.path(), true);
     auto repo = Repository::open(tmp.path());
     test(repo.has_value() &&
          repo->root() == tmp.path() / "MADO");
 }
 
+// Checks creation of makes MAIN.md. Unexpected exceptions fail the test.
 static void test_create() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -524,6 +582,7 @@ static void test_create() {
          e.path().parent_path().parent_path() == tmp.path() / "MADO");
 }
 
+// Checks created entry is found by find. Unexpected exceptions fail the test.
 static void test_create_then_find() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -541,6 +600,8 @@ static void test_create_then_find() {
          entries[0].deadline() == "99990101-000000");
 }
 
+// Checks all 5 fields present but empty -> defaults. Unexpected exceptions
+// fail the test.
 static void test_load_all_fields_empty() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -563,6 +624,8 @@ static void test_load_all_fields_empty() {
          entries[0].time() == "20260101-120000");
 }
 
+// Checks all 5 fields present but whitespace -> defaults. Unexpected
+// exceptions fail the test.
 static void test_load_all_fields_whitespace() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -584,6 +647,7 @@ static void test_load_all_fields_whitespace() {
          entries[0].deadline() == "99990101-000000");
 }
 
+// Checks ../ rejected, no leftover dir. Unexpected exceptions fail the test.
 static void test_create_rejects_dotdot_slash_in_suffix() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -600,6 +664,7 @@ static void test_create_rejects_dotdot_slash_in_suffix() {
 
 // entry point
 
+// Runs this test suite and returns 1 on failure or 0 on success.
 int main() {
     std::vector<Test_Case> tests = {
         {"Open finds MADO", "Repository::open finds MADO in cwd", test_open_finds_mado},

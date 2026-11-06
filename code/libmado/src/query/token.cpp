@@ -4,6 +4,7 @@
 
 namespace mado::query {
 
+// Returns the diagnostic name for a token kind. May throw std::bad_alloc.
 std::string token_type_to_string(Token_Type type) {
     switch (type) {
     // fields
@@ -126,6 +127,7 @@ std::string token_type_to_string(Token_Type type) {
     return "Unknown";
 }
 
+// Tests whether the token kind lies in the keyword range. No exceptions.
 bool token_is_keyword(Token_Type type) {
     return static_cast<uint16_t>(type) <= MAX_KEYWORD_VALUE &&
            token_type_to_string(type) != "Unknown";

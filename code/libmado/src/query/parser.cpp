@@ -8,6 +8,7 @@ namespace mado::query {
 
 namespace {
 
+// Formats a token kind and its value if present. May throw std::bad_alloc.
 std::string token_repr(const Token &token) {
     if (token.value.empty()) {
         return token_type_to_string(token.type);
@@ -15,6 +16,7 @@ std::string token_repr(const Token &token) {
     return token_type_to_string(token.type) + ": " + token.value;
 }
 
+// Stores codepoint and display-column counts for a query fragment.
 struct Display_Metrics {
     size_t codepoints;
     size_t columns;
@@ -55,6 +57,8 @@ Display_Metrics utf8proc_metrics(const std::string &str, size_t byte_len) {
 
 } // namespace
 
+// Formats the query diagnostic with a caret at the error location. May throw
+// std::bad_alloc.
 std::string Parse_Error::format(const std::string &query) const {
     size_t byte_pos = std::min(token_.position, query.size());
 
@@ -68,10 +72,13 @@ std::string Parse_Error::format(const std::string &query) const {
            padding + " | " + what() + "\n";
 }
 
+// Reports whether the input has been exhausted. No exceptions.
 bool Parser::is_at_end() const {
     return get_it().type == Token_Type::End;
 }
 
+// Peeks ahead without consuming input and returns the end sentinel past the
+// input. Copying a token may allocate.
 Token Parser::get_it(size_t n) const {
     if (current_ + n >= tokens_.size()) {
         return Token{Token_Type::End, "", tokens_.back().position};
@@ -79,6 +86,8 @@ Token Parser::get_it(size_t n) const {
     return tokens_[current_ + n];
 }
 
+// Consumes input up to its end and returns the current item when applicable.
+// Copying a token may allocate.
 Token Parser::eat_it() {
     Token token = get_it();
 
@@ -89,6 +98,8 @@ Token Parser::eat_it() {
     return token;
 }
 
+// Checks whether the token type is accepted by the field. Returns false on
+// mismatch. No exceptions.
 bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) const {
     switch (field) {
     case Ast_Comparison_Field::Priority:
@@ -111,6 +122,7 @@ bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) c
     return false;
 }
 
+// Returns the expected operand type for diagnostics. May throw std::bad_alloc.
 std::string Parser::value_type_desc(Ast_Comparison_Field field) const {
     switch (field) {
     case Ast_Comparison_Field::Priority:
@@ -130,6 +142,8 @@ std::string Parser::value_type_desc(Ast_Comparison_Field field) const {
     return "value";
 }
 
+// Builds the complete query AST. Throws Parse_Error for empty or invalid
+// queries and std::bad_alloc on allocation failure.
 std::unique_ptr<Ast_Node> Parser::parse() {
     if (is_at_end()) {
         throw Parse_Error("Empty query", get_it());
@@ -202,6 +216,8 @@ std::unique_ptr<Ast_Node> Parser::parse_not() {
     return parse_primary();
 }
 
+// Parses a grouped expression or a field or keyword. Throws Parse_Error for
+// invalid syntax.
 std::unique_ptr<Ast_Node> Parser::parse_primary() {
     // (expr)
     if (get_it().type == Token_Type::Lparen) { // (
@@ -272,6 +288,8 @@ std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
     }
 }
 
+// Parses a comparison, list, or range. Throws Parse_Error for invalid syntax
+// or types.
 std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
 
     // expr: field in [v..v]
@@ -322,6 +340,8 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
     return parse_value(field, op);
 }
 
+// Expands inclusive range bounds into comparisons. Throws Parse_Error for
+// malformed or empty ranges.
 std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     // '[' is guaranteed by the caller
@@ -369,6 +389,8 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
     return low ? std::move(low) : std::move(high);
 }
 
+// Expands a nonempty value list into AND or OR nodes. Throws Parse_Error for
+// invalid values or delimiters.
 std::unique_ptr<Ast_Node> Parser::parse_list(
     Ast_Comparison_Field field,
     Ast_Comparison_Operator op,
@@ -409,6 +431,8 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
     return result;
 }
 
+// Consumes a value and builds a comparison node. Throws Parse_Error for an
+// unknown field.
 std::unique_ptr<Ast_Node> Parser::parse_value(
     Ast_Comparison_Field field,
     Ast_Comparison_Operator op) {
@@ -443,6 +467,8 @@ std::unique_ptr<Ast_Node> Parser::parse_value(
     throw Parse_Error("Unknown field", val);
 }
 
+// Consumes and maps a comparison operator. Throws Parse_Error for other
+// tokens.
 Ast_Comparison_Operator Parser::parse_comparison_operator() {
     auto op = eat_it();
 

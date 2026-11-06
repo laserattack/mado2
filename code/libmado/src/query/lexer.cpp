@@ -7,6 +7,8 @@
 
 namespace mado::query {
 
+// Scans the query and appends End. Malformed lexemes produce Invalid tokens.
+// May throw std::bad_alloc.
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
 
@@ -34,40 +36,51 @@ std::vector<Token> Lexer::tokenize() {
     return tokens;
 }
 
+// Advances past whitespace. No exceptions.
 void Lexer::skip_whitespace() {
     while (!is_at_end() && std::isspace(get_it())) {
         eat_it();
     }
 }
 
+// Reports whether the input has been exhausted. No exceptions.
 bool Lexer::is_at_end() const {
     return pos_ >= query_.size();
 }
 
+// Peeks ahead without consuming input. Returns '\0' past the end. No exceptions.
 char Lexer::get_it(size_t n) const {
     if (pos_ + n >= query_.size())
         return '\0';
     return query_[pos_ + n];
 }
 
+// Consumes one character or returns '\0' at the end. No exceptions.
 char Lexer::eat_it() {
     if (is_at_end())
         return '\0';
     return query_[pos_++];
 }
 
+// Advances by up to n characters, stopping at the end. No exceptions.
 void Lexer::eat_it(size_t n) {
     pos_ = std::min(pos_ + n, query_.size());
 }
 
+// Builds a token with the given kind, text, and starting offset. May throw
+// std::bad_alloc.
 Token Lexer::make_token(Token_Type type, size_t start) const {
     return Token{type, query_.substr(start, pos_ - start), start};
 }
 
+// Builds a token with the given kind, text, and starting offset. May throw
+// std::bad_alloc.
 Token Lexer::make_token(Token_Type type, std::string value, size_t start) const {
     return Token{type, std::move(value), start};
 }
 
+// Scans a number or timestamp and emits Invalid for malformed values. May
+// throw std::bad_alloc.
 Token Lexer::parse_number_and_timestamp() {
     size_t start = pos_;
 
@@ -103,6 +116,8 @@ Token Lexer::parse_number_and_timestamp() {
     return make_token(Token_Type::Invalid, start);
 }
 
+// Scans quoted text and emits Invalid when the quote is unterminated. May
+// throw std::bad_alloc.
 Token Lexer::parse_quoted_string() {
     size_t start = pos_;
     char quote = eat_it();
@@ -132,6 +147,8 @@ Token Lexer::parse_quoted_string() {
     return make_token(Token_Type::String, std::move(result), start);
 }
 
+// Scans an identifier and prefers exact keyword matches over fuzzy matches.
+// May throw std::bad_alloc.
 Token Lexer::parse_identifier_and_keyword() {
     size_t start = pos_;
 
@@ -177,6 +194,8 @@ Token Lexer::parse_identifier_and_keyword() {
     return make_token(Token_Type::String, std::move(result), start);
 }
 
+// Scans an operator or punctuation, emitting Invalid for unknown input. May
+// throw std::bad_alloc.
 Token Lexer::parse_operator_and_punctuation() {
     size_t start = pos_;
 

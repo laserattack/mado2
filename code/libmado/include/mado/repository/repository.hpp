@@ -9,54 +9,54 @@
 
 namespace mado::repository {
 
+// Represents an opened MADO directory and manages its entries and templates.
 class Repository {
   public:
-    // Find MADO/ starting from `from`, going up the tree.
+    // Finds the nearest MADO directory from `from`. Returns nullopt if
+    // none is found or the path cannot be resolved. May throw std::bad_alloc.
     static std::optional<Repository> open(const std::filesystem::path &from);
 
     // Initializes the nearest repository and restores its default templates.
-    // With force, initializes a repository in `where` even if one exists above.
+    // With force, initializes in `where` even if one exists above.
+    // I/O failures throw std::runtime_error or filesystem_error.
     static Repository init(const std::filesystem::path &where, bool force = false);
 
     // Load entries matching the filter.
-    // Invalid entries are skipped. Only matching entries are kept in memory.
+    // Skips invalid entries. I/O and allocation exceptions propagate.
     std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;
 
     // Finds entries matching the filter, removes their directories, and
-    // returns the removed entries.
+    // returns successful removals. Skips failed deletions. I/O failures
+    // while loading and allocation exceptions can propagate.
     std::vector<mado::entry::Entry> remove(const mado::query::Ast_Node *filter) const;
 
-    // Creates a new entry in MADO/ with an empty header:
-    //
-    //   - NAME:
-    //   - PRIORITY:
-    //   - TAGS:
-    //   - STATUS:
-    //   - DEADLINE:
-    //
-    // The directory name is the current UTC time in YYYYMMDD-HHMMSS,
-    // optionally followed by <suffix>.
-    // Returns the created Entry.
-    //
-    // Throws:
-    //   - std::runtime_error: cannot create the directory or file, or
-    //     the generated name collides with an existing one.
+    // Creates a UTC timestamped entry with an optional suffix. Uses a named
+    // template when supplied and the built-in task header otherwise.
+    // Invalid names, missing templates, and collisions throw Repository_Error.
+    // I/O failures throw std::runtime_error or filesystem_error.
     mado::entry::Entry create(
         const std::string &suffix = "",
         const std::optional<std::string> &template_name = std::nullopt) const;
 
     // Iterates over entries matching the filter and calls `action` for
     // each. The action receives the entry by value, so it can move it
-    // out. If the action returns false, iteration stops early.
+    // out. False stops iteration. I/O and callback exceptions propagate.
     template <class Action>
+    // Visits matching entries until the action returns false. Skips malformed
+    // entries. I/O and callback exceptions can propagate.
     void for_each_matching(const mado::query::Ast_Node *filter, Action action) const;
 
+    // Returns the MADO directory. No exceptions.
     const std::filesystem::path &root() const { return root_; }
 
   private:
+    // Represents an opened MADO directory and manages its entries and
+    // templates.
+    // Takes ownership of the resolved repository path. No exceptions.
     explicit Repository(std::filesystem::path root) : root_(std::move(root)) {}
 
-    // Load one entry from MADO/<timestamp>/MAIN.md.
+    // Loads metadata from MAIN.md. Missing files throw Repository_Error,
+    // invalid timestamps throw Entry_Error, and I/O failures throw runtime_error.
     mado::entry::Entry load_one(const std::filesystem::path &entry_dir) const;
 
     std::filesystem::path root_;

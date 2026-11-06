@@ -9,6 +9,7 @@ namespace mado::common {
 
 namespace {
 
+// Common-year month lengths used to validate timestamps.
 constexpr int DAYS_PER_MONTH[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 // Checks whether year/month/day is a valid calendar date
@@ -32,6 +33,8 @@ bool is_valid_date(int year, int month, int day) {
 
 } // namespace
 
+// Removes surrounding whitespace, clearing an all-whitespace string. No error
+// result.
 void trim_inplace(std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     if (start == std::string::npos) {
@@ -43,6 +46,8 @@ void trim_inplace(std::string &s) {
     s.erase(0, start);
 }
 
+// Returns a trimmed copy or an empty string for whitespace-only input. May
+// throw std::bad_alloc.
 std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     size_t end = s.find_last_not_of(" \t\r\n");
@@ -51,6 +56,8 @@ std::string trim(const std::string &s) {
     return s.substr(start, end - start + 1);
 }
 
+// Compares equal-length strings ignoring ASCII case. Returns false on
+// mismatch. No exceptions.
 bool equals_ignore_case(const std::string &str1, const std::string &str2) {
     if (str1.length() != str2.length())
         return false;
@@ -64,6 +71,7 @@ bool equals_ignore_case(const std::string &str1, const std::string &str2) {
     return true;
 }
 
+// Lowercases UTF-8, passing invalid bytes through. May throw std::bad_alloc.
 std::string utf8_tolower(const std::string &str) {
     std::string result;
     result.reserve(str.size());
@@ -101,6 +109,7 @@ std::string utf8_tolower(const std::string &str) {
     return result;
 }
 
+// Tests for an ASCII digit. No exceptions.
 bool is_digit(char c) {
     return c >= '0' && c <= '9';
 }
@@ -110,10 +119,13 @@ bool is_letter_or_underscore(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
+// Tests for an ASCII letter, digit, or underscore. No exceptions.
 bool is_identifier_char(char c) {
     return is_digit(c) || is_letter_or_underscore(c);
 }
 
+// Checks the syntax and bounds of a full or partial timestamp. Invalid input
+// returns false. No exceptions.
 bool is_timestamp(const std::string &str) {
     size_t n = str.size();
 

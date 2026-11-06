@@ -32,8 +32,11 @@ void print_json_string(const std::string &str, std::ostream &os) {
 
 namespace {
 
+// Prints an Emacs-compatible location followed by visible fields.
 class Default_Entry_Info_Formatter : public Entry_Info_Formatter {
   public:
+    // Writes the location and visible fields. Allocation and
+    // stream exceptions propagate.
     void write(const mado::entry::Entry &e, std::ostream &os,
                const Hidden_Entry_Fields &hidden) const override {
         os << e.path().string() << ":1:";
@@ -70,16 +73,22 @@ class Default_Entry_Info_Formatter : public Entry_Info_Formatter {
     }
 };
 
+// Prints the entry path regardless of field visibility.
 class Path_Entry_Info_Formatter : public Entry_Info_Formatter {
   public:
+    // Writes the path and ignores visibility. Allocation and
+    // stream exceptions propagate.
     void write(const mado::entry::Entry &e, std::ostream &os,
                const Hidden_Entry_Fields &) const override {
         os << e.path().string() << "\n";
     }
 };
 
+// Prints visible fields as one JSON object per entry.
 class Jsonl_Entry_Info_Formatter : public Entry_Info_Formatter {
   public:
+    // Writes a JSON object containing the visible fields. Allocation and
+    // stream exceptions propagate.
     void write(const mado::entry::Entry &e, std::ostream &os,
                const Hidden_Entry_Fields &hidden) const override {
         os << "{";
@@ -151,24 +160,29 @@ class Jsonl_Entry_Info_Formatter : public Entry_Info_Formatter {
 
 //
 
+// Associates a format name and identifier with its factory.
 struct Format_Info {
     Entry_Info_Format format;
     const char *name;
     std::unique_ptr<Entry_Info_Formatter> (*make)();
 };
 
+// Allocates the Emacs-compatible formatter. May throw std::bad_alloc.
 std::unique_ptr<Entry_Info_Formatter> make_default() {
     return std::make_unique<Default_Entry_Info_Formatter>();
 }
 
+// Allocates the path-only formatter. May throw std::bad_alloc.
 std::unique_ptr<Entry_Info_Formatter> make_path() {
     return std::make_unique<Path_Entry_Info_Formatter>();
 }
 
+// Allocates the JSON Lines formatter. May throw std::bad_alloc.
 std::unique_ptr<Entry_Info_Formatter> make_jsonl() {
     return std::make_unique<Jsonl_Entry_Info_Formatter>();
 }
 
+// Supported format names in fuzzy tie-break order.
 const std::vector<Format_Info> FORMATS = {
     {Entry_Info_Format::Default, "default", make_default},
     {Entry_Info_Format::Path, "path", make_path},
@@ -177,6 +191,8 @@ const std::vector<Format_Info> FORMATS = {
 
 } // namespace
 
+// Prefers an exact name, then a fuzzy match. Returns nullopt for empty or
+// unknown names. May throw std::bad_alloc.
 std::optional<Entry_Info_Format> parse_entry_info_format(const std::string &name) {
     if (name.empty())
         return std::nullopt;
@@ -196,6 +212,8 @@ std::optional<Entry_Info_Format> parse_entry_info_format(const std::string &name
     return best_format;
 }
 
+// Creates the requested formatter or returns nullptr for an unknown value. May
+// throw std::bad_alloc.
 std::unique_ptr<Entry_Info_Formatter> make_entry_info_formatter(Entry_Info_Format fmt) {
     for (const auto &f : FORMATS) {
         if (fmt == f.format)

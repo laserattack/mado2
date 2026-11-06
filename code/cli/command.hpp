@@ -6,13 +6,17 @@
 
 namespace cli {
 
+// Defines a CLI command, its usage metadata, and its execution contract.
 class Command {
   public:
+    // Defines a CLI command, its usage metadata, and its execution contract.
+    // Destroys a command through its base pointer. No exceptions.
     virtual ~Command() = default;
 
     // Runs the command. `program_name` is argv[0] as invoked (for
     // usage messages). `argc` and `argv` are the remaining arguments
-    // after the command name. argv is mutable: flag.h may write into it.
+    // after the command name. flag.h may modify argv. Returns false on
+    // handled errors. Unhandled exceptions propagate to the CLI boundary.
     virtual bool run(const std::string &program_name,
                      int argc, char **argv) const = 0;
 
@@ -21,12 +25,16 @@ class Command {
     std::string description;
 };
 
+// Returns the registered command table. No error result or exceptions.
 const std::vector<std::unique_ptr<Command>> &commands();
 
+// Finds an exact command name or returns nullptr. No exceptions.
 const Command *find_command(const std::string &name);
 
+// Writes the command list and global flags to stderr. Ignores write failures.
 void print_available_commands();
 
+// Writes a command's usage to stderr. Ignores write failures.
 void print_command_usage(const Command &command, const std::string &program_name);
 
 } // namespace cli

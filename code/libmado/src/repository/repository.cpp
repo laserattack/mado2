@@ -18,18 +18,28 @@ namespace mado::repository {
 
 namespace {
 
+// Directory name that identifies a repository.
 constexpr const char *ENTRY_DIR = "MADO";
+// Filename that stores an entry and its metadata.
 constexpr const char *ENTRY_FILE = "MAIN.md";
+// Built-in task header and default task template contents.
 constexpr const char *TASK_TEMPLATE = "- NAME:\n- PRIORITY:\n- TAGS:\n- STATUS:\n- DEADLINE:\n";
+// Default note template contents.
 constexpr const char *NOTE_TEMPLATE = "- NAME:\n- TAGS:\n";
+// Caps metadata scanning per entry.
 constexpr int MAX_HEADER_LINES = 30;
 
+// Reports an invalid repository operation or missing repository data.
 class Repository_Error : public std::runtime_error {
   public:
+    // Reports an invalid repository operation or missing repository data.
+    // Stores the repository diagnostic. May throw std::bad_alloc.
     explicit Repository_Error(const std::string &message)
         : std::runtime_error(message) {}
 };
 
+// Returns the first supported template directory or nullopt. Filesystem lookup
+// errors throw std::filesystem::filesystem_error.
 std::optional<std::filesystem::path> find_templates(const std::filesystem::path &root) {
     for (const auto *name : {"templates", ".templates", "_templates"}) {
         auto dir = root / name;
@@ -39,6 +49,8 @@ std::optional<std::filesystem::path> find_templates(const std::filesystem::path 
     return std::nullopt;
 }
 
+// Creates or restores the built-in template, skipping identical contents.
+// Throws std::runtime_error if writing fails.
 void write_default_template(const std::filesystem::path &path, const std::string &content) {
     {
         std::ifstream in(path, std::ios::binary);
@@ -67,6 +79,8 @@ file_time_to_system_clock(std::filesystem::file_time_type ft) {
         std::chrono::system_clock::now());
 }
 
+// Splits and deduplicates comma-separated tags, retaining an empty tag for
+// empty input. May throw std::bad_alloc.
 std::vector<std::string> split_tags(const std::string &s) {
     std::vector<std::string> tags;
     std::unordered_set<std::string> seen;
@@ -106,6 +120,8 @@ std::optional<uint16_t> parse_priority(const std::string &s) {
 
 } // namespace
 
+// Finds the nearest MADO directory, returning nullopt when none can be found
+// or the input cannot be resolved. May throw std::bad_alloc.
 std::optional<Repository> Repository::open(const std::filesystem::path &from) {
     std::error_code ec;
 
@@ -130,6 +146,9 @@ std::optional<Repository> Repository::open(const std::filesystem::path &from) {
     return std::nullopt;
 }
 
+// Initializes the nearest repository and restores its default templates. Force
+// selects the given directory. I/O failures throw std::runtime_error or a
+// filesystem_error.
 Repository Repository::init(const std::filesystem::path &where, bool force) {
     std::error_code ec;
 
@@ -151,6 +170,8 @@ Repository Repository::init(const std::filesystem::path &where, bool force) {
     return Repository(mado_dir);
 }
 
+// Returns entries matching the filter, skipping malformed entries. I/O
+// failures encountered while loading can throw std::runtime_error.
 std::vector<mado::entry::Entry> Repository::find(
     const mado::query::Ast_Node *filter) const {
 
@@ -162,6 +183,9 @@ std::vector<mado::entry::Entry> Repository::find(
     return result;
 }
 
+// Removes matching entries and returns successful removals. Skips failed
+// deletions. I/O failures encountered while loading can throw
+// std::runtime_error.
 std::vector<mado::entry::Entry> Repository::remove(
     const mado::query::Ast_Node *filter) const {
 
@@ -181,6 +205,8 @@ std::vector<mado::entry::Entry> Repository::remove(
 }
 
 template <class Action>
+// Visits matching entries until the action returns false. Skips malformed
+// entries. I/O and callback exceptions can propagate.
 void Repository::for_each_matching(const mado::query::Ast_Node *filter,
                                    Action action) const {
 
@@ -211,6 +237,9 @@ void Repository::for_each_matching(const mado::query::Ast_Node *filter,
     }
 }
 
+// Creates an entry from the built-in header or the named template. Invalid
+// names, missing templates, and collisions throw Repository_Error. I/O
+// failures throw std::runtime_error.
 mado::entry::Entry Repository::create(
     const std::string &suffix, const std::optional<std::string> &template_name) const {
     auto is_safe_suffix = [](const std::string &s) {

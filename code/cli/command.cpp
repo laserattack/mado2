@@ -22,14 +22,17 @@ namespace cli {
 
 namespace {
 
+// Shows general or command-specific usage.
 class Help_Command : public Command {
   public:
+    // Sets usage metadata. May throw std::bad_alloc.
     Help_Command() {
         name = "help";
         signature = "[COMMAND]";
         description = "Print this help message";
     }
 
+    // Prints usage to stderr. Returns false for an unknown topic.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
         // `mado help <command>` prints usage for a specific command.
@@ -52,33 +55,40 @@ class Help_Command : public Command {
     }
 };
 
+// Prints the program version.
 class Version_Command : public Command {
   public:
+    // Sets usage metadata. May throw std::bad_alloc.
     Version_Command() {
         name = "version";
         signature = "";
         description = "Print the version of the program";
     }
 
+    // Prints the version and returns true. Ignores stdout write failures.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
         (void)program_name;
         (void)argc;
         (void)argv;
 
-        std::printf("mado version %s\n", mado::version);
+        std::printf("mado version %s\n", mado::VERSION);
         return true;
     }
 };
 
+// Lists filtered and optionally sorted entries.
 class Ls_Command : public Command {
   public:
+    // Sets usage metadata. May throw std::bad_alloc.
     Ls_Command() {
         name = "ls";
         signature = "[-format <default|path|jsonl>] [-sort <[+|-]field,...>] [-hide-<field> ...] [-only-hidden] [QUERY]";
         description = "List entries";
     }
 
+    // Prints matching entries. Returns false for invalid options, queries, or
+    // a missing repository. Loading and formatting exceptions propagate.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
@@ -183,14 +193,18 @@ class Ls_Command : public Command {
     }
 };
 
+// Removes entries selected by a query.
 class Rm_Command : public Command {
   public:
+    // Sets usage metadata. May throw std::bad_alloc.
     Rm_Command() {
         name = "rm";
         signature = "[-format <default|path|jsonl>] <QUERY>";
         description = "Remove entries";
     }
 
+    // Removes matching entries. Returns false for invalid options, queries, or
+    // a missing repository. Loading and formatting exceptions propagate.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
@@ -262,14 +276,18 @@ class Rm_Command : public Command {
     }
 };
 
+// Initializes a repository and restores standard templates.
 class Init_Command : public Command {
   public:
+    // Sets usage metadata. May throw std::bad_alloc.
     Init_Command() {
         name = "init";
         signature = "[-force]";
         description = "Initialize MADO/ and restore default templates";
     }
 
+    // Initializes the repository and prints its path. Returns false for
+    // invalid arguments or initialization exceptions.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
@@ -308,14 +326,18 @@ class Init_Command : public Command {
     }
 };
 
+// Creates an entry using the selected template or built-in header.
 class New_Command : public Command {
   public:
+    // Sets usage metadata. May throw std::bad_alloc.
     New_Command() {
         name = "new";
         signature = "[-suffix <str>] [-template <name>] [-format <default|path|jsonl>]";
         description = "Create a new entry";
     }
 
+    // Creates and prints an entry. Returns false for invalid options, a
+    // missing repository, or creation exceptions.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
@@ -374,14 +396,18 @@ class New_Command : public Command {
     }
 };
 
+// Reports repository statistics or its directory.
 class Info_Command : public Command {
   public:
+    // Sets usage metadata. May throw std::bad_alloc.
     Info_Command() {
         name = "info";
         signature = "[-format <default|jsonl>] [-only-dir]";
         description = "Show repository information";
     }
 
+    // Prints repository counts or its path. Returns false for invalid options
+    // or a missing repository. Loading and formatting exceptions propagate.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
         Flag_Context c(name.c_str());
@@ -472,6 +498,7 @@ class Info_Command : public Command {
     }
 };
 
+// Owns the command registry in help display order.
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     std::vector<std::unique_ptr<Command>> cmds;
     cmds.push_back(std::make_unique<Help_Command>());
@@ -486,10 +513,12 @@ const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
 
 } // namespace
 
+// Returns the registered command table. No error result or exceptions.
 const std::vector<std::unique_ptr<Command>> &commands() {
     return COMMANDS;
 }
 
+// Finds an exact command name or returns nullptr. No exceptions.
 const Command *find_command(const std::string &name) {
     for (const auto &cmd : COMMANDS) {
         if (cmd->name == name)
@@ -498,6 +527,7 @@ const Command *find_command(const std::string &name) {
     return nullptr;
 }
 
+// Writes the command list and global flags to stderr. Ignores write failures.
 void print_available_commands() {
     fprintf(stderr, "Available commands:\n");
 
@@ -519,6 +549,7 @@ void print_available_commands() {
     fprintf(stderr, "  -C <path> - Change to <path> before running\n");
 }
 
+// Writes a command's usage to stderr. Ignores write failures.
 void print_command_usage(const Command &command, const std::string &program_name) {
     if (command.signature.empty()) {
         fprintf(stderr, "Usage: %s %s\n",

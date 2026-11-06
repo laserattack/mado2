@@ -10,7 +10,9 @@
 #define CLITERAL(type) (type)
 #endif
 
+// Initial allocation in commands for a compiled pattern.
 #define DA_INIT_CAP 256
+// Appends one command and grows storage as needed. Asserts on allocation failure.
 #define da_append(da, item)                                                            \
     do {                                                                               \
         if ((da)->count >= (da)->capacity) {                                           \
@@ -22,19 +24,27 @@
         (da)->items[(da)->count++] = (item);                                           \
     } while (0)
 
+// Identifies an escape without a following byte.
 const char *GLOB_ERROR_UNFINISHED_ESCAPE = "Unfinished escape sequence.";
+// Identifies a character set without a closing bracket.
 const char *GLOB_ERROR_UNCLOSED_BLOCK = "Missing closing ] for a character set block.";
+// Identifies an escape of an ordinary byte.
 const char *GLOB_ERROR_INVALID_ESCAPE = "Invalid escape sequence. Only special characters are allowed to be escaped.";
+// Identifies a metacharacter used as an unescaped literal.
 const char *GLOB_ERROR_UNESCAPED_SPECIAL = "Unescaped special character! To avoid confusion, please, escape it!";
 
+// Adds one byte to the set. Requires a valid set pointer. No error result.
 void char_set_add(Char_Set *cs, uint8_t c) {
     cs->chunks[c / 64] |= (1ULL << (c % 64));
 }
 
+// Tests one byte for membership. Requires a valid set pointer. No error
+// result.
 bool char_set_contains(Char_Set *cs, uint8_t c) {
     return (cs->chunks[c / 64] >> (c % 64)) & 1;
 }
 
+// Tests whether a byte is glob syntax. No error result.
 static bool is_special(char x) {
     if (x == '*')
         return true;
@@ -49,6 +59,9 @@ static bool is_special(char x) {
     return false;
 }
 
+// Appends commands to a caller-owned glob. Returns the syntax error and byte
+// offset on failure, possibly after appending commands. Allocation failure
+// asserts.
 Glob_Result glob_compile(const char *pattern, Glob *glob) {
     size_t location = 0;
     while (pattern[location] != '\0') {
@@ -172,6 +185,8 @@ Glob_Result glob_compile(const char *pattern, Glob *glob) {
     return CLITERAL(Glob_Result){0};
 }
 
+// Tests whether the commands match all input bytes. Returns false for a
+// mismatch and asserts on an invalid command kind.
 bool glob_match(const char *text, size_t text_count, Glob_Cmd *cmds, size_t cmds_count) {
     while (text_count > 0 && cmds_count > 0) {
         switch (cmds->kind) {

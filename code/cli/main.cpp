@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <string>
 
+// Runs the CLI and returns 0 on success or 1 for invalid arguments or command
+// failure.
 int main(int argc, char **argv) {
     std::string program_name = (argc > 0) ? argv[0] : "mado";
 

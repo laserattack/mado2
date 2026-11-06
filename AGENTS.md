@@ -16,6 +16,18 @@
   (`#ifdef` or `#if`). Provide an implementation for each required
   platform or a portable fallback that preserves the expected behavior.
 
+# Code documentation and naming
+
+- Add a short comment for every function, method, class, struct,
+  global variable, and similar declaration you introduce. Explain why
+  it exists and summarize its behavior on success, edge cases, and
+  failure. Document each returned error and exception that can
+  propagate. State explicitly when there are no returned errors or
+  exceptions.
+- Use `Word_Word_Word` for classes and structs, `WORD_WORD` for
+  global variables and constants, and `word_word` for ordinary
+  variables, functions, and methods.
+
 # Error handling
 
 - Report OS and I/O failures with `std::runtime_error` when throwing

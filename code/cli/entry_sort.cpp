@@ -11,6 +11,8 @@ namespace cli {
 
 namespace {
 
+// Resolves a sort field, preferring exact matches. Returns nullopt for an
+// unknown field. May throw std::bad_alloc.
 std::optional<Sort_Field> parse_sort_field(const std::string &name) {
     static const std::pair<std::string, Sort_Field> fields[] = {
         {"time", Sort_Field::Time},
@@ -37,6 +39,7 @@ std::optional<Sort_Field> parse_sort_field(const std::string &name) {
     return best_field;
 }
 
+// Concatenates tags for lexicographic comparison. May throw std::bad_alloc.
 std::string join_tags(const mado::entry::Entry &entry) {
     std::string result;
     for (const auto &tag : entry.tags())
@@ -44,6 +47,8 @@ std::string join_tags(const mado::entry::Entry &entry) {
     return result;
 }
 
+// Compares one sort field. Equal advances to the next key and stable sorting
+// preserves ties. Tag concatenation may throw std::bad_alloc.
 std::strong_ordering compare_entries(const mado::entry::Entry &a,
                                      const mado::entry::Entry &b,
                                      Sort_Field field) {
@@ -73,6 +78,9 @@ std::strong_ordering compare_entries(const mado::entry::Entry &a,
 
 } // namespace
 
+// Parses comma-separated fields and optional signs. Skips blank fields and
+// returns nullopt for empty input or an invalid field. May throw
+// std::bad_alloc.
 std::optional<std::vector<Sort_Criterion>> parse_sort(const std::string &spec) {
     if (spec.empty())
         return std::nullopt;
@@ -101,6 +109,8 @@ std::optional<std::vector<Sort_Criterion>> parse_sort(const std::string &spec) {
     return criteria;
 }
 
+// Stably sorts entries by the given keys, leaving them alone when there are
+// none. Comparison and allocation exceptions propagate.
 void sort_entries(std::vector<mado::entry::Entry> &entries,
                   const std::vector<Sort_Criterion> &criteria) {
     if (!criteria.empty()) {

@@ -8,14 +8,21 @@ import tempfile
 import unittest
 
 
+# Built CLI executable used by subprocess tests.
 MADO = Path(sys.argv.pop(1)).resolve()
+# Project root used for isolated, Git-ignored fixtures.
 PROJECT = Path(sys.argv.pop(1)).resolve()
+# Expected contents of a new task without a template.
 TASK = "- NAME:\n- PRIORITY:\n- TAGS:\n- STATUS:\n- DEADLINE:\n"
+# Expected contents of the standard note template.
 NOTE = "- NAME:\n- TAGS:\n"
+# Expected field order in the full JSON output.
 FIELDS = ("path", "time", "mtime", "name", "priority", "deadline", "status", "tags")
 
 
-class CliTests(unittest.TestCase):
+# Runs the real CLI in an isolated directory per test.
+class Cli_Tests(unittest.TestCase):
+    # Creates the test fixture and registers cleanup. Filesystem errors fail setup.
     def setUp(self):
         fixture = tempfile.TemporaryDirectory(prefix=".mado-test-cli-", dir=PROJECT)
         self.addCleanup(fixture.cleanup)
@@ -23,6 +30,7 @@ class CliTests(unittest.TestCase):
         self.work.mkdir()
         self.repo = self.work / "MADO"
 
+    # Captures process output and status. Launch errors and timeouts propagate.
     def run_mado(self, *args, cwd=None):
         return subprocess.run(
             [str(MADO), *args],
@@ -33,21 +41,26 @@ class CliTests(unittest.TestCase):
             timeout=10,
         )
 
+    # Checks all supplied conditions. Raises AssertionError on failure.
     def test(self, condition, *checks):
         self.assertTrue(condition and all(checks))
 
+    # Checks success, exact stdout, and empty stderr. Returns false on mismatch.
     def check_output(self, result, expected):
         return (result.returncode, result.stdout, result.stderr) == (0, expected, "")
 
+    # Checks a rejected command and its diagnostic. Returns false on mismatch.
     def check_error(self, result, message):
         return result.returncode == 1 and result.stdout == "" and message in result.stderr
 
+    # Writes a fixture entry. Filesystem errors propagate.
     def entry(self, timestamp, content):
         path = self.repo / timestamp / "MAIN.md"
         path.parent.mkdir(parents=True)
         path.write_text(content, encoding="utf-8")
         return path
 
+    # Checks general help. Failures are reported by unittest.
     def test_general_help(self):
         result = self.run_mado("help")
         self.test(
@@ -57,6 +70,7 @@ class CliTests(unittest.TestCase):
             "<command> [OPTIONS]" in result.stderr and "-C <path>" in result.stderr,
         )
 
+    # Checks command help. Failures are reported by unittest.
     def test_command_help(self):
         signatures = {
             "help": "[COMMAND]", "version": "version", "ls": "[QUERY]",
@@ -69,14 +83,17 @@ class CliTests(unittest.TestCase):
                 self.test(result.returncode == 0 and result.stdout == "" and
                           result.stderr.startswith("Usage: ") and signature in result.stderr)
 
+    # Checks unknown help topic. Failures are reported by unittest.
     def test_unknown_help_topic(self):
         self.test(self.check_error(self.run_mado("help", "missing"), "Unknown command: missing"))
 
+    # Checks version. Failures are reported by unittest.
     def test_version(self):
         result = self.run_mado("version")
         self.test(result.returncode == 0 and result.stderr == "" and
                   re.fullmatch(r"mado version \d+\.\d+\.\d+\n", result.stdout) is not None)
 
+    # Checks global argument errors. Failures are reported by unittest.
     def test_global_argument_errors(self):
         cases = [
             ((), "No command is provided"),
@@ -89,6 +106,7 @@ class CliTests(unittest.TestCase):
             with self.subTest(args=args):
                 self.test(self.check_error(self.run_mado(*args), message))
 
+    # Checks global working directory. Failures are reported by unittest.
     def test_global_working_directory(self):
         self.repo.mkdir()
         nested = self.work / "nested dir"
@@ -98,6 +116,7 @@ class CliTests(unittest.TestCase):
             str(self.repo) + "\n",
         ))
 
+    # Checks command argument errors. Failures are reported by unittest.
     def test_command_argument_errors(self):
         cases = [
             (("ls", "all", "all"), "QUERY must be a single argument"),
@@ -114,6 +133,7 @@ class CliTests(unittest.TestCase):
             with self.subTest(args=args):
                 self.test(self.check_error(self.run_mado(*args), message))
 
+    # Checks invalid formats. Failures are reported by unittest.
     def test_invalid_formats(self):
         for args in (("ls",), ("rm",), ("new",), ("info",)):
             for fmt in ("", "zzzz"):
@@ -122,6 +142,7 @@ class CliTests(unittest.TestCase):
                     message = "Invalid format for info:" if args[0] == "info" else "Unknown format:"
                     self.test(self.check_error(self.run_mado(*args, "-format", fmt, *query), message))
 
+    # Checks commands without repository. Failures are reported by unittest.
     def test_commands_without_repository(self):
         # Project-local fixtures have a real MADO ancestor in this checkout.
         root = Path(self.work.anchor)
@@ -131,6 +152,7 @@ class CliTests(unittest.TestCase):
             with self.subTest(args=args):
                 self.test(self.check_error(self.run_mado(*args, cwd=root), "No MADO/ directory found"))
 
+    # Checks init creates repository. Failures are reported by unittest.
     def test_init_creates_repository(self):
         result = self.run_mado("init", "-force")
         templates = self.repo / "templates"
@@ -138,6 +160,7 @@ class CliTests(unittest.TestCase):
                   (templates / "note.md").read_text() == NOTE and
                   (templates / "task.md").read_text() == TASK)
 
+    # Checks init restores ancestor templates. Failures are reported by unittest.
     def test_init_restores_ancestor_templates(self):
         templates = self.repo / ".templates"
         templates.mkdir(parents=True)
@@ -152,6 +175,7 @@ class CliTests(unittest.TestCase):
                   (templates / "custom.md").read_text() == "custom" and
                   not (nested / "MADO").exists())
 
+    # Checks init force creates nested repository. Failures are reported by unittest.
     def test_init_force_creates_nested_repository(self):
         self.repo.mkdir()
         nested = self.work / "nested"
@@ -161,15 +185,18 @@ class CliTests(unittest.TestCase):
                   (nested / "MADO" / "templates" / "note.md").is_file() and
                   not (self.repo / "templates").exists())
 
+    # Checks init rejects mado file. Failures are reported by unittest.
     def test_init_rejects_mado_file(self):
         self.repo.write_text("keep me", encoding="utf-8")
         result = self.run_mado("init")
         self.test(self.check_error(result, "MADO") and self.repo.read_text() == "keep me")
 
+    # Checks init reports template write error. Failures are reported by unittest.
     def test_init_reports_template_write_error(self):
         (self.repo / "templates" / "note.md").mkdir(parents=True)
         self.test(self.check_error(self.run_mado("init"), "Cannot write template"))
 
+    # Checks new uses builtin without templates. Failures are reported by unittest.
     def test_new_uses_builtin_without_templates(self):
         self.repo.mkdir()
         result = self.run_mado("new", "-suffix", "-example", "-format", "pth")
@@ -179,6 +206,7 @@ class CliTests(unittest.TestCase):
                   re.fullmatch(r"\d{8}-\d{6}-example", path.parent.name) is not None and
                   path.read_text() == TASK)
 
+    # Checks new copies named template. Failures are reported by unittest.
     def test_new_copies_named_template(self):
         templates = self.repo / "_templates"
         templates.mkdir(parents=True)
@@ -190,23 +218,27 @@ class CliTests(unittest.TestCase):
                   row["name"] == 'a "quoted" name' and row["tags"] == ["bug"] and
                   Path(row["path"]).read_bytes() == content)
 
+    # Checks new missing templates directory. Failures are reported by unittest.
     def test_new_missing_templates_directory(self):
         self.repo.mkdir()
         self.test(self.check_error(self.run_mado("new", "-template", "note"), "mado init") and
                   not list(self.repo.iterdir()))
 
+    # Checks new missing template. Failures are reported by unittest.
     def test_new_missing_template(self):
         templates = self.repo / "templates"
         templates.mkdir(parents=True)
         self.test(self.check_error(self.run_mado("new", "-template", "missing"), "not found") and
                   list(self.repo.iterdir()) == [templates])
 
+    # Checks new template must be a file. Failures are reported by unittest.
     def test_new_template_must_be_a_file(self):
         templates = self.repo / "templates"
         (templates / "missing.md").mkdir(parents=True)
         self.test(self.check_error(self.run_mado("new", "-template", "missing"), "not found") and
                   list(self.repo.iterdir()) == [templates])
 
+    # Checks new rejects unsafe inputs. Failures are reported by unittest.
     def test_new_rejects_unsafe_inputs(self):
         self.repo.mkdir()
         cases = [
@@ -222,6 +254,7 @@ class CliTests(unittest.TestCase):
                 self.test(self.check_error(self.run_mado("new", flag, value), message) and
                           not list(self.repo.iterdir()))
 
+    # Checks ls filters sorts and formats paths. Failures are reported by unittest.
     def test_ls_filters_sorts_and_formats_paths(self):
         older = self.entry("20260101-000000", "- NAME: Fix one\n- PRIORITY: 1\n")
         newer = self.entry("20260102-000000", "- NAME: Fix two\n- PRIORITY: 1\n")
@@ -230,6 +263,7 @@ class CliTests(unittest.TestCase):
                                'name %~ "fix*" and priority in [1..2]')
         self.test(self.check_output(result, f"{newer}\n{older}\n"))
 
+    # Checks ls default output and hidden path. Failures are reported by unittest.
     def test_ls_default_output_and_hidden_path(self):
         path = self.entry("20260101-000000", "- NAME: Example\n")
         result = self.run_mado("ls", "-hide-path", "-only-hidden", "-hide-name")
@@ -237,6 +271,7 @@ class CliTests(unittest.TestCase):
         self.test(self.check_output(result, f"{path}:1: PATH:[{path}] NAME:[Example]\n") and
                   self.check_output(hidden_path, f"{path}:1: NAME:[Example]\n"))
 
+    # Checks ls json visibility. Failures are reported by unittest.
     def test_ls_json_visibility(self):
         path = self.entry("20260101-000000", "- NAME: Example\n- TAGS: bug\n")
         result = self.run_mado("ls", "-format", "js")
@@ -253,16 +288,19 @@ class CliTests(unittest.TestCase):
                   self.check_output(only, '{"name":"Example","tags":["bug"]}\n') and
                   self.check_output(self.run_mado("ls", "-format", "jsonl", "-only-hidden"), "{}\n"))
 
+    # Checks ls skips invalid entries. Failures are reported by unittest.
     def test_ls_skips_invalid_entries(self):
         self.entry("invalid-timestamp", "- NAME: Ignore\n")
         (self.repo / "20260101-000000").mkdir()
         self.test(self.check_output(self.run_mado("ls"), ""))
 
+    # Checks ls invalid sort. Failures are reported by unittest.
     def test_ls_invalid_sort(self):
         for spec in ("", "+", "zzzz"):
             with self.subTest(spec=spec):
                 self.test(self.check_error(self.run_mado("ls", "-sort", spec), "Invalid sort specification"))
 
+    # Checks invalid queries do not mutate. Failures are reported by unittest.
     def test_invalid_queries_do_not_mutate(self):
         entry = self.entry("20260101-000000", "- NAME: Keep\n")
         for command in ("ls", "rm"):
@@ -270,6 +308,7 @@ class CliTests(unittest.TestCase):
                 result = self.run_mado(command, "name =")
                 self.test(self.check_error(result, "Expected string") and entry.is_file())
 
+    # Checks rm removes only matching entries. Failures are reported by unittest.
     def test_rm_removes_only_matching_entries(self):
         removed = self.entry("20260101-000000", "- NAME: Remove\n")
         kept = self.entry("20260102-000000", "- NAME: Keep\n")
@@ -277,10 +316,12 @@ class CliTests(unittest.TestCase):
         self.test(self.check_output(result, str(removed) + "\n") and
                   not removed.parent.exists() and kept.is_file())
 
+    # Checks rm no matches. Failures are reported by unittest.
     def test_rm_no_matches(self):
         kept = self.entry("20260101-000000", "- NAME: Keep\n")
         self.test(self.check_output(self.run_mado("rm", "name = missing"), "") and kept.is_file())
 
+    # Checks info reports counts. Failures are reported by unittest.
     def test_info_reports_counts(self):
         self.entry("20260101-000000", "- STATUS: open\n- TAGS: bug, docs\n- PRIORITY: 7\n")
         self.entry("20260102-000000", "- STATUS: closed\n- TAGS: bug\n- PRIORITY: 7\n")
@@ -294,12 +335,14 @@ class CliTests(unittest.TestCase):
                                 "Statuses (2):\n  closed: 1\n  open: 1\n"
                                 "Tags (2):\n  bug: 2\n  docs: 1\nPriorities (1):\n  7: 2\n"))
 
+    # Checks info empty repository. Failures are reported by unittest.
     def test_info_empty_repository(self):
         self.repo.mkdir()
         self.test(self.check_output(self.run_mado("info"),
                                     f"Main directory: {self.repo}\nEntries count: 0\n"
                                     "Statuses (0):\nTags (0):\nPriorities (0):\n"))
 
+    # Checks info directory formats. Failures are reported by unittest.
     def test_info_directory_formats(self):
         self.repo.mkdir()
         result = self.run_mado("info", "-format", "js", "-only-dir")
@@ -307,11 +350,17 @@ class CliTests(unittest.TestCase):
                   json.loads(result.stdout) == str(self.repo) and
                   self.check_output(self.run_mado("info", "-only-dir"), str(self.repo) + "\n"))
 
+    # Checks info rejects path format. Failures are reported by unittest.
     def test_info_rejects_path_format(self):
         self.test(self.check_error(self.run_mado("info", "-format", "path"), "Invalid format for info"))
 
 
-if __name__ == "__main__":
+# Runs the suite and exits with unittest's success or failure status.
+def main():
     loader = unittest.TestLoader()
     loader.testMethodPrefix = "test_"
     unittest.main(testLoader=loader)
+
+
+if __name__ == "__main__":
+    main()

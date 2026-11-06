@@ -2,6 +2,7 @@
 
 namespace mado {
 
-constexpr const char *version = "0.1.0";
+// Version reported by the CLI.
+constexpr const char *VERSION = "0.1.0";
 
 } // namespace mado
