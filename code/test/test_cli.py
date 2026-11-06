@@ -256,22 +256,6 @@ class Cli_Tests(unittest.TestCase):
         self.test(self.check_error(self.run_mado("new", "-template", "note"), "mado init") and
                   not list(self.repo.iterdir()))
 
-    # Checks new missing template. Failures are reported by unittest.
-    # Проверяет ошибку при отсутствии шаблона. Сбои регистрирует unittest.
-    def test_new_missing_template(self):
-        templates = self.repo / "templates"
-        templates.mkdir(parents=True)
-        self.test(self.check_error(self.run_mado("new", "-template", "missing"), "not found") and
-                  list(self.repo.iterdir()) == [templates])
-
-    # Checks new template must be a file. Failures are reported by unittest.
-    # Проверяет отказ использовать каталог вместо файла шаблона. Сбои регистрирует unittest.
-    def test_new_template_must_be_a_file(self):
-        templates = self.repo / "templates"
-        (templates / "missing.md").mkdir(parents=True)
-        self.test(self.check_error(self.run_mado("new", "-template", "missing"), "not found") and
-                  list(self.repo.iterdir()) == [templates])
-
     # Checks new rejects unsafe inputs. Failures are reported by unittest.
     # Проверяет отклонение небезопасных аргументов new. Сбои регистрирует unittest.
     def test_new_rejects_unsafe_inputs(self):
@@ -296,16 +280,8 @@ class Cli_Tests(unittest.TestCase):
         newer = self.entry("20260102-000000", "- NAME: Fix two\n- PRIORITY: 1\n")
         self.entry("20260103-000000", "- NAME: Ignore\n- PRIORITY: 0\n")
         result = self.run_mado("ls", "-format", "pth", "-sort", " + prio , - time ",
-                               'name %~ "fix*" and priority in [1..2]')
+                               "priority = 1")
         self.test(self.check_output(result, f"{newer}\n{older}\n"))
-
-    # Checks time macros in a deadline range. Failures are reported by unittest.
-    # Проверяет макросы в диапазоне сроков. Сбои регистрирует unittest.
-    def test_ls_time_macro_range(self):
-        matching = self.entry("20260101-000000", "- DEADLINE: 99981231-120000\n")
-        self.entry("20260102-000000", "- DEADLINE: 99981230-120000\n")
-        result = self.run_mado("ls", "-format", "path", "deadline in [@never-1..@never]")
-        self.test(self.check_output(result, str(matching) + "\n"))
 
     # Checks ls default output and hidden path. Failures are reported by unittest.
     # Проверяет обычный вывод ls и скрытие поля пути. Сбои регистрирует unittest.
@@ -333,13 +309,6 @@ class Cli_Tests(unittest.TestCase):
                       for field, actual in zip(FIELDS, hidden)) and
                   self.check_output(only, '{"name":"Example","tags":["bug"]}\n') and
                   self.check_output(self.run_mado("ls", "-format", "jsonl", "-only-hidden"), "{}\n"))
-
-    # Checks ls skips invalid entries. Failures are reported by unittest.
-    # Проверяет пропуск некорректных записей в ls. Сбои регистрирует unittest.
-    def test_ls_skips_invalid_entries(self):
-        self.entry("invalid-timestamp", "- NAME: Ignore\n")
-        (self.repo / "20260101-000000").mkdir()
-        self.test(self.check_output(self.run_mado("ls"), ""))
 
     # Checks ls invalid sort. Failures are reported by unittest.
     # Проверяет отклонение неверного критерия сортировки. Сбои регистрирует unittest.
@@ -417,49 +386,6 @@ class Cli_Tests(unittest.TestCase):
         self.test(self.check_output(result,
                                     "Binary: And\n  Comparison: Priority Eq 3\n"
                                     "  Unary: Not\n    All\n"))
-
-    # Checks that macro operands produce the same AST as literal timestamps.
-    # unittest reports subprocess and assertion failures.
-    # Проверяет, что макросы дают тот же AST, что и литералы времени.
-    # unittest регистрирует сбои процесса и проверок.
-    def test_debug_time_macro_syntax(self):
-        cases = [
-            ("deadline in [@never-1..@never]", "deadline in [99981231-000000..99990101-000000]"),
-            ("deadline in [@never - 1..]", "deadline in [99981231-000000..]"),
-            ("deadline in [..@never]", "deadline in [..99990101-000000]"),
-            ("deadline >= anyof(@never-1, @never)", "deadline >= anyof(99981231-000000, 99990101-000000)"),
-            ("deadline != allof(@never-1, @never)", "deadline != allof(99981231-000000, 99990101-000000)"),
-            ("deadline = anyof(@never)", "deadline = anyof(99990101-000000)"),
-            ("deadline = allof(@never)", "deadline = allof(99990101-000000)"),
-            ("time in (@never, @never+1)", "time in (99990101-000000, 99990102-000000)"),
-            ("mtime has (@never-1, @never)", "mtime has (99981231-000000, 99990101-000000)"),
-            ("any = anyof(7, @never)", "any = anyof(7, 99990101-000000)"),
-            ("not (deadline = @never or time < @never-1) and mtime <= @never xor all",
-             "not (deadline = 99990101-000000 or time < 99981231-000000) and mtime <= 99990101-000000 xor all"),
-        ]
-        # Exercise all comparison operators through the same parser entry point.
-        # Проверяем все операторы сравнения через одну точку входа парсера.
-        for op in ("=", "!=", "<", "<=", ">", ">=", "~", "!~", "^~", "!^~", "$~", "!$~",
-                   "~~", "!~~", "%~", "!%~"):
-            cases.append((f"deadline {op} @never", f"deadline {op} 99990101-000000"))
-
-        # The literal form must parse successfully before it can serve as a reference.
-        # Литеральная форма должна успешно разбираться, чтобы служить эталоном.
-        for query, expanded in cases:
-            with self.subTest(query=query):
-                expected = self.run_mado("debug", expanded)
-                actual = self.run_mado("debug", query)
-                self.test(expected.returncode == 0 and expected.stderr == "" and
-                          bool(expected.stdout) and self.check_output(actual, expected.stdout))
-
-    # Checks rejection of malformed macro operands inside nested syntax.
-    # Проверяет отклонение неверных макросов во вложенных конструкциях.
-    def test_debug_invalid_time_macro_syntax(self):
-        for query in ("deadline in [@unknown..@never]", "deadline in (@never+)",
-                      "deadline = anyof(@never, @today+)", "deadline = allof(@never+365)",
-                      "not (deadline = @)"):
-            with self.subTest(query=query):
-                self.test(self.check_error(self.run_mado("debug", query), "got Invalid"))
 
     # Checks that an invalid query produces a diagnostic and no AST.
     # Проверяет диагностику неверного запроса и отсутствие AST в выводе.

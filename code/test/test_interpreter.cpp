@@ -295,6 +295,31 @@ static void test_match_path() {
     test(matches(e, ast.get()));
 }
 
+// Checks that a numeric-looking name retains leading zeroes.
+// Проверяет, что имя из цифр сохраняет ведущие нули.
+static void test_match_numeric_name_as_text() {
+    Entry matching;
+    matching.set_name("007");
+    Entry other;
+    other.set_name("7");
+    auto ast = parse("name = 007");
+    test(matches(matching, ast.get()) && !matches(other, ast.get()));
+}
+
+// Checks both bounds of a deadline range with time macros.
+// Проверяет обе границы диапазона сроков с макросами времени.
+static void test_match_deadline_macro_range() {
+    Entry inside;
+    inside.set_deadline("99981231-120000");
+    Entry before;
+    before.set_deadline("99981230-120000");
+    Entry after;
+    after.set_deadline("99990101-120000");
+    auto ast = parse("deadline in [@never-1..@never]");
+    test(matches(inside, ast.get()) && !matches(before, ast.get()) &&
+         !matches(after, ast.get()));
+}
+
 // Checks deadline > 20260101-000000. Unexpected exceptions fail the test.
 // Проверяет сравнение срока. Неожиданное исключение проваливает тест.
 static void test_match_deadline() {
@@ -552,6 +577,8 @@ int main() {
         {"Status", "status = opened", test_match_status},
         {"Path", "path ~ MADO", test_match_path},
         {"Deadline", "deadline > 20260101-000000", test_match_deadline},
+        {"Numeric name", "name = 007 keeps leading zeroes", test_match_numeric_name_as_text},
+        {"Deadline macro range", "match a range with macro bounds", test_match_deadline_macro_range},
         {"Xor both true", "xor both true = false", test_match_xor_both_true},
         {"Fuzzy name", "name ~~ fbeer", test_fuzzy},
         {"Glob name", "glob matching, negation and invalid patterns", test_glob},

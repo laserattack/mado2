@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <string>
 
@@ -723,6 +724,34 @@ static void test_create_rejects_dotdot_slash_in_suffix() {
     test(it == std::filesystem::directory_iterator{});
 }
 
+// Checks template lookup failures without leaving a partially created entry.
+// Проверяет ошибки поиска шаблона без создания неполной записи.
+static void test_create_rejects_missing_or_non_file_template() {
+    bool rejected = true;
+    // Use a fresh repository for each kind of missing template.
+    // Для каждого случая отсутствия шаблона создаём отдельный репозиторий.
+    for (bool directory_instead_of_file : {false, true}) {
+        Temp_Dir tmp;
+        const auto templates = tmp.path() / "MADO" / "templates";
+        std::filesystem::create_directories(templates);
+        if (directory_instead_of_file)
+            std::filesystem::create_directory(templates / "missing.md");
+
+        auto repo = Repository::open(tmp.path());
+        try {
+            repo->create("", "missing");
+            rejected = false;
+        } catch (const std::runtime_error &error) {
+            rejected &= std::string(error.what()).find("not found") != std::string::npos;
+        }
+        const auto first = std::filesystem::directory_iterator(repo->root());
+        rejected &= first != std::filesystem::directory_iterator{} &&
+                    first->path() == templates &&
+                    std::distance(first, std::filesystem::directory_iterator{}) == 1;
+    }
+    test(rejected);
+}
+
 // entry point
 // Точка входа.
 
@@ -769,6 +798,7 @@ int main() {
         {"Create", "create makes MAIN.md", test_create},
         {"Create then find", "created entry is found by find", test_create_then_find},
         {"Create rejects ../ suffix", "../ rejected, no leftover dir", test_create_rejects_dotdot_slash_in_suffix},
+        {"Create rejects unusable templates", "missing or non-file template leaves no entry", test_create_rejects_missing_or_non_file_template},
     };
     return run_tests(tests, "repository: ");
 }

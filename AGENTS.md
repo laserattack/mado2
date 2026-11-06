@@ -71,6 +71,10 @@
 
 # Tests
 
+- Test query syntax, ASTs, matching, and repository behavior directly
+  through libmado. Use CLI integration tests for command dispatch, flags,
+  exit codes, diagnostics, output formats, and representative end-to-end
+  wiring. Keep detailed library cases in the library suites.
 - Each test must set up its own isolated environment, independent of
   other tests and their execution order. Clean up all test resources
   after the test, including when it fails.

@@ -1331,6 +1331,140 @@ static void test_time_macro_out_of_range() {
          Lexer("@year-999999").tokenize().front().type == Token_Type::Invalid);
 }
 
+
+// Compares parsed ASTs structurally. Null nodes are equal only to each other.
+// No exceptions for valid ASTs.
+// Структурно сравнивает AST. Нулевой узел равен только нулевому.
+// Для корректных AST исключений нет.
+static bool same_ast(const Ast_Node *left, const Ast_Node *right) {
+    if (!left || !right)
+        return left == right;
+    if (left->type != right->type)
+        return false;
+
+    // Compare operands recursively for the node kinds that own them.
+    // Рекурсивно сравниваем операнды узлов, которые ими владеют.
+    switch (left->type) {
+    case Ast_Node_Type::Comparison_Operator: {
+        const auto &a = static_cast<const Ast_Comparison_Operator_Node &>(*left);
+        const auto &b = static_cast<const Ast_Comparison_Operator_Node &>(*right);
+        return a.field == b.field && a.op == b.op && a.value == b.value;
+    }
+    case Ast_Node_Type::Binary_Operator: {
+        const auto &a = static_cast<const Ast_Binary_Operator_Node &>(*left);
+        const auto &b = static_cast<const Ast_Binary_Operator_Node &>(*right);
+        return a.op == b.op && same_ast(a.left.get(), b.left.get()) &&
+               same_ast(a.right.get(), b.right.get());
+    }
+    case Ast_Node_Type::Unary_Operator: {
+        const auto &a = static_cast<const Ast_Unary_Operator_Node &>(*left);
+        const auto &b = static_cast<const Ast_Unary_Operator_Node &>(*right);
+        return a.op == b.op && same_ast(a.expr.get(), b.expr.get());
+    }
+    default:
+        return true;
+    }
+}
+
+// Parses a query for structural tests. Parse and allocation errors propagate.
+// Разбирает запрос для структурных тестов. Ошибки разбора и памяти передаются дальше.
+static std::unique_ptr<Ast_Node> parse_query(const std::string &query) {
+    return Parser(Lexer(query).tokenize()).parse();
+}
+
+// Checks that time macros produce the literal timestamp AST. Exceptions fail the test.
+// Проверяет, что макросы дают AST явных меток времени. Исключения проваливают тест.
+static void test_parser_time_macro_syntax() {
+    const std::pair<const char *, const char *> cases[] = {
+        {R"q(deadline in [@never-1..@never])q",
+         R"q(deadline in [99981231-000000..99990101-000000])q"},
+        {R"q(deadline in [@never - 1..])q",
+         R"q(deadline in [99981231-000000..])q"},
+        {R"q(deadline in [..@never])q",
+         R"q(deadline in [..99990101-000000])q"},
+        {R"q(deadline >= anyof(@never-1, @never))q",
+         R"q(deadline >= anyof(99981231-000000, 99990101-000000))q"},
+        {R"q(deadline != allof(@never-1, @never))q",
+         R"q(deadline != allof(99981231-000000, 99990101-000000))q"},
+        {R"q(deadline = anyof(@never))q",
+         R"q(deadline = anyof(99990101-000000))q"},
+        {R"q(deadline = allof(@never))q",
+         R"q(deadline = allof(99990101-000000))q"},
+        {R"q(time in (@never, @never+1))q",
+         R"q(time in (99990101-000000, 99990102-000000))q"},
+        {R"q(mtime has (@never-1, @never))q",
+         R"q(mtime has (99981231-000000, 99990101-000000))q"},
+        {R"q(any = anyof(7, @never))q",
+         R"q(any = anyof(7, 99990101-000000))q"},
+        {R"q(not (deadline = @never or time < @never-1) and mtime <= @never xor all)q",
+         R"q(not (deadline = 99990101-000000 or time < 99981231-000000) and mtime <= 99990101-000000 xor all)q"},
+    };
+    bool equivalent = true;
+    // Compare every syntax form through the library parser.
+    // Сравниваем каждую конструкцию через парсер библиотеки.
+    for (const auto &[query, expanded] : cases)
+        equivalent &= same_ast(parse_query(query).get(), parse_query(expanded).get());
+    // Each comparison operator must accept a macro operand.
+    // Каждый оператор сравнения должен принимать макрос как операнд.
+    for (const auto *op : {"=", "!=", "<", "<=", ">", ">=", "~", "!~", "^~",
+                           "!^~", "$~", "!$~", "~~", "!~~", "%~", "!%~"}) {
+        const std::string prefix = std::string("deadline ") + op + " ";
+        equivalent &= same_ast(parse_query(prefix + "@never").get(),
+                               parse_query(prefix + "99990101-000000").get());
+    }
+    test(equivalent);
+}
+
+// Checks that string fields preserve typed operands as text. Exceptions fail the test.
+// Проверяет, что строковые поля сохраняют типизированные операнды как текст. Исключения проваливают тест.
+static void test_parser_string_fields_coerce_values() {
+    const std::pair<const char *, const char *> cases[] = {
+        {R"q(name = 123)q",
+         R"q(name = "123")q"},
+        {R"q(status = 007)q",
+         R"q(status = "007")q"},
+        {R"q(path = 20261106-010203)q",
+         R"q(path = "20261106-010203")q"},
+        {R"q(tag = @never)q",
+         R"q(tag = "99990101-000000")q"},
+        {R"q(name in [1..9])q",
+         R"q(name in ["1".."9"])q"},
+        {R"q(status in (1, 20261106))q",
+         R"q(status in ("1", "20261106"))q"},
+        {R"q(tag has (1, 2))q",
+         R"q(tag has ("1", "2"))q"},
+        {R"q(name = anyof(1, @never))q",
+         R"q(name = anyof("1", "99990101-000000"))q"},
+        {R"q(path != allof(1, 20261106))q",
+         R"q(path != allof("1", "20261106"))q"},
+    };
+    bool equivalent = true;
+    // Compare every syntax form through the library parser.
+    // Сравниваем каждую конструкцию через парсер библиотеки.
+    for (const auto &[query, expanded] : cases)
+        equivalent &= same_ast(parse_query(query).get(), parse_query(expanded).get());
+    test(equivalent);
+}
+
+// Checks that nested invalid macros raise a parse error at the invalid token.
+// Проверяет, что неверный вложенный макрос вызывает ошибку на своём токене.
+static void test_parser_invalid_time_macro_syntax() {
+    bool rejected = true;
+    // Each malformed query has its own parser instance.
+    // У каждого неверного запроса свой экземпляр парсера.
+    for (const auto *query : {"deadline in [@unknown..@never]", "deadline in (@never+)",
+                              "deadline = anyof(@never, @today+)",
+                              "deadline = allof(@never+365)", "not (deadline = @)"}) {
+        try {
+            parse_query(query);
+            rejected = false;
+        } catch (const Parse_Error &error) {
+            rejected &= error.token().type == Token_Type::Invalid;
+        }
+    }
+    test(rejected);
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1389,6 +1523,9 @@ int main(int argc, char **argv) {
         {"Lexer timestamp invalid length", "12345", test_lexer_timestamp_invalid_length},
         {"Lexer timestamp in query", "deadline < 20260911-123045", test_lexer_timestamp_in_query},
         {"Lexer timestamp and numbers", "42 20260911 0", test_lexer_timestamp_numbers_still_work},
+        {"Time macro syntax", "compare macro and literal ASTs", test_parser_time_macro_syntax},
+        {"Invalid macro syntax", "reject invalid macros in expressions", test_parser_invalid_time_macro_syntax},
+        {"String field operands", "compare typed and quoted ASTs", test_parser_string_fields_coerce_values},
         {"Time macro values", "resolve all time macros at a fixed time", test_time_macro_values},
         {"UTC conversion failure", "reject unrepresentable UTC times", test_utc_conversion_failure},
         {"Time macro range", "tokenize spaced offsets and a range delimiter", test_time_macro_range_tokens},

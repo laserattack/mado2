@@ -116,15 +116,16 @@ bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) c
     switch (field) {
     case Ast_Comparison_Field::Priority:
         return val.type == Token_Type::Number;
-    case Ast_Comparison_Field::Tag:
-    case Ast_Comparison_Field::Status:
-    case Ast_Comparison_Field::Path:
-    case Ast_Comparison_Field::Name:
-        return val.type == Token_Type::String || token_is_keyword(val.type);
     case Ast_Comparison_Field::Time:
     case Ast_Comparison_Field::Deadline:
     case Ast_Comparison_Field::Mtime:
         return val.type == Token_Type::Timestamp;
+    // String fields accept any value token and keep its text in the AST.
+    // Строковые поля принимают любой токен значения и сохраняют его текст в AST.
+    case Ast_Comparison_Field::Tag:
+    case Ast_Comparison_Field::Status:
+    case Ast_Comparison_Field::Path:
+    case Ast_Comparison_Field::Name:
     case Ast_Comparison_Field::Any:
         return val.type == Token_Type::Number ||
                val.type == Token_Type::String ||
