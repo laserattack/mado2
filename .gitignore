@@ -1,4 +1,5 @@
 build/
+/.mado-test-*/
 *.o
 digest.txt
 test_query

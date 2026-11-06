@@ -34,9 +34,16 @@
   they need one.
 - Remove temporary files and directories as soon as they are no longer
   needed, including when a command fails.
+- Keep all temporary files and directories out of Git. Place them under
+  an ignored path or add a matching rule to `.gitignore` before creating
+  them, even when automatic cleanup is in place. Never stage or commit
+  temporary artifacts.
 
 # Tests
 
+- Each test must set up its own isolated environment, independent of
+  other tests and their execution order. Clean up all test resources
+  after the test, including when it fails.
 - Add or update tests for every change in behavior. Cover normal use
   and relevant edge cases, such as missing required files or
   directories, invalid formats, and invalid contents.

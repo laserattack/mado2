@@ -1,6 +1,7 @@
 #include "test_utils.hpp"
 
 #include <cstdio>
+#include <exception>
 
 size_t &total_tests() {
     static size_t count = 0;
@@ -25,7 +26,15 @@ void test(bool check) {
 int run_tests(const std::vector<Test_Case> &tests, const char *prefix) {
     for (const auto &test_case : tests) {
         printf("\n%s: %s\n", test_case.name, test_case.description);
-        test_case.func();
+        try {
+            test_case.func();
+        } catch (const std::exception &e) {
+            fprintf(stderr, "%s: %s\n", test_case.name, e.what());
+            test(false);
+        } catch (...) {
+            fprintf(stderr, "%s: unexpected exception\n", test_case.name);
+            test(false);
+        }
     }
 
     printf("\n%s(%zu / %zu) tests passed\n",

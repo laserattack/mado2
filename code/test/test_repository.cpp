@@ -5,11 +5,11 @@
 #include <mado/query/parser.hpp>
 #include <mado/repository/repository.hpp>
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
-#include <unistd.h>
 
 using namespace mado::query;
 using namespace mado::repository;
@@ -19,12 +19,18 @@ namespace {
 class Temp_Dir {
   public:
     Temp_Dir() {
-        static int counter = 0;
-        path_ = std::filesystem::temp_directory_path() /
-                ("mado_test_" + std::to_string(::getpid()) + "_" +
-                 std::to_string(counter++));
-        std::filesystem::create_directories(path_);
+        const std::filesystem::path root(MADO_TEST_ROOT);
+        const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        const auto prefix = ".mado-test-" + std::to_string(stamp) + "-";
+        for (unsigned attempt = 0;; ++attempt) {
+            path_ = root / (prefix + std::to_string(attempt));
+            if (std::filesystem::create_directory(path_))
+                break;
+        }
     }
+
+    Temp_Dir(const Temp_Dir &) = delete;
+    Temp_Dir &operator=(const Temp_Dir &) = delete;
 
     ~Temp_Dir() {
         std::error_code ec;
@@ -76,10 +82,14 @@ static void test_open_finds_mado_above() {
 }
 
 static void test_open_returns_nullopt_when_missing() {
-    Temp_Dir tmp;
-
-    auto repo = Repository::open(tmp.path());
-    test(!repo.has_value());
+    // Start at the filesystem root so the project repository cannot
+    // affect the result and no test directory needs to be created.
+    const auto root = std::filesystem::path(MADO_TEST_ROOT).root_path();
+    const auto mado_dir = root / "MADO";
+    const auto repo = Repository::open(root);
+    test(std::filesystem::is_directory(mado_dir)
+             ? repo && repo->root() == mado_dir
+             : !repo);
 }
 
 static void test_find_empty_repo() {
