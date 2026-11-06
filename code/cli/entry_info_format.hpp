@@ -9,6 +9,8 @@
 
 namespace cli {
 
+void print_json_string(const std::string &str, std::ostream &os);
+
 enum class Entry_Info_Format {
     Default, // compatible with emacs compile buffer
     Path,    // only paths

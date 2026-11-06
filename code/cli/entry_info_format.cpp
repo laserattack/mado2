@@ -12,6 +12,24 @@
 
 namespace cli {
 
+// Writes a JSON string literal to os.
+void print_json_string(const std::string &str, std::ostream &os) {
+    os << '"';
+    for (char c : str) {
+        switch (c) {
+        case '"':
+            os << "\\\"";
+            break;
+        case '\\':
+            os << "\\\\";
+            break;
+        default:
+            os << c;
+        }
+    }
+    os << '"';
+}
+
 namespace {
 
 class Default_Entry_Info_Formatter : public Entry_Info_Formatter {
@@ -61,24 +79,6 @@ class Path_Entry_Info_Formatter : public Entry_Info_Formatter {
 };
 
 class Jsonl_Entry_Info_Formatter : public Entry_Info_Formatter {
-    // Writes a JSON string literal to os.
-    static void print_json_string(const std::string &str, std::ostream &os) {
-        os << '"';
-        for (char c : str) {
-            switch (c) {
-            case '"':
-                os << "\\\"";
-                break;
-            case '\\':
-                os << "\\\\";
-                break;
-            default:
-                os << c;
-            }
-        }
-        os << '"';
-    }
-
   public:
     void write(const mado::entry::Entry &e, std::ostream &os,
                const Hidden_Entry_Fields &hidden) const override {

@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -368,6 +369,104 @@ class New_Command : public Command {
     }
 };
 
+class Info_Command : public Command {
+  public:
+    Info_Command() {
+        name = "info";
+        signature = "[-format <default|jsonl>] [-only-dir]";
+        description = "Show repository information";
+    }
+
+    bool run(const std::string &program_name,
+             int argc, char **argv) const override {
+        Flag_Context c(name.c_str());
+        char *format_name = nullptr;
+        bool dir_only = false;
+        flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        flag_c_bool_var(c, &dir_only, "only-dir", false, "Print main directory path only");
+        if (!flag_c_parse(c, argc, argv) || flag_c_rest_argc(c) != 0) {
+            print_command_usage(*this, program_name);
+            return false;
+        }
+
+        const auto format = parse_entry_info_format(format_name);
+        if (!format || *format == Entry_Info_Format::Path) {
+            fprintf(stderr, "Invalid format for info: %s\n", format_name);
+            return false;
+        }
+
+        const auto repo = mado::repository::Repository::open(std::filesystem::current_path());
+        if (!repo) {
+            fprintf(stderr, "No MADO/ directory found\n");
+            return false;
+        }
+
+        auto &out = std::cout;
+        const auto main_dir = repo->root().string();
+        if (dir_only) {
+            if (*format == Entry_Info_Format::Jsonl)
+                print_json_string(main_dir, out);
+            else
+                out << main_dir;
+            out << '\n';
+            return true;
+        }
+
+        const auto entries = repo->find(nullptr);
+        std::map<std::string, size_t> statuses;
+        std::map<std::string, size_t> tags;
+        std::map<uint16_t, size_t> priorities;
+        for (const auto &entry : entries) {
+            ++statuses[entry.status()];
+            ++priorities[entry.priority()];
+            for (const auto &tag : entry.tags())
+                ++tags[tag];
+        }
+
+        if (*format == Entry_Info_Format::Jsonl) {
+            auto write_counts = [&](const auto &counts, auto write_key) {
+                out << '{';
+                const char *separator = "";
+                for (const auto &[key, count] : counts) {
+                    out << separator;
+                    write_key(key);
+                    out << ':' << count;
+                    separator = ",";
+                }
+                out << '}';
+            };
+            auto write_string_key = [&](const std::string &key) { print_json_string(key, out); };
+
+            out << "{\"main_dir\":";
+            print_json_string(main_dir, out);
+            out << ",\"entries_count\":" << entries.size()
+                << ",\"statuses_count\":" << statuses.size()
+                << ",\"tags_count\":" << tags.size()
+                << ",\"priorities_count\":" << priorities.size()
+                << ",\"statuses\":";
+            write_counts(statuses, write_string_key);
+            out << ",\"tags\":";
+            write_counts(tags, write_string_key);
+            out << ",\"priorities\":";
+            write_counts(priorities, [&](uint16_t key) { out << '"' << key << '"'; });
+            out << "}\n";
+        } else {
+            auto write_counts = [&](const char *label, const auto &counts) {
+                out << label << " (" << counts.size() << "):\n";
+                for (const auto &[key, count] : counts)
+                    out << "  " << key << ": " << count << '\n';
+            };
+
+            out << "Main directory: " << main_dir << '\n'
+                << "Entries count: " << entries.size() << '\n';
+            write_counts("Statuses", statuses);
+            write_counts("Tags", tags);
+            write_counts("Priorities", priorities);
+        }
+        return true;
+    }
+};
+
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     std::vector<std::unique_ptr<Command>> cmds;
     cmds.push_back(std::make_unique<Help_Command>());
@@ -376,6 +475,7 @@ const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     cmds.push_back(std::make_unique<Rm_Command>());
     cmds.push_back(std::make_unique<Init_Command>());
     cmds.push_back(std::make_unique<New_Command>());
+    cmds.push_back(std::make_unique<Info_Command>());
     return cmds;
 }();
 
