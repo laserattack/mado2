@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
     cli::Flag_Context c(program_name.c_str());
 
     char *directory = nullptr;
-    flag_c_str_var(c, &directory, "C", "", "Change to this directory before running");
+    c.add_string(&directory, {"C", "-working-dir"}, "", "Change to this directory before running");
 
     if (!flag_c_parse(c, argc - 1, argv + 1)) {
         flag_c_print_error(c, stderr);

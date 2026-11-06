@@ -106,6 +106,59 @@ class Cli_Tests(unittest.TestCase):
         result = self.run_mado("list", "-format", "path", "name = Example")
         self.test(self.check_output(result, str(entry) + "\n"))
 
+    # Checks legacy ls flags and mixed spellings. unittest reports failures.
+    # Проверяет старые и смешанные флаги ls. Сбои регистрирует unittest.
+    def test_legacy_list_flags(self):
+        self.entry("20260101-000000", "- NAME: Older\n")
+        self.entry("20260102-000000", "- NAME: Newer\n")
+        expected = self.run_mado("ls", "-sort", "-time", "-format", "js",
+                                 "-only-hidden", "-hide-name")
+        self.test(self.check_output(expected, '{"name":"Newer"}\n{"name":"Older"}\n') and
+                  self.check_output(self.run_mado("list", "-s", "-time", "-f", "js", "-O", "-N"),
+                                    expected.stdout) and
+                  self.check_output(self.run_mado("list", "--sort=-time", "-format", "path",
+                                                  "--format=js", "--only-hidden", "--hide-name"),
+                                    expected.stdout))
+
+    # Checks each legacy visibility flag. unittest reports failures.
+    # Проверяет каждый старый флаг видимости. Сбои регистрирует unittest.
+    def test_legacy_hide_flags(self):
+        self.entry("20260101-000000", "- NAME: Example\n")
+        for field, short in zip(FIELDS, "HTMNPDSG"):
+            with self.subTest(field=field):
+                expected = self.run_mado("ls", "-format", "jsonl", "-only-hidden", f"-hide-{field}")
+                self.test(expected.returncode == 0 and expected.stderr == "" and
+                          list(json.loads(expected.stdout)) == [field] and
+                          self.check_output(self.run_mado("ls", "-f", "jsonl", "-O", f"-{short}"),
+                                            expected.stdout) and
+                          self.check_output(self.run_mado("ls", "--format", "jsonl", "--only-hidden",
+                                                          f"--hide-{field}"), expected.stdout))
+
+    # Checks legacy working-directory and info flags. unittest reports failures.
+    # Проверяет старые флаги рабочего каталога и info. Сбои регистрирует unittest.
+    def test_legacy_info_flags(self):
+        self.repo.mkdir()
+        expected = json.dumps(str(self.repo), ensure_ascii=False) + "\n"
+        self.test(self.check_output(self.run_mado("--working-dir", str(self.work),
+                                                  "stat", "-f", "js", "-d",
+                                                  cwd=self.work.parent), expected) and
+                  self.check_output(self.run_mado("info", "--format=jsonl", "--dir"), expected))
+
+    # Checks legacy init and template flags on separate repositories.
+    # Проверяет старые флаги init и шаблонов в отдельных репозиториях.
+    def test_legacy_init_and_new_flags(self):
+        for index, (force, template, fmt) in enumerate(
+                (("-F", "-t", "-f"), ("--force", "--template", "--format"))):
+            with self.subTest(force=force, template=template):
+                work = self.work / str(index)
+                work.mkdir()
+                initialized = self.run_mado("setup", force, cwd=work)
+                created = self.run_mado("add", template, "note", fmt, "path", cwd=work)
+                path = Path(created.stdout.strip())
+                self.test(self.check_output(initialized, str(work / "MADO") + "\n") and
+                          self.check_output(created, str(path) + "\n") and
+                          path.is_file() and path.read_text() == NOTE)
+
     # Checks general help. Failures are reported by unittest.
     # Проверяет общую справку. Сбои регистрирует unittest.
     def test_general_help(self):

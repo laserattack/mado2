@@ -1,5 +1,7 @@
 #pragma once
 
+#include <initializer_list>
+
 // RAII wrapper around flag.h's opaque flag context `void *`.
 //
 // flag.h provides `flag_c_new()` / `flag_c_free()` for explicit lifetime
@@ -40,6 +42,28 @@ class Flag_Context {
     // functions directly. No exceptions.
     // Преобразуется в void * для вызова flag_c_*. Исключений нет.
     operator void *() const { return ctx_; }
+
+    // Registers string flag names on one variable. Names omit the first dash
+    // because flag.h strips it. The last occurrence wins.
+    // Allocation failure is handled by flag.h. No C++ exceptions.
+    // Регистрирует имена строкового флага для одной переменной. Первый дефис
+    // опускается, так как flag.h снимает его. Последний флаг имеет приоритет.
+    // Сбой памяти обрабатывает flag.h. Исключений C++ нет.
+    void add_string(char **value, std::initializer_list<const char *> names,
+                    const char *default_value, const char *description) {
+        for (const auto *name : names)
+            flag_c_str_var(ctx_, value, name, default_value, description);
+    }
+
+    // Registers boolean flag names on one variable, initially false.
+    // Allocation failure is handled by flag.h. No C++ exceptions.
+    // Регистрирует имена логического флага для одной переменной со значением false.
+    // Сбой памяти обрабатывает flag.h. Исключений C++ нет.
+    void add_bool(bool *value, std::initializer_list<const char *> names,
+                  const char *description) {
+        for (const auto *name : names)
+            flag_c_bool_var(ctx_, value, name, false, description);
+    }
 
   private:
     void *ctx_;

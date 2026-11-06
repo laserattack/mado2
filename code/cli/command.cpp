@@ -113,30 +113,33 @@ class Ls_Command : public Command {
         // Declare flags
         // Объявляем флаги.
         char *format_name = nullptr;
-        flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        c.add_string(&format_name, {"format", "f", "-format"}, "default", "Output format");
         char *sort_spec = nullptr;
-        flag_c_str_var(c, &sort_spec, "sort", nullptr, "Sort entries by [+|-]field,...");
+        c.add_string(&sort_spec, {"sort", "s", "-sort"}, nullptr, "Sort entries by [+|-]field,...");
         Hidden_Entry_Fields hidden;
         const struct {
-            const char *name;
+            const char *long_name;
+            const char *short_name;
             const char *description;
             bool Hidden_Entry_Fields::*field;
         } hide_flags[] = {
-            {"hide-path", "Hide path field", &Hidden_Entry_Fields::path},
-            {"hide-time", "Hide time field", &Hidden_Entry_Fields::time},
-            {"hide-mtime", "Hide mtime field", &Hidden_Entry_Fields::mtime},
-            {"hide-name", "Hide name field", &Hidden_Entry_Fields::name},
-            {"hide-priority", "Hide priority field", &Hidden_Entry_Fields::priority},
-            {"hide-deadline", "Hide deadline field", &Hidden_Entry_Fields::deadline},
-            {"hide-status", "Hide status field", &Hidden_Entry_Fields::status},
-            {"hide-tags", "Hide tags field", &Hidden_Entry_Fields::tags},
+            {"-hide-path", "H", "Hide path field", &Hidden_Entry_Fields::path},
+            {"-hide-time", "T", "Hide time field", &Hidden_Entry_Fields::time},
+            {"-hide-mtime", "M", "Hide mtime field", &Hidden_Entry_Fields::mtime},
+            {"-hide-name", "N", "Hide name field", &Hidden_Entry_Fields::name},
+            {"-hide-priority", "P", "Hide priority field", &Hidden_Entry_Fields::priority},
+            {"-hide-deadline", "D", "Hide deadline field", &Hidden_Entry_Fields::deadline},
+            {"-hide-status", "S", "Hide status field", &Hidden_Entry_Fields::status},
+            {"-hide-tags", "G", "Hide tags field", &Hidden_Entry_Fields::tags},
         };
         // Register visibility flags using the same field mapping as inversion.
         // Регистрируем флаги видимости по той же схеме, что и инверсию.
         for (const auto &flag : hide_flags)
-            flag_c_bool_var(c, &(hidden.*flag.field), flag.name, false, flag.description);
+            c.add_bool(&(hidden.*flag.field),
+                       {flag.long_name + 1, flag.short_name, flag.long_name}, flag.description);
         bool only_hidden = false;
-        flag_c_bool_var(c, &only_hidden, "only-hidden", false, "Show only fields selected by -hide flags");
+        c.add_bool(&only_hidden, {"only-hidden", "O", "-only-hidden"},
+                   "Show only fields selected by -hide flags");
         //
 
         // Parse flags
@@ -248,7 +251,7 @@ class Rm_Command : public Command {
         // Declare flags
         // Объявляем флаги.
         char *format_name = nullptr;
-        flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        c.add_string(&format_name, {"format", "f", "-format"}, "default", "Output format");
         //
 
         // Parse flags
@@ -342,7 +345,7 @@ class Init_Command : public Command {
         // Declare flags
         // Объявляем флаги.
         bool force = false;
-        flag_c_bool_var(c, &force, "force", false, "Create MADO/ even if one exists above");
+        c.add_bool(&force, {"force", "F", "-force"}, "Create MADO/ even if one exists above");
         //
 
         // Parse flags
@@ -401,9 +404,10 @@ class New_Command : public Command {
         char *suffix = nullptr;
         flag_c_str_var(c, &suffix, "suffix", "", "Optional suffix for the entry directory name");
         char *template_name = nullptr;
-        flag_c_str_var(c, &template_name, "template", nullptr, "Create the entry from a named template");
+        c.add_string(&template_name, {"template", "t", "-template"}, nullptr,
+                     "Create the entry from a named template");
         char *format_name = nullptr;
-        flag_c_str_var(c, &format_name, "format", "default", "Output format");
+        c.add_string(&format_name, {"format", "f", "-format"}, "default", "Output format");
         //
 
         // Parse flags
@@ -473,8 +477,8 @@ class Info_Command : public Command {
         Flag_Context c(name.c_str());
         char *format_name = nullptr;
         bool dir_only = false;
-        flag_c_str_var(c, &format_name, "format", "default", "Output format");
-        flag_c_bool_var(c, &dir_only, "only-dir", false, "Print main directory path only");
+        c.add_string(&format_name, {"format", "f", "-format"}, "default", "Output format");
+        c.add_bool(&dir_only, {"only-dir", "d", "-dir"}, "Print main directory path only");
         if (!flag_c_parse(c, argc, argv) || flag_c_rest_argc(c) != 0) {
             print_command_usage(*this, program_name);
             return false;
