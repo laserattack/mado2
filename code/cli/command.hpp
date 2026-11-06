@@ -28,14 +28,18 @@ class Command {
     std::string name;
     std::string signature;
     std::string description;
+    // Alternative invocation names. Help displays the primary name.
+    // Альтернативные имена вызова. Справка выводит основное имя.
+    std::vector<std::string> aliases;
 };
 
 // Returns the registered command table. No error result or exceptions.
 // Возвращает таблицу команд. Ошибок и исключений нет.
 const std::vector<std::unique_ptr<Command>> &commands();
 
-// Finds an exact command name or returns nullptr. No exceptions.
-// Ищет команду по точному имени или возвращает nullptr. Исключений нет.
+// Finds an exact primary name or alias, or returns nullptr. No exceptions.
+// Ищет точное основное имя или алиас. Если совпадения нет, возвращает nullptr.
+// Исключений нет.
 const Command *find_command(const std::string &name);
 
 // Writes the command list and global flags to stderr. Ignores write failures.

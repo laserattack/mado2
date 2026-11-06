@@ -74,6 +74,38 @@ class Cli_Tests(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
+    # Checks that legacy names resolve to canonical help without being listed.
+    # Проверяет, что старые имена открывают основную справку и не выводятся в списке.
+    def test_legacy_command_aliases(self):
+        aliases = {
+            "help": ("usage",),
+            "ls": ("list", "show", "search", "find", "view"),
+            "rm": ("remove", "delete", "clear", "trash"),
+            "init": ("setup", "start", "install"),
+            "new": ("add", "create", "note", "task"),
+            "info": ("repo", "about", "summary", "stat"),
+            "debug": ("check",),
+        }
+        general = self.run_mado("help")
+        # Use the help alias to look up every alias without modifying a repository.
+        # Ищем каждый алиас через алиас help без изменения репозитория.
+        for command, names in aliases.items():
+            expected = self.run_mado("help", command)
+            for alias in names:
+                with self.subTest(alias=alias):
+                    actual = self.run_mado("usage", alias)
+                    self.test(expected.returncode == 0 and
+                              (actual.returncode, actual.stdout, actual.stderr) ==
+                              (0, expected.stdout, expected.stderr) and
+                              not re.search(rf"^  {alias}\s+-", general.stderr, re.MULTILINE))
+
+    # Checks that invoking a legacy alias runs the command with its current flags.
+    # Проверяет, что вызов старого алиаса запускает команду с текущими флагами.
+    def test_legacy_list_alias_dispatch(self):
+        entry = self.entry("20260101-000000", "- NAME: Example\n")
+        result = self.run_mado("list", "-format", "path", "name = Example")
+        self.test(self.check_output(result, str(entry) + "\n"))
+
     # Checks general help. Failures are reported by unittest.
     # Проверяет общую справку. Сбои регистрирует unittest.
     def test_general_help(self):

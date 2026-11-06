@@ -11,6 +11,7 @@
 #define FLAG_IMPLEMENTATION
 #include "flag_context.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
@@ -31,6 +32,7 @@ class Help_Command : public Command {
     // Задаёт метаданные справки. Возможен std::bad_alloc.
     Help_Command() {
         name = "help";
+        aliases = {"usage"};
         signature = "[COMMAND]";
         description = "Print this help message";
     }
@@ -93,6 +95,7 @@ class Ls_Command : public Command {
     // Задаёт метаданные справки. Возможен std::bad_alloc.
     Ls_Command() {
         name = "ls";
+        aliases = {"list", "show", "search", "find", "view"};
         signature = "[-format <default|path|jsonl>] [-sort <[+|-]field,...>] [-hide-<field> ...] [-only-hidden] [QUERY]";
         description = "List entries";
     }
@@ -227,6 +230,7 @@ class Rm_Command : public Command {
     // Задаёт метаданные справки. Возможен std::bad_alloc.
     Rm_Command() {
         name = "rm";
+        aliases = {"remove", "delete", "clear", "trash"};
         signature = "[-format <default|path|jsonl>] <QUERY>";
         description = "Remove entries";
     }
@@ -321,6 +325,7 @@ class Init_Command : public Command {
     // Задаёт метаданные справки. Возможен std::bad_alloc.
     Init_Command() {
         name = "init";
+        aliases = {"setup", "start", "install"};
         signature = "[-force]";
         description = "Initialize MADO/ and restore default templates";
     }
@@ -377,6 +382,7 @@ class New_Command : public Command {
     // Задаёт метаданные справки. Возможен std::bad_alloc.
     New_Command() {
         name = "new";
+        aliases = {"add", "create", "note", "task"};
         signature = "[-suffix <str>] [-template <name>] [-format <default|path|jsonl>]";
         description = "Create a new entry";
     }
@@ -453,6 +459,7 @@ class Info_Command : public Command {
     // Задаёт метаданные справки. Возможен std::bad_alloc.
     Info_Command() {
         name = "info";
+        aliases = {"repo", "about", "summary", "stat"};
         signature = "[-format <default|jsonl>] [-only-dir]";
         description = "Show repository information";
     }
@@ -565,6 +572,7 @@ class Debug_Command : public Command {
     // Задаёт метаданные справки. Возможен std::bad_alloc.
     Debug_Command() {
         name = "debug";
+        aliases = {"check"};
         signature = "<QUERY>";
         description = "Print the query AST";
     }
@@ -629,11 +637,11 @@ const std::vector<std::unique_ptr<Command>> &commands() {
     return COMMANDS;
 }
 
-// Finds an exact command name or returns nullptr. No exceptions.
-// Ищет команду по точному имени или возвращает nullptr. Исключений нет.
+// Resolves primary names and aliases through the same command registry.
+// Разрешает основные имена и алиасы через единый реестр команд.
 const Command *find_command(const std::string &name) {
     for (const auto &cmd : COMMANDS) {
-        if (cmd->name == name)
+        if (cmd->name == name || std::ranges::find(cmd->aliases, name) != cmd->aliases.end())
             return cmd.get();
     }
     return nullptr;
