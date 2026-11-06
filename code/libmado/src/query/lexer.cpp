@@ -1,8 +1,10 @@
 #include <mado/common/fuzzy_match.hpp>
 #include <mado/common/text_utils.hpp>
 #include <mado/query/lexer.hpp>
+#include <mado/query/time_macro.hpp>
 
 #include <cassert>
+#include <cctype>
 #include <optional>
 
 namespace mado::query {
@@ -13,6 +15,7 @@ namespace mado::query {
 // std::bad_alloc.
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
+    std::optional<std::time_t> now;
 
     while (!is_at_end()) {
         skip_whitespace();
@@ -24,6 +27,12 @@ std::vector<Token> Lexer::tokenize() {
 
         if (mado::common::is_digit(c)) {
             tokens.push_back(parse_number_and_timestamp());
+        } else if (c == '@') {
+            // All macros in the query share one reference time (UTC).
+            // Все макросы запроса используют одно исходное время (UTC).
+            if (!now)
+                now = std::time(nullptr);
+            tokens.push_back(parse_time_macro(*now));
         } else if (c == '"' || c == '\'') {
             tokens.push_back(parse_quoted_string());
         } else if (mado::common::is_letter_or_underscore(c)) {
@@ -36,6 +45,53 @@ std::vector<Token> Lexer::tokenize() {
     tokens.push_back({Token_Type::End, "", pos_});
 
     return tokens;
+}
+
+// Scans @name and an optional one-to-six-digit signed offset. Returns
+// Invalid for malformed input or unresolved macros. Resolver exceptions propagate.
+// Читает @имя и необязательное смещение из одной–шести цифр со знаком.
+// Неверный или неизвестный макрос даёт Invalid. Исключения передаются дальше.
+Token Lexer::parse_time_macro(std::time_t now) {
+    const size_t start = pos_;
+    eat_it();
+    const size_t name_start = pos_;
+    if (!mado::common::is_letter_or_underscore(get_it()))
+        return make_token(Token_Type::Invalid, start);
+    while (mado::common::is_identifier_char(get_it()))
+        eat_it();
+    const auto name = query_.substr(name_start, pos_ - name_start);
+
+    // Look past spacing without consuming it when there is no offset.
+    // Смотрим за пробелы, сохраняя их при отсутствии смещения.
+    size_t sign_pos = 0;
+    while (get_it(sign_pos) == ' ' || get_it(sign_pos) == '\t' || get_it(sign_pos) == '\r')
+        ++sign_pos;
+    const char sign = get_it(sign_pos);
+    int offset = 0;
+    if (sign == '+' || sign == '-') {
+        eat_it(sign_pos + 1);
+        while (get_it() == ' ' || get_it() == '\t' || get_it() == '\r')
+            eat_it();
+
+        // Consume an overlong offset without overflowing the accumulator.
+        // Считываем слишком длинное смещение без переполнения накопителя.
+        const size_t digits_start = pos_;
+        while (mado::common::is_digit(get_it())) {
+            if (pos_ - digits_start < 6)
+                offset = offset * 10 + (get_it() - '0');
+            eat_it();
+        }
+        const size_t digits = pos_ - digits_start;
+        if (digits == 0 || digits > 6)
+            return make_token(Token_Type::Invalid, start);
+        if (sign == '-')
+            offset = -offset;
+    }
+
+    auto value = resolve_time_macro(name, offset, now);
+    if (!value)
+        return make_token(Token_Type::Invalid, start);
+    return make_token(Token_Type::Timestamp, std::move(*value), start);
 }
 
 // Advances past whitespace. No exceptions.

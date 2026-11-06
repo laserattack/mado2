@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -65,6 +66,12 @@ class Lexer {
     // Разбирает число или метку времени. Некорректное значение даёт Invalid. Возможен
     // std::bad_alloc.
     Token parse_number_and_timestamp();
+
+    // Reads a time macro and its optional signed offset. Invalid macros yield
+    // Invalid. Clock and allocation exceptions propagate.
+    // Читает макрос времени и необязательное смещение со знаком. Ошибочный
+    // макрос даёт Invalid. Исключения часов и выделения памяти передаются дальше.
+    Token parse_time_macro(std::time_t now);
     // Scans quoted text and emits Invalid when the quote is unterminated. May
     // throw std::bad_alloc.
     // Scans quoted text. Unterminated input yields Invalid.

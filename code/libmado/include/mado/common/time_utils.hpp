@@ -5,12 +5,20 @@
 
 namespace mado::common {
 
-// Returns the current UTC time in YYYYMMDD-HHMMSS. May throw std::bad_alloc.
-// Возвращает текущее время UTC как YYYYMMDD-HHMMSS. Возможен std::bad_alloc.
+// Converts a timestamp to UTC calendar fields. Conversion failures throw std::runtime_error.
+// Преобразует метку в календарные поля UTC. Сбой вызывает std::runtime_error.
+std::tm utc_time(std::time_t time);
+
+// Returns the current UTC timestamp. Clock or conversion failures throw std::runtime_error.
+// String allocation may throw std::bad_alloc.
+// Возвращает текущую метку UTC. Сбой часов или преобразования вызывает std::runtime_error.
+// Выделение памяти для строки может вызвать std::bad_alloc.
 std::string current_timestamp_utc();
 
-// Formats a supported time_t in UTC. May throw std::bad_alloc.
-// Форматирует поддерживаемое значение time_t в UTC. Возможен std::bad_alloc.
+// Formats time as YYYYMMDD-HHMMSS in UTC. Conversion failures throw std::runtime_error.
+// String allocation may throw std::bad_alloc.
+// Форматирует время в UTC как YYYYMMDD-HHMMSS. Сбой преобразования вызывает std::runtime_error.
+// Выделение памяти для строки может вызвать std::bad_alloc.
 std::string format_timestamp_utc(std::time_t t);
 
 } // namespace mado::common

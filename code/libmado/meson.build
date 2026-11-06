@@ -17,6 +17,7 @@ libmado_src = [
   # Запрос.
   'src/query/token.cpp',
   'src/query/lexer.cpp',
+  'src/query/time_macro.cpp',
   'src/query/ast.cpp',
   'src/query/parser.cpp',
 

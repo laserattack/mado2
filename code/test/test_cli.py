@@ -81,7 +81,7 @@ class Cli_Tests(unittest.TestCase):
         self.test(
             result.returncode == 0 and result.stdout == "",
             all(re.search(rf"^  {name}\s+-", result.stderr, re.MULTILINE)
-                for name in ("help", "version", "ls", "rm", "init", "new", "info")),
+                for name in ("help", "version", "ls", "rm", "init", "new", "info", "debug")),
             "<command> [OPTIONS]" in result.stderr and "-C <path>" in result.stderr,
         )
 
@@ -91,7 +91,7 @@ class Cli_Tests(unittest.TestCase):
         signatures = {
             "help": "[COMMAND]", "version": "version", "ls": "[QUERY]",
             "rm": "<QUERY>", "init": "[-force]", "new": "[-template <name>]",
-            "info": "[-only-dir]",
+            "info": "[-only-dir]", "debug": "<QUERY>",
         }
         for command, signature in signatures.items():
             with self.subTest(command=command):
@@ -299,6 +299,14 @@ class Cli_Tests(unittest.TestCase):
                                'name %~ "fix*" and priority in [1..2]')
         self.test(self.check_output(result, f"{newer}\n{older}\n"))
 
+    # Checks time macros in a deadline range. Failures are reported by unittest.
+    # Проверяет макросы в диапазоне сроков. Сбои регистрирует unittest.
+    def test_ls_time_macro_range(self):
+        matching = self.entry("20260101-000000", "- DEADLINE: 99981231-120000\n")
+        self.entry("20260102-000000", "- DEADLINE: 99981230-120000\n")
+        result = self.run_mado("ls", "-format", "path", "deadline in [@never-1..@never]")
+        self.test(self.check_output(result, str(matching) + "\n"))
+
     # Checks ls default output and hidden path. Failures are reported by unittest.
     # Проверяет обычный вывод ls и скрытие поля пути. Сбои регистрирует unittest.
     def test_ls_default_output_and_hidden_path(self):
@@ -400,6 +408,33 @@ class Cli_Tests(unittest.TestCase):
     # Проверяет отклонение формата path в info. Сбои регистрирует unittest.
     def test_info_rejects_path_format(self):
         self.test(self.check_error(self.run_mado("info", "-format", "path"), "Invalid format for info"))
+
+
+    # Checks AST output from a compound query. unittest reports failures.
+    # Проверяет вывод AST составного запроса. Сбои регистрирует unittest.
+    def test_debug_prints_ast(self):
+        result = self.run_mado("debug", "priority = 3 and not all")
+        self.test(self.check_output(result,
+                                    "Binary: And\n  Comparison: Priority Eq 3\n"
+                                    "  Unary: Not\n    All\n"))
+
+    # Checks that an invalid query produces a diagnostic and no AST.
+    # Проверяет диагностику неверного запроса и отсутствие AST в выводе.
+    def test_debug_invalid_query(self):
+        self.test(self.check_error(self.run_mado("debug", "name ="), "Expected string"))
+
+    # Checks that an empty query is rejected. unittest reports failures.
+    # Проверяет отказ для пустого запроса. Сбои регистрирует unittest.
+    def test_debug_empty_query(self):
+        self.test(self.check_error(self.run_mado("debug", ""), "Empty query"))
+
+    # Checks rejection of missing and extra arguments. unittest reports failures.
+    # Проверяет отказ при отсутствии аргумента или лишних аргументах.
+    def test_debug_argument_errors(self):
+        self.test(self.check_error(self.run_mado("debug"), "QUERY is required") and
+                  self.check_error(self.run_mado("debug", "all", "all"),
+                                   "QUERY must be a single argument") and
+                  self.check_error(self.run_mado("debug", "-unknown"), "Usage:"))
 
 
 # Runs the suite and exits with unittest's success or failure status.

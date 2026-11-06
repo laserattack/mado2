@@ -1,12 +1,17 @@
 #include "test_utils.hpp"
 
+#include <mado/common/time_utils.hpp>
 #include <mado/query/ast.hpp>
 #include <mado/query/lexer.hpp>
 #include <mado/query/parser.hpp>
+#include <mado/query/time_macro.hpp>
 #include <mado/query/token.hpp>
 
+#include <chrono>
 #include <cstdio>
 #include <iostream>
+#include <limits>
+#include <stdexcept>
 #include <string>
 
 using namespace mado::query;
@@ -1261,6 +1266,71 @@ static void test_parser_range_wrong_type_throws() {
 // entry point
 // Точка входа.
 
+// Checks that timestamp formatting reports an unrepresentable time.
+// Проверяет, что форматирование сообщает о непредставимом времени.
+static void test_utc_conversion_failure() {
+    bool rejected = false;
+    // A 32-bit time_t cannot represent a value outside the UTC converter range.
+    // В 32-битном time_t нет значений за пределами диапазона преобразования UTC.
+    if constexpr (std::numeric_limits<std::time_t>::digits > 32) {
+        try {
+            mado::common::format_timestamp_utc(std::numeric_limits<std::time_t>::max());
+        } catch (const std::runtime_error &) {
+            rejected = true;
+        }
+    }
+    test(std::numeric_limits<std::time_t>::digits <= 32 || rejected);
+}
+
+// Checks every macro just after UTC midnight. Exceptions fail the test.
+// Проверяет все макросы сразу после полуночи UTC. Исключения проваливают тест.
+static void test_time_macro_values() {
+    using namespace std::chrono;
+    const auto now = system_clock::to_time_t(sys_days{year{2024}/February/29} +
+                                            minutes{34} + seconds{56});
+
+    test(resolve_time_macro("now", 0, now) == "20240229-003456" &&
+         resolve_time_macro("now", 1, now) == "20240301-003456" &&
+         resolve_time_macro("today", 0, now) == "20240229" &&
+         resolve_time_macro("today", -1, now) == "20240228" &&
+         resolve_time_macro("yesterday", 0, now) == "20240228" &&
+         resolve_time_macro("tomorrow", 0, now) == "20240301" &&
+         resolve_time_macro("week", -1, now) == "20240219" &&
+         resolve_time_macro("month", -2, now) == "202312" &&
+         resolve_time_macro("year", 1, now) == "2025" &&
+         resolve_time_macro("never", -1, now) == "99981231-000000" &&
+         resolve_time_macro("never", 0, now) == "99990101-000000" &&
+         resolve_time_macro("MnTh", 1, now) == "202403");
+}
+
+// Checks macro tokens, positions, and spacing in a range. Exceptions fail the test.
+// Проверяет токены макросов, позиции и пробелы в диапазоне. Исключения проваливают тест.
+static void test_time_macro_range_tokens() {
+    const auto tokens = Lexer("deadline in [@never - 1..@NEVER]").tokenize();
+    test(tokens.size() == 8 &&
+         tokens[3].type == Token_Type::Timestamp &&
+         tokens[3].position == 13 && tokens[3].value == "99981231-000000" &&
+         tokens[4].type == Token_Type::DotDot &&
+         tokens[5].type == Token_Type::Timestamp &&
+         tokens[5].value == "99990101-000000");
+}
+
+// Checks rejection of unknown and malformed macros. Exceptions fail the test.
+// Проверяет отказ для неизвестных и неверных макросов. Исключения проваливают тест.
+static void test_invalid_time_macro_tokens() {
+    test(Lexer("@zzzz").tokenize().front().type == Token_Type::Invalid &&
+         Lexer("@").tokenize().front().type == Token_Type::Invalid &&
+         Lexer("@today+").tokenize().front().type == Token_Type::Invalid &&
+         Lexer("@today+0000001").tokenize().front().type == Token_Type::Invalid);
+}
+
+// Checks rejection of offsets beyond the supported timestamp years.
+// Проверяет отклонение смещений за пределы допустимых лет.
+static void test_time_macro_out_of_range() {
+    test(Lexer("@never+365").tokenize().front().type == Token_Type::Invalid &&
+         Lexer("@year-999999").tokenize().front().type == Token_Type::Invalid);
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1319,6 +1389,11 @@ int main(int argc, char **argv) {
         {"Lexer timestamp invalid length", "12345", test_lexer_timestamp_invalid_length},
         {"Lexer timestamp in query", "deadline < 20260911-123045", test_lexer_timestamp_in_query},
         {"Lexer timestamp and numbers", "42 20260911 0", test_lexer_timestamp_numbers_still_work},
+        {"Time macro values", "resolve all time macros at a fixed time", test_time_macro_values},
+        {"UTC conversion failure", "reject unrepresentable UTC times", test_utc_conversion_failure},
+        {"Time macro range", "tokenize spaced offsets and a range delimiter", test_time_macro_range_tokens},
+        {"Invalid time macros", "reject unknown names and malformed offsets", test_invalid_time_macro_tokens},
+        {"Time macro year bounds", "reject years outside 0000–9999", test_time_macro_out_of_range},
         // ast
         // AST.
 // AST.

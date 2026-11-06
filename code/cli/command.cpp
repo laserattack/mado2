@@ -3,6 +3,7 @@
 #include "entry_sort.hpp"
 
 #include <mado/mado.hpp>
+#include <mado/query/ast.hpp>
 #include <mado/query/lexer.hpp>
 #include <mado/query/parser.hpp>
 #include <mado/repository/repository.hpp>
@@ -556,6 +557,55 @@ class Info_Command : public Command {
     }
 };
 
+// Parses and prints a query AST without opening a repository.
+// Разбирает запрос и печатает AST без открытия репозитория.
+class Debug_Command : public Command {
+  public:
+    // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
+    Debug_Command() {
+        name = "debug";
+        signature = "<QUERY>";
+        description = "Print the query AST";
+    }
+
+    // Prints the AST on success. Returns false for invalid arguments or
+    // syntax. Clock and allocation exceptions propagate.
+    // Печатает AST при успехе. Неверные аргументы или синтаксис дают false.
+    // Исключения часов и выделения памяти передаются вызывающему коду.
+    bool run(const std::string &program_name,
+             int argc, char **argv) const override {
+        Flag_Context c(name.c_str());
+        if (!flag_c_parse(c, argc, argv)) {
+            print_command_usage(*this, program_name);
+            return false;
+        }
+        argc = flag_c_rest_argc(c);
+        argv = flag_c_rest_argv(c);
+
+        // A query must be passed as one shell argument.
+        // Запрос нужно передать одним аргументом командной строки.
+        if (argc != 1) {
+            print_command_usage(*this, program_name);
+            fprintf(stderr, "%s\n", argc == 0 ? "QUERY is required" :
+                                               "QUERY must be a single argument");
+            return false;
+        }
+
+        const std::string query = argv[0];
+        mado::query::Lexer lexer(query);
+        mado::query::Parser parser(lexer.tokenize());
+        try {
+            const auto ast = parser.parse();
+            mado::query::ast_print(ast.get());
+        } catch (const mado::query::Parse_Error &e) {
+            fprintf(stderr, "%s", e.format(query).c_str());
+            return false;
+        }
+        return true;
+    }
+};
+
 // Owns the command registry in help display order.
 // Хранит команды в порядке вывода справки.
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
@@ -567,6 +617,7 @@ const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     cmds.push_back(std::make_unique<Init_Command>());
     cmds.push_back(std::make_unique<New_Command>());
     cmds.push_back(std::make_unique<Info_Command>());
+    cmds.push_back(std::make_unique<Debug_Command>());
     return cmds;
 }();
 
