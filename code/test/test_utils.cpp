@@ -4,18 +4,21 @@
 #include <exception>
 
 // Returns the assertion counter for the current process. No exceptions.
+// Возвращает счётчик проверок текущего процесса. Исключений нет.
 size_t &total_tests() {
     static size_t count = 0;
     return count;
 }
 
 // Returns the failed assertion counter for the current process. No exceptions.
+// Возвращает счётчик неудачных проверок текущего процесса. Исключений нет.
 size_t &failed_tests() {
     static size_t count = 0;
     return count;
 }
 
 // Records one assertion and prints PASS or FAIL. Ignores output errors.
+// Регистрирует проверку и печатает PASS или FAIL. Ошибки вывода игнорируются.
 void test(bool check) {
     total_tests()++;
     if (!check) {
@@ -28,7 +31,11 @@ void test(bool check) {
 
 // Runs all registered tests, counting assertion and exception failures.
 // Returns 0 on success or 1 on failure.
+// Запускает все зарегистрированные тесты. Возвращает 0 при успехе или 1 при провале проверки
+// либо исключении.
 int run_tests(const std::vector<Test_Case> &tests, const char *prefix) {
+    // Report each test independently and continue after an exception.
+    // Отчитываемся по каждому тесту отдельно и продолжаем после исключения.
     for (const auto &test_case : tests) {
         printf("\n%s: %s\n", test_case.name, test_case.description);
         try {

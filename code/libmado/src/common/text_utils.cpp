@@ -10,9 +10,11 @@ namespace mado::common {
 namespace {
 
 // Common-year month lengths used to validate timestamps.
+// Длины месяцев невисокосного года для проверки дат.
 constexpr int DAYS_PER_MONTH[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 // Checks whether year/month/day is a valid calendar date
+// Проверяет, образуют ли год, месяц и день допустимую дату.
 bool is_valid_date(int year, int month, int day) {
     if (month < 1 || month > 12)
         return false;
@@ -22,6 +24,7 @@ bool is_valid_date(int year, int month, int day) {
     int max_day = DAYS_PER_MONTH[month - 1];
 
     // Leap year
+    // Високосный год.
     if (month == 2) {
         bool leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
         if (leap)
@@ -35,6 +38,7 @@ bool is_valid_date(int year, int month, int day) {
 
 // Removes surrounding whitespace, clearing an all-whitespace string. No error
 // result.
+// Удаляет пробелы по краям и очищает строку из одних пробелов. Ошибок нет.
 void trim_inplace(std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     if (start == std::string::npos) {
@@ -48,6 +52,7 @@ void trim_inplace(std::string &s) {
 
 // Returns a trimmed copy or an empty string for whitespace-only input. May
 // throw std::bad_alloc.
+// Возвращает копию без пробелов по краям. Возможен std::bad_alloc.
 std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     size_t end = s.find_last_not_of(" \t\r\n");
@@ -58,6 +63,8 @@ std::string trim(const std::string &s) {
 
 // Compares equal-length strings ignoring ASCII case. Returns false on
 // mismatch. No exceptions.
+// Сравнивает строки одинаковой длины без учёта регистра ASCII. При несовпадении возвращает
+// false. При преобразовании компонентов возможен std::bad_alloc.
 bool equals_ignore_case(const std::string &str1, const std::string &str2) {
     if (str1.length() != str2.length())
         return false;
@@ -72,6 +79,7 @@ bool equals_ignore_case(const std::string &str1, const std::string &str2) {
 }
 
 // Lowercases UTF-8, passing invalid bytes through. May throw std::bad_alloc.
+// Приводит UTF-8 к нижнему регистру, сохраняя некорректные байты. Возможен std::bad_alloc.
 std::string utf8_tolower(const std::string &str) {
     std::string result;
     result.reserve(str.size());
@@ -86,6 +94,7 @@ std::string utf8_tolower(const std::string &str) {
 
         if (n < 0) {
             // Invalid UTF-8: pass the byte through unchanged
+            // Некорректный байт UTF-8 сохраняется без изменений.
             result.push_back(str[i]);
             i += 1;
             continue;
@@ -97,6 +106,7 @@ std::string utf8_tolower(const std::string &str) {
         utf8proc_ssize_t written = utf8proc_encode_char(lower, buf);
         if (written <= 0) {
             // Encoding failure: pass the original bytes through
+            // При сбое кодирования сохраняем исходные байты.
             result.append(str, i, static_cast<size_t>(n));
         } else {
             result.append(reinterpret_cast<const char *>(buf),
@@ -110,32 +120,32 @@ std::string utf8_tolower(const std::string &str) {
 }
 
 // Tests for an ASCII digit. No exceptions.
+// Проверяет, является ли символ цифрой ASCII. Исключений нет.
 bool is_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
 // TODO: maybe utf8 support here
+// TODO: рассмотреть поддержку UTF-8.
 bool is_letter_or_underscore(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
 // Tests for an ASCII letter, digit, or underscore. No exceptions.
+// Проверяет букву ASCII или подчёркивание. Исключений нет.
 bool is_identifier_char(char c) {
     return is_digit(c) || is_letter_or_underscore(c);
 }
 
 // Checks the syntax and bounds of a full or partial timestamp. Invalid input
-// returns false. No exceptions.
+// returns false. May throw std::bad_alloc while converting components.
+// Проверяет синтаксис и границы полной или сокращённой метки. Некорректное значение даёт
+// false. При преобразовании компонентов возможен std::bad_alloc.
 bool is_timestamp(const std::string &str) {
     size_t n = str.size();
 
-    // YYYY
-    // YYYYMM
-    // YYYYMMDD
-    // YYYYMMDD-
-    // YYYYMMDD-HH
-    // YYYYMMDD-HHMM
-    // YYYYMMDD-HHMMSS
+    // Reject lengths that cannot represent a supported timestamp precision.
+    // Отклоняем длины, которые не соответствуют допустимой точности метки.
     if (n != 4 && n != 6 && n != 8 && n != 9 &&
         n != 11 && n != 13 && n != 15) {
         return false;
@@ -151,14 +161,17 @@ bool is_timestamp(const std::string &str) {
 
     auto to_int = [&](size_t from, size_t len) {
         // All callers pass len <= 4, so int can't overflow
+        // Все вызывающие функции передают len не больше 4, поэтому int не переполняется.
         return std::stoi(str.substr(from, len));
     };
 
     // YYYY: 0000-9999
+    // Год состоит из четырёх цифр.
     if (!is_digits(0, 4))
         return false;
 
     // YYYYMM
+    // Месяц должен быть от 1 до 12.
     if (n >= 6) {
         if (!is_digits(4, 2))
             return false;
@@ -169,6 +182,7 @@ bool is_timestamp(const std::string &str) {
     }
 
     // YYYYMMDD
+    // День проверяется с учётом месяца и високосного года.
     if (n >= 8) {
         if (!is_digits(6, 2))
             return false;
@@ -182,12 +196,14 @@ bool is_timestamp(const std::string &str) {
     }
 
     // YYYYMMDD-
+    // Дату и время разделяет дефис.
     if (n >= 9) {
         if (str[8] != '-')
             return false;
     }
 
     // YYYYMMDD-HH
+    // Часы не могут превышать 23.
     if (n >= 11) {
         if (!is_digits(9, 2))
             return false;
@@ -198,6 +214,7 @@ bool is_timestamp(const std::string &str) {
     }
 
     // YYYYMMDD-HHMM
+    // Минуты не могут превышать 59.
     if (n >= 13) {
         if (!is_digits(11, 2))
             return false;
@@ -208,6 +225,7 @@ bool is_timestamp(const std::string &str) {
     }
 
     // YYYYMMDD-HHMMSS
+    // Секунды не могут превышать 59.
     if (n >= 15) {
         if (!is_digits(13, 2))
             return false;

@@ -8,6 +8,13 @@
   component directories. Include library headers through their public
   paths, for example `#include <mado/common/glob.h>`.
 
+# Third-party code
+
+- Do not modify vendored code or other files bundled with third-party
+  dependencies, regardless of their location. Apply project-wide
+  refactors, formatting, and documentation changes only to
+  project-owned files.
+
 # Platform support
 
 - All code must support Linux, macOS, and Windows. Use portable APIs
@@ -15,6 +22,12 @@
 - Guard platform-specific APIs with preprocessor conditionals
   (`#ifdef` or `#if`). Provide an implementation for each required
   platform or a portable fallback that preserves the expected behavior.
+
+# Readability
+
+- Readability is a core requirement. Prefer direct control flow and
+  descriptive names. Keep comments brief and explain intent where the
+  reader would otherwise have to infer it.
 
 # Code documentation and naming
 
@@ -24,6 +37,11 @@
   failure. Document each returned error and exception that can
   propagate. State explicitly when there are no returned errors or
   exceptions.
+- Comment key lexical blocks, including loops, conditionals, switch
+  statements, and standalone scopes. Explain the purpose of the block
+  or why a branch matters.
+- Write every code comment in both English and Russian. Keep the two
+  versions together and update them together.
 - Use `Word_Word_Word` for classes and structs, `WORD_WORD` for
   global variables and constants, and `word_word` for ordinary
   variables, functions, and methods.

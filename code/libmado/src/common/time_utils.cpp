@@ -9,6 +9,7 @@ namespace {
 
 // Converts a time to UTC with the platform API. The API's error status is
 // ignored.
+// Преобразует время в UTC средствами платформы. Код ошибки API игнорируется.
 std::tm gmtime(std::time_t t) {
     std::tm bt{};
 #if defined(_MSC_VER)
@@ -23,11 +24,13 @@ std::tm gmtime(std::time_t t) {
 
 // Formats the current UTC time as an entry timestamp. May throw
 // std::bad_alloc.
+// Форматирует текущее время UTC как метку записи. Возможен std::bad_alloc.
 std::string current_timestamp_utc() {
     return format_timestamp_utc(std::time(nullptr));
 }
 
 // Formats a UTC time as YYYYMMDD-HHMMSS. May throw std::bad_alloc.
+// Форматирует время UTC как YYYYMMDD-HHMMSS. Возможен std::bad_alloc.
 std::string format_timestamp_utc(std::time_t t) {
     std::tm tm = gmtime(t);
     char buf[32];

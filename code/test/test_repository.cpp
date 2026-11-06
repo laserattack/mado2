@@ -17,13 +17,18 @@ using namespace mado::repository;
 namespace {
 
 // Owns a unique project-local test directory and removes it at scope exit.
+// Владеет уникальным тестовым каталогом внутри проекта и удаляет его при выходе из области
+// видимости.
 class Temp_Dir {
   public:
     // Creates a unique fixture directory. I/O failures throw filesystem_error.
+    // Создаёт уникальный тестовый каталог. Ошибки ввода-вывода выбрасывают filesystem_error.
     Temp_Dir() {
         const std::filesystem::path root(MADO_TEST_ROOT);
         const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
         const auto prefix = ".mado-test-" + std::to_string(stamp) + "-";
+        // Claim a unique fixture directory even during concurrent runs.
+        // Занимаем уникальный каталог теста даже при параллельных запусках.
         for (unsigned attempt = 0;; ++attempt) {
             path_ = root / (prefix + std::to_string(attempt));
             if (std::filesystem::create_directory(path_))
@@ -35,12 +40,14 @@ class Temp_Dir {
     Temp_Dir &operator=(const Temp_Dir &) = delete;
 
     // Removes the fixture tree. Suppresses filesystem cleanup errors.
+    // Удаляет дерево тестовых файлов. Ошибки очистки подавляются.
     ~Temp_Dir() {
         std::error_code ec;
         std::filesystem::remove_all(path_, ec);
     }
 
     // Returns the fixture directory. No exceptions.
+    // Возвращает тестовый каталог. Исключений нет.
     const std::filesystem::path &path() const { return path_; }
 
   private:
@@ -49,6 +56,8 @@ class Temp_Dir {
 
 // Creates a fixture entry and writes its contents. Directory creation can
 // throw filesystem_error.
+// Создаёт тестовую запись и записывает содержимое. Создание каталога может выбросить
+// filesystem_error.
 std::filesystem::path make_entry(const std::filesystem::path &repo_root,
                                  const std::string &timestamp,
                                  const std::string &content) {
@@ -62,6 +71,8 @@ std::filesystem::path make_entry(const std::filesystem::path &repo_root,
 
 // Builds the complete query AST. Throws Parse_Error for empty or invalid
 // queries and std::bad_alloc on allocation failure.
+// Строит AST запроса. Некорректный или пустой запрос вызывает Parse_Error, сбой выделения
+// памяти — std::bad_alloc.
 std::unique_ptr<Ast_Node> parse(const std::string &query) {
     Lexer lexer(query);
     auto tokens = lexer.tokenize();
@@ -73,6 +84,7 @@ std::unique_ptr<Ast_Node> parse(const std::string &query) {
 
 // Checks Repository::open finds MADO in cwd. Unexpected exceptions fail the
 // test.
+// Проверяет поиск MADO в текущем каталоге. Неожиданное исключение проваливает тест.
 static void test_open_finds_mado() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -83,6 +95,7 @@ static void test_open_finds_mado() {
 
 // Checks Repository::open walks up the tree. Unexpected exceptions fail the
 // test.
+// Проверяет поиск MADO выше текущего каталога. Неожиданное исключение проваливает тест.
 static void test_open_finds_mado_above() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -94,9 +107,12 @@ static void test_open_finds_mado_above() {
 }
 
 // Checks no MADO anywhere. Unexpected exceptions fail the test.
+// Проверяет результат поиска при отсутствии MADO. Неожиданное исключение проваливает тест.
 static void test_open_returns_nullopt_when_missing() {
     // Start at the filesystem root so the project repository cannot
     // affect the result and no test directory needs to be created.
+    // Начинаем с корня файловой системы, чтобы репозиторий проекта не влиял на результат и не
+    // требовался временный каталог.
     const auto root = std::filesystem::path(MADO_TEST_ROOT).root_path();
     const auto mado_dir = root / "MADO";
     const auto repo = Repository::open(root);
@@ -106,6 +122,7 @@ static void test_open_returns_nullopt_when_missing() {
 }
 
 // Checks no entries. Unexpected exceptions fail the test.
+// Проверяет поиск в пустом репозитории. Неожиданное исключение проваливает тест.
 static void test_find_empty_repo() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -115,6 +132,7 @@ static void test_find_empty_repo() {
 }
 
 // Checks single entry with fields. Unexpected exceptions fail the test.
+// Проверяет чтение одной записи. Неожиданное исключение проваливает тест.
 static void test_find_one_entry() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -134,6 +152,7 @@ static void test_find_one_entry() {
 }
 
 // Checks non-timestamp dirs ignored. Unexpected exceptions fail the test.
+// Проверяет пропуск каталогов без метки времени. Неожиданное исключение проваливает тест.
 static void test_find_skips_non_timestamp_dirs() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: x\n");
@@ -149,6 +168,7 @@ static void test_find_skips_non_timestamp_dirs() {
 }
 
 // Checks missing MAIN.md. Unexpected exceptions fail the test.
+// Проверяет пропуск записи без MAIN.md. Неожиданное исключение проваливает тест.
 static void test_find_skips_entry_without_main_md() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: x\n");
@@ -163,6 +183,7 @@ static void test_find_skips_entry_without_main_md() {
 }
 
 // Checks 3 entries. Unexpected exceptions fail the test.
+// Проверяет чтение нескольких записей. Неожиданное исключение проваливает тест.
 static void test_find_multiple_entries() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: first\n");
@@ -176,6 +197,7 @@ static void test_find_multiple_entries() {
 }
 
 // Checks name = 'fix bug'. Unexpected exceptions fail the test.
+// Проверяет фильтрацию по имени. Неожиданное исключение проваливает тест.
 static void test_find_filter_name() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: fix bug\n");
@@ -189,6 +211,7 @@ static void test_find_filter_name() {
 }
 
 // Checks status = opened. Unexpected exceptions fail the test.
+// Проверяет фильтрацию по статусу. Неожиданное исключение проваливает тест.
 static void test_find_filter_status() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n- STATUS: opened\n");
@@ -202,6 +225,7 @@ static void test_find_filter_status() {
 }
 
 // Checks tag = crit. Unexpected exceptions fail the test.
+// Проверяет фильтрацию по тегам. Неожиданное исключение проваливает тест.
 static void test_find_filter_tags() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n- TAGS: bug, crit\n");
@@ -215,6 +239,7 @@ static void test_find_filter_tags() {
 }
 
 // Checks no entries match. Unexpected exceptions fail the test.
+// Проверяет отсутствие совпадений при фильтрации. Неожиданное исключение проваливает тест.
 static void test_find_filter_no_match() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: fix\n");
@@ -228,6 +253,7 @@ static void test_find_filter_no_match() {
 
 // Checks NAME, PRIORITY, TAGS, STATUS, DEADLINE. Unexpected exceptions fail
 // the test.
+// Проверяет загрузку всех полей. Неожиданное исключение проваливает тест.
 static void test_load_all_fields() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -253,6 +279,8 @@ static void test_load_all_fields() {
 }
 
 // Checks only NAME, rest are defaults. Unexpected exceptions fail the test.
+// Проверяет значения по умолчанию для отсутствующих полей. Неожиданное исключение проваливает
+// тест.
 static void test_load_defaults() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: minimal\n");
@@ -270,6 +298,7 @@ static void test_load_defaults() {
 }
 
 // Checks PRIORITY: abc -> 0. Unexpected exceptions fail the test.
+// Проверяет загрузку пустых полей. Неожиданное исключение проваливает тест.
 static void test_load_invalid_priority_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -283,6 +312,7 @@ static void test_load_invalid_priority_ignored() {
 }
 
 // Checks PRIORITY: 1000 -> 0. Unexpected exceptions fail the test.
+// Проверяет загрузку полей из пробелов. Неожиданное исключение проваливает тест.
 static void test_load_priority_too_large_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -296,6 +326,7 @@ static void test_load_priority_too_large_ignored() {
 }
 
 // Checks DEADLINE: not-a-date -> default. Unexpected exceptions fail the test.
+// Проверяет пропуск некорректного приоритета. Неожиданное исключение проваливает тест.
 static void test_load_invalid_deadline_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -310,6 +341,7 @@ static void test_load_invalid_deadline_ignored() {
 }
 
 // Checks TAGS: -> ['']. Unexpected exceptions fail the test.
+// Проверяет пропуск слишком большого приоритета. Неожиданное исключение проваливает тест.
 static void test_load_empty_tags() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -325,6 +357,7 @@ static void test_load_empty_tags() {
 }
 
 // Checks TAGS:  bug ,  crit , feature. Unexpected exceptions fail the test.
+// Проверяет пропуск некорректного срока. Неожиданное исключение проваливает тест.
 static void test_load_tags_with_spaces() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -342,6 +375,7 @@ static void test_load_tags_with_spaces() {
 }
 
 // Checks name = лалала matches ЛАЛАЛА. Unexpected exceptions fail the test.
+// Проверяет загрузку пустых тегов. Неожиданное исключение проваливает тест.
 static void test_load_unicode_name() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: ЛАЛАЛА\n");
@@ -355,6 +389,7 @@ static void test_load_unicode_name() {
 
 // Checks TAGS: bug, bug, crit, bug -> [bug, crit]. Unexpected exceptions fail
 // the test.
+// Проверяет обрезку пробелов в тегах. Неожиданное исключение проваливает тест.
 static void test_load_duplicate_tags_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -372,6 +407,7 @@ static void test_load_duplicate_tags_ignored() {
 
 // Checks TAGS: tag1,,tag2 -> [tag1, '', tag2]. Unexpected exceptions fail the
 // test.
+// Проверяет загрузку имени Unicode. Неожиданное исключение проваливает тест.
 static void test_load_tags_with_empty_token() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -389,6 +425,7 @@ static void test_load_tags_with_empty_token() {
 }
 
 // Checks TAGS: tag1, -> [tag1, '']. Unexpected exceptions fail the test.
+// Проверяет удаление дубликатов тегов. Неожиданное исключение проваливает тест.
 static void test_load_tags_with_empty_token_at_end() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -405,6 +442,7 @@ static void test_load_tags_with_empty_token_at_end() {
 }
 
 // Checks TAGS: ,tag1 -> ['', tag1]. Unexpected exceptions fail the test.
+// Проверяет пустой тег внутри списка. Неожиданное исключение проваливает тест.
 static void test_load_tags_with_empty_token_at_start() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -422,6 +460,7 @@ static void test_load_tags_with_empty_token_at_start() {
 
 // Checks NAME/STATUS taken from first occurrence. Unexpected exceptions fail
 // the test.
+// Проверяет пустой тег в конце списка. Неожиданное исключение проваливает тест.
 static void test_load_repeated_field_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -439,6 +478,7 @@ static void test_load_repeated_field_ignored() {
 }
 
 // Checks 20260920-215549-serr. Unexpected exceptions fail the test.
+// Проверяет пустой тег в начале списка. Неожиданное исключение проваливает тест.
 static void test_load_entry_suffix_dir() {
     Temp_Dir tmp;
     auto entry_dir = make_entry(tmp.path(), "20260920-215549-serr", "- NAME: x\n");
@@ -454,6 +494,7 @@ static void test_load_entry_suffix_dir() {
 
 // Checks 20260920T215549 -> 20260920-215549. Unexpected exceptions fail the
 // test.
+// Проверяет пропуск повторного поля. Неожиданное исключение проваливает тест.
 static void test_load_entry_old_t_separator() {
     Temp_Dir tmp;
     auto entry_dir = make_entry(tmp.path(), "20260920T215549", "- NAME: x\n");
@@ -468,6 +509,7 @@ static void test_load_entry_old_t_separator() {
 }
 
 // Checks name = b removes only b. Unexpected exceptions fail the test.
+// Проверяет чтение записи с суффиксом каталога. Неожиданное исключение проваливает тест.
 static void test_remove() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n");
@@ -486,6 +528,7 @@ static void test_remove() {
 }
 
 // Checks nothing removed. Unexpected exceptions fail the test.
+// Проверяет чтение старого разделителя T. Неожиданное исключение проваливает тест.
 static void test_remove_no_match() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000", "- NAME: a\n");
@@ -500,6 +543,7 @@ static void test_remove_no_match() {
 
 // Checks init creates MADO/ and returns repo. Unexpected exceptions fail the
 // test.
+// Проверяет удаление записи. Неожиданное исключение проваливает тест.
 static void test_init_creates_mado() {
     Temp_Dir tmp;
 
@@ -512,6 +556,7 @@ static void test_init_creates_mado() {
 
 // Checks init restores templates in existing MADO/. Unexpected exceptions fail
 // the test.
+// Проверяет отсутствие удаления без совпадений. Неожиданное исключение проваливает тест.
 static void test_init_restores_templates_here() {
     Temp_Dir tmp;
     const auto templates = tmp.path() / "MADO" / ".templates";
@@ -529,6 +574,7 @@ static void test_init_restores_templates_here() {
 
 // Checks init restores templates in ancestor MADO/. Unexpected exceptions fail
 // the test.
+// Проверяет создание MADO и стандартных шаблонов. Неожиданное исключение проваливает тест.
 static void test_init_restores_templates_above() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -543,6 +589,7 @@ static void test_init_restores_templates_above() {
 
 // Checks init -force creates nested MADO/. Unexpected exceptions fail the
 // test.
+// Проверяет восстановление шаблонов в текущем MADO. Неожиданное исключение проваливает тест.
 static void test_init_force_allows_nested() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -556,12 +603,17 @@ static void test_init_force_allows_nested() {
 
 // Checks open finds MADO/ created by init. Unexpected exceptions fail the
 // test.
+// Проверяет восстановление шаблонов в родительском MADO. Неожиданное исключение проваливает
+// тест.
 static void test_init_then_open() {
     Temp_Dir tmp;
 
     // Initializes the nearest repository and restores its default templates.
     // Force selects the given directory. I/O failures throw std::runtime_error
     // or a filesystem_error.
+    // Инициализирует ближайший репозиторий и восстанавливает стандартные шаблоны. Force
+    // выбирает указанный каталог. Ошибки ввода-вывода выбрасывают std::runtime_error или
+    // filesystem_error.
     Repository::init(tmp.path(), true);
     auto repo = Repository::open(tmp.path());
     test(repo.has_value() &&
@@ -569,6 +621,8 @@ static void test_init_then_open() {
 }
 
 // Checks creation of makes MAIN.md. Unexpected exceptions fail the test.
+// Проверяет принудительное создание вложенного репозитория. Неожиданное исключение проваливает
+// тест.
 static void test_create() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -583,6 +637,7 @@ static void test_create() {
 }
 
 // Checks created entry is found by find. Unexpected exceptions fail the test.
+// Проверяет открытие репозитория после init. Неожиданное исключение проваливает тест.
 static void test_create_then_find() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -602,6 +657,7 @@ static void test_create_then_find() {
 
 // Checks all 5 fields present but empty -> defaults. Unexpected exceptions
 // fail the test.
+// Проверяет создание записи. Неожиданное исключение проваливает тест.
 static void test_load_all_fields_empty() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -626,6 +682,7 @@ static void test_load_all_fields_empty() {
 
 // Checks all 5 fields present but whitespace -> defaults. Unexpected
 // exceptions fail the test.
+// Проверяет поиск созданной записи. Неожиданное исключение проваливает тест.
 static void test_load_all_fields_whitespace() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -648,6 +705,8 @@ static void test_load_all_fields_whitespace() {
 }
 
 // Checks ../ rejected, no leftover dir. Unexpected exceptions fail the test.
+// Проверяет отклонение ../ в суффиксе без создания записи. Неожиданное исключение проваливает
+// тест.
 static void test_create_rejects_dotdot_slash_in_suffix() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -655,7 +714,9 @@ static void test_create_rejects_dotdot_slash_in_suffix() {
 
     try {
         repo->create("../");
-    } catch (const std::runtime_error &) { /* expected */
+    } catch (const std::runtime_error &) { /* expected
+ * Ожидаемый результат.
+ */
     }
 
     auto it = std::filesystem::directory_iterator(tmp.path() / "MADO");
@@ -663,8 +724,10 @@ static void test_create_rejects_dotdot_slash_in_suffix() {
 }
 
 // entry point
+// Точка входа.
 
 // Runs this test suite and returns 1 on failure or 0 on success.
+// Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main() {
     std::vector<Test_Case> tests = {
         {"Open finds MADO", "Repository::open finds MADO in cwd", test_open_finds_mado},

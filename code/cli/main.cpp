@@ -8,10 +8,12 @@
 
 // Runs the CLI and returns 0 on success or 1 for invalid arguments or command
 // failure.
+// Запускает CLI и возвращает 0 при успехе или 1 при неверных аргументах либо сбое команды.
 int main(int argc, char **argv) {
     std::string program_name = (argc > 0) ? argv[0] : "mado";
 
     // Parse global flags (before the command name).
+    // Разбираем глобальные флаги до имени команды.
     cli::Flag_Context c(program_name.c_str());
 
     char *directory = nullptr;
@@ -26,6 +28,7 @@ int main(int argc, char **argv) {
     argv = flag_c_rest_argv(c);
 
     // Change directory if -C was given.
+    // Меняем каталог, если указан -C.
     if (directory[0] != '\0') {
         std::error_code ec;
         std::filesystem::current_path(directory, ec);
@@ -35,6 +38,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Reject an invocation without a command.
+    // Отклоняем запуск без команды.
     if (argc <= 0) {
         cli::print_available_commands();
         fprintf(stderr, "\n");
@@ -52,6 +57,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // Convert command I/O exceptions to a diagnostic and exit status.
+    // Преобразуем исключения ввода-вывода в диагностику и код выхода.
     try {
         return cmd->run(program_name, argc - 1, argv + 1) ? 0 : 1;
     } catch (const std::runtime_error &e) {

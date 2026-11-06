@@ -23,9 +23,11 @@ namespace cli {
 namespace {
 
 // Shows general or command-specific usage.
+// Показывает общую справку или справку по команде.
 class Help_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
     Help_Command() {
         name = "help";
         signature = "[COMMAND]";
@@ -33,9 +35,11 @@ class Help_Command : public Command {
     }
 
     // Prints usage to stderr. Returns false for an unknown topic.
+    // Печатает справку в stderr. Для неизвестной команды возвращает false.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
         // `mado help <command>` prints usage for a specific command.
+        // Команда mado help <command> печатает справку по указанной команде.
         if (argc > 0) {
             const Command *cmd = find_command(argv[0]);
             if (!cmd) {
@@ -56,9 +60,11 @@ class Help_Command : public Command {
 };
 
 // Prints the program version.
+// Печатает версию программы.
 class Version_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
     Version_Command() {
         name = "version";
         signature = "";
@@ -66,6 +72,7 @@ class Version_Command : public Command {
     }
 
     // Prints the version and returns true. Ignores stdout write failures.
+    // Печатает версию и возвращает true. Ошибки записи в stdout игнорируются.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
         (void)program_name;
@@ -78,9 +85,11 @@ class Version_Command : public Command {
 };
 
 // Lists filtered and optionally sorted entries.
+// Выводит отобранные и при необходимости отсортированные записи.
 class Ls_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
     Ls_Command() {
         name = "ls";
         signature = "[-format <default|path|jsonl>] [-sort <[+|-]field,...>] [-hide-<field> ...] [-only-hidden] [QUERY]";
@@ -89,12 +98,16 @@ class Ls_Command : public Command {
 
     // Prints matching entries. Returns false for invalid options, queries, or
     // a missing repository. Loading and formatting exceptions propagate.
+    // Печатает подходящие записи. Возвращает false при неверных параметрах, запросе или
+    // отсутствии репозитория. Исключения загрузки и форматирования передаются вызывающему
+    // коду.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
         Flag_Context c(name.c_str());
 
         // Declare flags
+        // Объявляем флаги.
         char *format_name = nullptr;
         flag_c_str_var(c, &format_name, "format", "default", "Output format");
         char *sort_spec = nullptr;
@@ -114,6 +127,8 @@ class Ls_Command : public Command {
             {"hide-status", "Hide status field", &Hidden_Entry_Fields::status},
             {"hide-tags", "Hide tags field", &Hidden_Entry_Fields::tags},
         };
+        // Register visibility flags using the same field mapping as inversion.
+        // Регистрируем флаги видимости по той же схеме, что и инверсию.
         for (const auto &flag : hide_flags)
             flag_c_bool_var(c, &(hidden.*flag.field), flag.name, false, flag.description);
         bool only_hidden = false;
@@ -121,6 +136,7 @@ class Ls_Command : public Command {
         //
 
         // Parse flags
+        // Разбираем флаги.
         if (!flag_c_parse(c, argc, argv)) {
             print_command_usage(*this, program_name);
             return false;
@@ -145,6 +161,8 @@ class Ls_Command : public Command {
         auto fmt = *fmt_opt;
 
         std::vector<Sort_Criterion> sort_criteria;
+        // Validate the sort keys before accessing the repository.
+        // Проверяем ключи сортировки до обращения к репозиторию.
         if (sort_spec) {
             auto criteria = parse_sort(sort_spec);
             if (!criteria) {
@@ -155,6 +173,7 @@ class Ls_Command : public Command {
         }
 
         // Open the repository from the current working directory.
+        // Открываем репозиторий относительно текущего каталога.
         auto repo = mado::repository::Repository::open(std::filesystem::current_path());
         if (!repo) {
             fprintf(stderr, "No MADO/ directory found\n");
@@ -162,6 +181,7 @@ class Ls_Command : public Command {
         }
 
         // Parse the query.
+        // Разбираем запрос.
         std::unique_ptr<mado::query::Ast_Node> ast;
         if (!query.empty()) {
             mado::query::Lexer lexer(query);
@@ -176,16 +196,21 @@ class Ls_Command : public Command {
         }
 
         // Empty query = all entries
+        // Пустой запрос выбирает все записи.
         auto entries = repo->find(ast.get());
 
         sort_entries(entries, sort_criteria);
 
+        // Invert visibility so only the selected fields remain.
+        // Инвертируем видимость, чтобы оставить только выбранные поля.
         if (only_hidden) {
             for (const auto &flag : hide_flags)
                 hidden.*flag.field = !(hidden.*flag.field);
         }
 
         auto formatter = make_entry_info_formatter(fmt);
+        // Write the filtered entries in their final order.
+        // Выводим отобранные записи в итоговом порядке.
         for (const auto &e : entries)
             formatter->write(e, std::cout, hidden);
 
@@ -194,9 +219,11 @@ class Ls_Command : public Command {
 };
 
 // Removes entries selected by a query.
+// Удаляет записи, выбранные запросом.
 class Rm_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
     Rm_Command() {
         name = "rm";
         signature = "[-format <default|path|jsonl>] <QUERY>";
@@ -205,17 +232,22 @@ class Rm_Command : public Command {
 
     // Removes matching entries. Returns false for invalid options, queries, or
     // a missing repository. Loading and formatting exceptions propagate.
+    // Удаляет подходящие записи. Возвращает false при неверных параметрах, запросе или
+    // отсутствии репозитория. Исключения загрузки и форматирования передаются вызывающему
+    // коду.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
         Flag_Context c(name.c_str());
 
         // Declare flags
+        // Объявляем флаги.
         char *format_name = nullptr;
         flag_c_str_var(c, &format_name, "format", "default", "Output format");
         //
 
         // Parse flags
+        // Разбираем флаги.
         if (!flag_c_parse(c, argc, argv)) {
             print_command_usage(*this, program_name);
             return false;
@@ -246,6 +278,7 @@ class Rm_Command : public Command {
         auto fmt = *fmt_opt;
 
         // Parse the query.
+        // Разбираем запрос.
         std::unique_ptr<mado::query::Ast_Node> ast;
         {
             mado::query::Lexer lexer(query);
@@ -260,6 +293,7 @@ class Rm_Command : public Command {
         }
 
         // Open the repository from the current working directory.
+        // Открываем репозиторий относительно текущего каталога.
         auto repo = mado::repository::Repository::open(std::filesystem::current_path());
         if (!repo) {
             fprintf(stderr, "No MADO/ directory found\n");
@@ -269,6 +303,8 @@ class Rm_Command : public Command {
         auto removed = repo->remove(ast.get());
 
         auto formatter = make_entry_info_formatter(fmt);
+        // Print only entries whose directories were removed.
+        // Выводим только записи, каталоги которых удалены.
         for (const auto &e : removed)
             formatter->write(e, std::cout);
 
@@ -277,9 +313,11 @@ class Rm_Command : public Command {
 };
 
 // Initializes a repository and restores standard templates.
+// Инициализирует репозиторий и восстанавливает стандартные шаблоны.
 class Init_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
     Init_Command() {
         name = "init";
         signature = "[-force]";
@@ -288,17 +326,21 @@ class Init_Command : public Command {
 
     // Initializes the repository and prints its path. Returns false for
     // invalid arguments or initialization exceptions.
+    // Инициализирует репозиторий и печатает путь. Возвращает false при неверных аргументах или
+    // исключении инициализации.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
         Flag_Context c(name.c_str());
 
         // Declare flags
+        // Объявляем флаги.
         bool force = false;
         flag_c_bool_var(c, &force, "force", false, "Create MADO/ even if one exists above");
         //
 
         // Parse flags
+        // Разбираем флаги.
         if (!flag_c_parse(c, argc, argv)) {
             print_command_usage(*this, program_name);
             return false;
@@ -327,9 +369,11 @@ class Init_Command : public Command {
 };
 
 // Creates an entry using the selected template or built-in header.
+// Создаёт запись из выбранного шаблона или встроенного заголовка.
 class New_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
     New_Command() {
         name = "new";
         signature = "[-suffix <str>] [-template <name>] [-format <default|path|jsonl>]";
@@ -338,12 +382,15 @@ class New_Command : public Command {
 
     // Creates and prints an entry. Returns false for invalid options, a
     // missing repository, or creation exceptions.
+    // Создаёт и печатает запись. Возвращает false при неверных параметрах, отсутствии
+    // репозитория или исключении создания.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
         Flag_Context c(name.c_str());
 
         // Declare flags
+        // Объявляем флаги.
         char *suffix = nullptr;
         flag_c_str_var(c, &suffix, "suffix", "", "Optional suffix for the entry directory name");
         char *template_name = nullptr;
@@ -353,6 +400,7 @@ class New_Command : public Command {
         //
 
         // Parse flags
+        // Разбираем флаги.
         if (!flag_c_parse(c, argc, argv)) {
             print_command_usage(*this, program_name);
             return false;
@@ -397,9 +445,11 @@ class New_Command : public Command {
 };
 
 // Reports repository statistics or its directory.
+// Выводит статистику репозитория или путь к нему.
 class Info_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
+    // Задаёт метаданные справки. Возможен std::bad_alloc.
     Info_Command() {
         name = "info";
         signature = "[-format <default|jsonl>] [-only-dir]";
@@ -408,6 +458,8 @@ class Info_Command : public Command {
 
     // Prints repository counts or its path. Returns false for invalid options
     // or a missing repository. Loading and formatting exceptions propagate.
+    // Печатает счётчики или путь. Возвращает false при неверных параметрах или отсутствии
+    // репозитория. Исключения загрузки и форматирования передаются вызывающему коду.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
         Flag_Context c(name.c_str());
@@ -434,6 +486,8 @@ class Info_Command : public Command {
 
         auto &out = std::cout;
         const auto main_dir = repo->root().string();
+        // Return the repository path without scanning entries.
+        // Возвращаем путь к репозиторию без обхода записей.
         if (dir_only) {
             if (*format == Entry_Info_Format::Jsonl)
                 print_json_string(main_dir, out);
@@ -447,6 +501,8 @@ class Info_Command : public Command {
         std::map<std::string, size_t> statuses;
         std::map<std::string, size_t> tags;
         std::map<uint16_t, size_t> priorities;
+        // Count each status, priority, and tag occurrence.
+        // Подсчитываем вхождения статусов, приоритетов и тегов.
         for (const auto &entry : entries) {
             ++statuses[entry.status()];
             ++priorities[entry.priority()];
@@ -455,6 +511,8 @@ class Info_Command : public Command {
         }
 
         if (*format == Entry_Info_Format::Jsonl) {
+            // Share JSON object formatting across the three counters.
+            // Используем общее форматирование JSON для трёх счётчиков.
             auto write_counts = [&](const auto &counts, auto write_key) {
                 out << '{';
                 const char *separator = "";
@@ -499,6 +557,7 @@ class Info_Command : public Command {
 };
 
 // Owns the command registry in help display order.
+// Хранит команды в порядке вывода справки.
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     std::vector<std::unique_ptr<Command>> cmds;
     cmds.push_back(std::make_unique<Help_Command>());
@@ -514,11 +573,13 @@ const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
 } // namespace
 
 // Returns the registered command table. No error result or exceptions.
+// Возвращает таблицу команд. Ошибок и исключений нет.
 const std::vector<std::unique_ptr<Command>> &commands() {
     return COMMANDS;
 }
 
 // Finds an exact command name or returns nullptr. No exceptions.
+// Ищет команду по точному имени или возвращает nullptr. Исключений нет.
 const Command *find_command(const std::string &name) {
     for (const auto &cmd : COMMANDS) {
         if (cmd->name == name)
@@ -528,6 +589,7 @@ const Command *find_command(const std::string &name) {
 }
 
 // Writes the command list and global flags to stderr. Ignores write failures.
+// Пишет список команд и глобальных флагов в stderr. Ошибки записи игнорируются.
 void print_available_commands() {
     fprintf(stderr, "Available commands:\n");
 
@@ -544,12 +606,14 @@ void print_available_commands() {
     }
 
     // handling global flags in main.cpp
+    // Глобальные флаги обрабатываются в main.cpp.
     fprintf(stderr, "\n");
     fprintf(stderr, "Global flags (before the command):\n");
     fprintf(stderr, "  -C <path> - Change to <path> before running\n");
 }
 
 // Writes a command's usage to stderr. Ignores write failures.
+// Пишет справку команды в stderr. Ошибки записи игнорируются.
 void print_command_usage(const Command &command, const std::string &program_name) {
     if (command.signature.empty()) {
         fprintf(stderr, "Usage: %s %s\n",

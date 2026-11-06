@@ -12,8 +12,10 @@
 using namespace mado::query;
 
 // token
+// Токены.
 
 // Checks creation of token with values. Unexpected exceptions fail the test.
+// Проверяет создание токена с заданным значением. Неожиданное исключение проваливает тест.
 static void test_token_creation() {
     Token t{Token_Type::Number, "42", 0};
 
@@ -23,6 +25,7 @@ static void test_token_creation() {
 }
 
 // Checks creation of default token. Unexpected exceptions fail the test.
+// Проверяет создание токена по умолчанию. Неожиданное исключение проваливает тест.
 static void test_token_creation_default() {
     Token t;
 
@@ -32,6 +35,7 @@ static void test_token_creation_default() {
 }
 
 // Checks conversion of type to string. Unexpected exceptions fail the test.
+// Проверяет строковое имя типа токена. Неожиданное исключение проваливает тест.
 static void test_token_type_to_string() {
     test(token_type_to_string(Token_Type::Number) == "Number" &&
          token_type_to_string(Token_Type::Gt) == "Gt" &&
@@ -40,8 +44,10 @@ static void test_token_type_to_string() {
 }
 
 // lexer
+// Лексер.
 
 // Checks tokenization of empty query. Unexpected exceptions fail the test.
+// Проверяет разбор пустого запроса. Неожиданное исключение проваливает тест.
 static void test_lexer_empty_query() {
     Lexer lexer("");
     auto tokens = lexer.tokenize();
@@ -51,6 +57,7 @@ static void test_lexer_empty_query() {
 }
 
 // Checks tokenization of numbers. Unexpected exceptions fail the test.
+// Проверяет разбор чисел. Неожиданное исключение проваливает тест.
 static void test_lexer_numbers() {
     Lexer lexer("42 999 0");
     auto tokens = lexer.tokenize();
@@ -66,6 +73,7 @@ static void test_lexer_numbers() {
 }
 
 // Checks tokenization of keywords. Unexpected exceptions fail the test.
+// Проверяет распознавание ключевых слов. Неожиданное исключение проваливает тест.
 static void test_lexer_keywords() {
     Lexer lexer("priority and tag");
     auto tokens = lexer.tokenize();
@@ -81,6 +89,7 @@ static void test_lexer_keywords() {
 }
 
 // Checks tokenization of quoted strings. Unexpected exceptions fail the test.
+// Проверяет распознавание строк в кавычках. Неожиданное исключение проваливает тест.
 static void test_lexer_strings() {
     Lexer lexer("\"hello\" 'world'");
     auto tokens = lexer.tokenize();
@@ -94,6 +103,7 @@ static void test_lexer_strings() {
 }
 
 // Checks tokenization of operators. Unexpected exceptions fail the test.
+// Проверяет распознавание операторов. Неожиданное исключение проваливает тест.
 static void test_lexer_operators() {
     Lexer lexer("> >= < <= = != ~ !~ ~~ !~~");
     auto tokens = lexer.tokenize();
@@ -113,6 +123,7 @@ static void test_lexer_operators() {
 }
 
 // Checks tokenization of punctuation. Unexpected exceptions fail the test.
+// Проверяет распознавание пунктуации. Неожиданное исключение проваливает тест.
 static void test_lexer_punctuation() {
     Lexer lexer("( ) , [ ] ..");
     auto tokens = lexer.tokenize();
@@ -128,6 +139,7 @@ static void test_lexer_punctuation() {
 }
 
 // Checks tokenization of query. Unexpected exceptions fail the test.
+// Проверяет разбиение запроса на токены. Неожиданное исключение проваливает тест.
 static void test_lexer_query() {
     Lexer lexer("priority > 5 and tag = bug");
     auto tokens = lexer.tokenize();
@@ -146,6 +158,7 @@ static void test_lexer_query() {
 }
 
 // Checks tokenization of with whitespace. Unexpected exceptions fail the test.
+// Проверяет пропуск пробельных символов. Неожиданное исключение проваливает тест.
 static void test_lexer_whitespace() {
     Lexer lexer("    priority\t   >\n  5  ");
     auto tokens = lexer.tokenize();
@@ -158,6 +171,7 @@ static void test_lexer_whitespace() {
 }
 
 // Checks token positions. Unexpected exceptions fail the test.
+// Проверяет позиции токенов. Неожиданное исключение проваливает тест.
 static void test_lexer_position() {
     Lexer lexer("priority > 5");
     auto tokens = lexer.tokenize();
@@ -168,6 +182,7 @@ static void test_lexer_position() {
 }
 
 // Checks tokenization of invalid operators. Unexpected exceptions fail the test.
+// Проверяет некорректные операторы. Неожиданное исключение проваливает тест.
 static void test_lexer_invalid_operators() {
     Lexer lexer("^ $ % f g . * ! !~&");
     auto tokens = lexer.tokenize();
@@ -179,9 +194,9 @@ static void test_lexer_invalid_operators() {
          tokens[1].value == "" &&
          tokens[2].type == Token_Type::Invalid &&
          tokens[2].value == "" &&
-         tokens[3].type == Token_Type::Allof && // fuzzy
+         tokens[3].type == Token_Type::Allof && // fuzzy / Нечёткое сравнение.
          tokens[3].value == "f" &&
-         tokens[4].type == Token_Type::Tag && // fuzzy
+         tokens[4].type == Token_Type::Tag && // fuzzy / Нечёткое сравнение.
          tokens[4].value == "g" &&
          tokens[5].type == Token_Type::Invalid &&
          tokens[5].value == "" &&
@@ -197,6 +212,7 @@ static void test_lexer_invalid_operators() {
 }
 
 // Checks tokenization of unterminated string. Unexpected exceptions fail the test.
+// Проверяет незакрытую строку. Неожиданное исключение проваливает тест.
 static void test_lexer_unterminated_string() {
     Lexer lexer("\"hello");
     auto tokens = lexer.tokenize();
@@ -208,6 +224,7 @@ static void test_lexer_unterminated_string() {
 }
 
 // Checks how the lexer classifies `2026`. Unexpected exceptions fail the test.
+// Проверяет метку с одним годом. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_yyyy() {
     Lexer lexer("2026");
     auto tokens = lexer.tokenize();
@@ -219,6 +236,7 @@ static void test_lexer_timestamp_yyyy() {
 }
 
 // Checks how the lexer classifies `202609`. Unexpected exceptions fail the test.
+// Проверяет метку с годом и месяцем. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_yyyymm() {
     Lexer lexer("202609");
     auto tokens = lexer.tokenize();
@@ -230,6 +248,7 @@ static void test_lexer_timestamp_yyyymm() {
 }
 
 // Checks how the lexer classifies `20260911`. Unexpected exceptions fail the test.
+// Проверяет метку с полной датой. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_yyyymmdd() {
     Lexer lexer("20260911");
     auto tokens = lexer.tokenize();
@@ -241,6 +260,7 @@ static void test_lexer_timestamp_yyyymmdd() {
 }
 
 // Checks how the lexer classifies `20260911-123045`. Unexpected exceptions fail the test.
+// Проверяет полную метку с датой и временем. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_full() {
     Lexer lexer("20260911-123045");
     auto tokens = lexer.tokenize();
@@ -252,6 +272,7 @@ static void test_lexer_timestamp_full() {
 }
 
 // Checks how the lexer classifies `20260911-`. Unexpected exceptions fail the test.
+// Проверяет метку с датой и завершающим разделителем. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_with_t_only() {
     Lexer lexer("20260911-");
     auto tokens = lexer.tokenize();
@@ -263,6 +284,7 @@ static void test_lexer_timestamp_with_t_only() {
 }
 
 // Checks how the lexer classifies `20260230`. Unexpected exceptions fail the test.
+// Проверяет отклонение невозможной даты. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_invalid_date() {
     Lexer lexer("20260230");
     auto tokens = lexer.tokenize();
@@ -273,6 +295,7 @@ static void test_lexer_timestamp_invalid_date() {
 }
 
 // Checks how the lexer classifies `202613`. Unexpected exceptions fail the test.
+// Проверяет отклонение неверного месяца. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_invalid_month() {
     Lexer lexer("202613");
     auto tokens = lexer.tokenize();
@@ -283,6 +306,7 @@ static void test_lexer_timestamp_invalid_month() {
 }
 
 // Checks how the lexer classifies `12345`. Unexpected exceptions fail the test.
+// Проверяет отклонение неверной длины даты. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_invalid_length() {
     Lexer lexer("12345");
     auto tokens = lexer.tokenize();
@@ -293,6 +317,7 @@ static void test_lexer_timestamp_invalid_length() {
 }
 
 // Checks deadline < 20260911-123045. Unexpected exceptions fail the test.
+// Проверяет метку времени внутри запроса. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_in_query() {
     Lexer lexer("deadline < 20260911-123045");
     auto tokens = lexer.tokenize();
@@ -306,6 +331,7 @@ static void test_lexer_timestamp_in_query() {
 }
 
 // Checks 42 20260911 0. Unexpected exceptions fail the test.
+// Проверяет различение чисел и меток времени. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_numbers_still_work() {
     Lexer lexer("42 20260911 0");
     auto tokens = lexer.tokenize();
@@ -321,8 +347,10 @@ static void test_lexer_timestamp_numbers_still_work() {
 }
 
 // ast
+// AST.
 
 // Checks creation of comparison node. Unexpected exceptions fail the test.
+// Проверяет узел числового сравнения. Неожиданное исключение проваливает тест.
 static void test_ast_comparison_node() {
     auto node = ast_make_comparison(
         Ast_Comparison_Field::Priority,
@@ -340,6 +368,7 @@ static void test_ast_comparison_node() {
 
 // Checks creation of comparison node with string. Unexpected exceptions fail the
 // test.
+// Проверяет узел строкового сравнения. Неожиданное исключение проваливает тест.
 static void test_ast_comparison_node_string() {
     auto node = ast_make_comparison(
         Ast_Comparison_Field::Tag,
@@ -353,6 +382,7 @@ static void test_ast_comparison_node_string() {
 }
 
 // Checks creation of binary node. Unexpected exceptions fail the test.
+// Проверяет бинарный узел AST. Неожиданное исключение проваливает тест.
 static void test_ast_binary_node() {
     auto left = ast_make_comparison(
         Ast_Comparison_Field::Priority,
@@ -380,6 +410,7 @@ static void test_ast_binary_node() {
 }
 
 // Checks creation of unary node. Unexpected exceptions fail the test.
+// Проверяет унарный узел AST. Неожиданное исключение проваливает тест.
 static void test_ast_unary_node() {
     auto expr = ast_make_comparison(
         Ast_Comparison_Field::Status,
@@ -399,6 +430,7 @@ static void test_ast_unary_node() {
 }
 
 // Checks creation of special nodes. Unexpected exceptions fail the test.
+// Проверяет узлы специальных выражений. Неожиданное исключение проваливает тест.
 static void test_ast_special_nodes() {
     auto all_node = ast_make_special(Ast_Node_Type::All);
     auto untagged_node = ast_make_special(Ast_Node_Type::Untagged);
@@ -410,8 +442,10 @@ static void test_ast_special_nodes() {
 }
 
 // parser
+// Парсер.
 
 // Checks parse 'priority > 5'. Unexpected exceptions fail the test.
+// Проверяет числовое условие. Неожиданное исключение проваливает тест.
 static void test_parser_number_condition() {
     Lexer lexer("priority > 5");
     auto tokens = lexer.tokenize();
@@ -428,6 +462,7 @@ static void test_parser_number_condition() {
 }
 
 // Checks parse 'tag = bug'. Unexpected exceptions fail the test.
+// Проверяет строковое условие. Неожиданное исключение проваливает тест.
 static void test_parser_string_condition() {
     Lexer lexer("tag = bug");
     auto tokens = lexer.tokenize();
@@ -444,6 +479,8 @@ static void test_parser_string_condition() {
 
 // Checks parse 'tag = all and status = and and name = or and any = not'.
 // Unexpected exceptions fail the test.
+// Проверяет ключевое слово в роли строкового значения. Неожиданное исключение проваливает
+// тест.
 static void test_parser_keyword_as_string_value() {
     Lexer lexer("tag = all and status = and and name = or and any = not");
     auto tokens = lexer.tokenize();
@@ -485,6 +522,7 @@ static void test_parser_keyword_as_string_value() {
 
 // Checks parse 'priority > 5 and tag = bug'. Unexpected exceptions fail the
 // test.
+// Проверяет бинарное выражение AND. Неожиданное исключение проваливает тест.
 static void test_parser_binary_and() {
     Lexer lexer("priority > 5 and tag = bug");
     auto tokens = lexer.tokenize();
@@ -513,6 +551,7 @@ static void test_parser_binary_and() {
 }
 
 // Checks parse 'not status = closed'. Unexpected exceptions fail the test.
+// Проверяет выражение NOT. Неожиданное исключение проваливает тест.
 static void test_parser_not() {
     Lexer lexer("not status = closed");
     auto tokens = lexer.tokenize();
@@ -528,6 +567,7 @@ static void test_parser_not() {
 
 // Checks parse '(priority > 5 or priority < 2) and tag = bug'. Unexpected
 // exceptions fail the test.
+// Проверяет группировку скобками. Неожиданное исключение проваливает тест.
 static void test_parser_parentheses() {
     Lexer lexer("(priority > 5 or priority < 2) and tag = bug");
     auto tokens = lexer.tokenize();
@@ -567,6 +607,7 @@ static void test_parser_parentheses() {
 }
 
 // Checks parse 'all'. Unexpected exceptions fail the test.
+// Проверяет специальное выражение. Неожиданное исключение проваливает тест.
 static void test_parser_special() {
     Lexer lexer("all");
     auto tokens = lexer.tokenize();
@@ -579,6 +620,7 @@ static void test_parser_special() {
 
 // Checks parse 'not not priority > 1 or priority > 2 xor priority > 3 and not
 // priority > 4'. Unexpected exceptions fail the test.
+// Проверяет исключение для пустого запроса. Неожиданное исключение проваливает тест.
 static void test_parser_priority() {
     /*
         Or
@@ -590,7 +632,8 @@ static void test_parser_priority() {
      a      c    not
                   |
                   d
-    */
+ * Дерево проверяет приоритеты OR, XOR, AND и NOT.
+ */
     Lexer lexer("not not priority > 1 or priority > 2 xor priority > 3 and not priority > 4");
     auto tokens = lexer.tokenize();
     Parser parser(std::move(tokens));
@@ -654,6 +697,7 @@ static void test_parser_priority() {
 }
 
 // Checks empty query throws. Unexpected exceptions fail the test.
+// Проверяет исключение для неожиданного токена. Неожиданное исключение проваливает тест.
 static void test_parser_empty_throws() {
     Lexer lexer("");
     auto tokens = lexer.tokenize();
@@ -669,6 +713,7 @@ static void test_parser_empty_throws() {
 }
 
 // Checks unexpected token throws. Unexpected exceptions fail the test.
+// Проверяет приоритет логических операций. Неожиданное исключение проваливает тест.
 static void test_parser_unexpected_token_throws() {
     Lexer lexer("priority > ");
     auto tokens = lexer.tokenize();
@@ -685,6 +730,7 @@ static void test_parser_unexpected_token_throws() {
 
 // Checks parse 'priority = anyof(1, 2, 3)'. Unexpected exceptions fail the
 // test.
+// Проверяет числовые значения anyof. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_number() {
     Lexer lexer("priority = anyof(1, 2, 3)");
     auto tokens = lexer.tokenize();
@@ -721,6 +767,7 @@ static void test_parser_anyof_number() {
 }
 
 // Checks parse 'priority = allof(1, 2)'. Unexpected exceptions fail the test.
+// Проверяет числовые значения allof. Неожиданное исключение проваливает тест.
 static void test_parser_allof_number() {
     Lexer lexer("priority = allof(1, 2)");
     auto tokens = lexer.tokenize();
@@ -738,6 +785,7 @@ static void test_parser_allof_number() {
 }
 
 // Checks parse 'tag = anyof(bug, crit)'. Unexpected exceptions fail the test.
+// Проверяет строковые значения anyof. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_string() {
     Lexer lexer("tag = anyof(bug, crit)");
     auto tokens = lexer.tokenize();
@@ -756,6 +804,7 @@ static void test_parser_anyof_string() {
 }
 
 // Checks parse 'tag = allof(a, b, c)'. Unexpected exceptions fail the test.
+// Проверяет строковые значения allof. Неожиданное исключение проваливает тест.
 static void test_parser_allof_string() {
     Lexer lexer("tag = allof(a, b, c)");
     auto tokens = lexer.tokenize();
@@ -772,6 +821,7 @@ static void test_parser_allof_string() {
 
 // Checks parse 'deadline = anyof(20260101, 20260202)'. Unexpected exceptions
 // fail the test.
+// Проверяет метки времени в anyof. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_time() {
     Lexer lexer("deadline = anyof(20260101, 20260202)");
     auto tokens = lexer.tokenize();
@@ -791,6 +841,7 @@ static void test_parser_anyof_time() {
 
 // Checks parse 'any = anyof(1, foo, 20260101)'. Unexpected exceptions fail the
 // test.
+// Проверяет разные типы в anyof для поля any. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_any() {
     Lexer lexer("any = anyof(1, foo, 20260101)");
     auto tokens = lexer.tokenize();
@@ -813,6 +864,7 @@ static void test_parser_anyof_any() {
 }
 
 // Checks parse 'priority = anyof(5)'. Unexpected exceptions fail the test.
+// Проверяет anyof с одним значением. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_single_value() {
     Lexer lexer("priority = anyof(5)");
     auto tokens = lexer.tokenize();
@@ -830,6 +882,7 @@ static void test_parser_anyof_single_value() {
 }
 
 // Checks parse 'priority > anyof(1, 2)'. Unexpected exceptions fail the test.
+// Проверяет anyof с оператором сравнения. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_with_operator() {
     Lexer lexer("priority > anyof(1, 2)");
     auto tokens = lexer.tokenize();
@@ -846,6 +899,7 @@ static void test_parser_anyof_with_operator() {
 }
 
 // Checks parse 'tag = anyof()' throws. Unexpected exceptions fail the test.
+// Проверяет исключение для пустого anyof. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_empty_throws() {
     Lexer lexer("tag = anyof()");
     auto tokens = lexer.tokenize();
@@ -862,6 +916,8 @@ static void test_parser_anyof_empty_throws() {
 
 // Checks parse 'tag = anyof(a, b,)' throws. Unexpected exceptions fail the
 // test.
+// Проверяет исключение для завершающей запятой в anyof. Неожиданное исключение проваливает
+// тест.
 static void test_parser_anyof_trailing_comma_throws() {
     Lexer lexer("tag = anyof(a, b,)");
     auto tokens = lexer.tokenize();
@@ -877,6 +933,8 @@ static void test_parser_anyof_trailing_comma_throws() {
 }
 
 // Checks parse 'tag = anyof(a b)' throws. Unexpected exceptions fail the test.
+// Проверяет исключение для пропущенной запятой в anyof. Неожиданное исключение проваливает
+// тест.
 static void test_parser_anyof_missing_comma_throws() {
     Lexer lexer("tag = anyof(a b)");
     auto tokens = lexer.tokenize();
@@ -892,6 +950,7 @@ static void test_parser_anyof_missing_comma_throws() {
 }
 
 // Checks parse 'tag = anyof(a, b' throws. Unexpected exceptions fail the test.
+// Проверяет исключение для незакрытого anyof. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_unclosed_throws() {
     Lexer lexer("tag = anyof(a, b");
     auto tokens = lexer.tokenize();
@@ -908,6 +967,7 @@ static void test_parser_anyof_unclosed_throws() {
 
 // Checks parse 'priority = anyof(a, b)' throws. Unexpected exceptions fail the
 // test.
+// Проверяет исключение для неверного типа в anyof. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_wrong_type_throws() {
     Lexer lexer("priority = anyof(a, b)");
     auto tokens = lexer.tokenize();
@@ -924,6 +984,7 @@ static void test_parser_anyof_wrong_type_throws() {
 
 // Checks parse 'tag = anyof(a, b) and priority > 5'. Unexpected exceptions
 // fail the test.
+// Проверяет anyof внутри составного выражения. Неожиданное исключение проваливает тест.
 static void test_parser_anyof_in_expression() {
     Lexer lexer("tag = anyof(a, b) and priority > 5");
     auto tokens = lexer.tokenize();
@@ -943,6 +1004,7 @@ static void test_parser_anyof_in_expression() {
 
 // Checks parse 'status in (opened, reopened)'. Unexpected exceptions fail the
 // test.
+// Проверяет оператор in со списком. Неожиданное исключение проваливает тест.
 static void test_parser_in() {
     Lexer lexer("status in (opened, reopened)");
     auto tokens = lexer.tokenize();
@@ -962,6 +1024,7 @@ static void test_parser_in() {
 }
 
 // Checks parse 'tag has (bug, crit)'. Unexpected exceptions fail the test.
+// Проверяет оператор has со списком. Неожиданное исключение проваливает тест.
 static void test_parser_has() {
     Lexer lexer("tag has (bug, crit)");
     auto tokens = lexer.tokenize();
@@ -975,6 +1038,7 @@ static void test_parser_has() {
 }
 
 // Checks parse 'status in (opened)'. Unexpected exceptions fail the test.
+// Проверяет оператор in с одним значением. Неожиданное исключение проваливает тест.
 static void test_parser_in_single_value() {
     Lexer lexer("status in (opened)");
     auto tokens = lexer.tokenize();
@@ -990,6 +1054,7 @@ static void test_parser_in_single_value() {
 }
 
 // Checks parse 'priority in [50..100]'. Unexpected exceptions fail the test.
+// Проверяет диапазон с двумя границами. Неожиданное исключение проваливает тест.
 static void test_parser_range_both() {
     Lexer lexer("priority in [50..100]");
     auto tokens = lexer.tokenize();
@@ -1010,6 +1075,7 @@ static void test_parser_range_both() {
 }
 
 // Checks parse 'priority in [50..]'. Unexpected exceptions fail the test.
+// Проверяет диапазон только с нижней границей. Неожиданное исключение проваливает тест.
 static void test_parser_range_low_only() {
     Lexer lexer("priority in [50..]");
     auto tokens = lexer.tokenize();
@@ -1026,6 +1092,7 @@ static void test_parser_range_low_only() {
 }
 
 // Checks parse 'priority in [..50]'. Unexpected exceptions fail the test.
+// Проверяет диапазон только с верхней границей. Неожиданное исключение проваливает тест.
 static void test_parser_range_high_only() {
     Lexer lexer("priority in [..50]");
     auto tokens = lexer.tokenize();
@@ -1042,6 +1109,7 @@ static void test_parser_range_high_only() {
 }
 
 // Checks parse 'name in [a..z]'. Unexpected exceptions fail the test.
+// Проверяет строковый диапазон. Неожиданное исключение проваливает тест.
 static void test_parser_range_string() {
     Lexer lexer("name in [a..z]");
     auto tokens = lexer.tokenize();
@@ -1063,6 +1131,7 @@ static void test_parser_range_string() {
 
 // Checks parse 'deadline in [20260101..20260202]'. Unexpected exceptions fail
 // the test.
+// Проверяет диапазон меток времени. Неожиданное исключение проваливает тест.
 static void test_parser_range_time() {
     Lexer lexer("deadline in [20260101..20260202]");
     auto tokens = lexer.tokenize();
@@ -1083,6 +1152,7 @@ static void test_parser_range_time() {
 }
 
 // Checks parse 'any in [1..20260101]'. Unexpected exceptions fail the test.
+// Проверяет диапазон с разными типами для поля any. Неожиданное исключение проваливает тест.
 static void test_parser_range_any() {
     Lexer lexer("any in [1..20260101]");
     auto tokens = lexer.tokenize();
@@ -1103,6 +1173,7 @@ static void test_parser_range_any() {
 
 // Checks parse 'priority in [50..100] and tag = bug'. Unexpected exceptions
 // fail the test.
+// Проверяет диапазон внутри составного выражения. Неожиданное исключение проваливает тест.
 static void test_parser_range_in_expression() {
     Lexer lexer("priority in [50..100] and tag = bug");
     auto tokens = lexer.tokenize();
@@ -1121,6 +1192,7 @@ static void test_parser_range_in_expression() {
 }
 
 // Checks parse 'priority in [..]' throws. Unexpected exceptions fail the test.
+// Проверяет исключение для пустого диапазона. Неожиданное исключение проваливает тест.
 static void test_parser_range_empty_throws() {
     Lexer lexer("priority in [..]");
     auto tokens = lexer.tokenize();
@@ -1136,6 +1208,8 @@ static void test_parser_range_empty_throws() {
 }
 
 // Checks parse 'priority in [50]' throws. Unexpected exceptions fail the test.
+// Проверяет исключение при отсутствии разделителя диапазона. Неожиданное исключение
+// проваливает тест.
 static void test_parser_range_missing_dotdot_throws() {
     Lexer lexer("priority in [50]");
     auto tokens = lexer.tokenize();
@@ -1152,6 +1226,7 @@ static void test_parser_range_missing_dotdot_throws() {
 
 // Checks parse 'priority in [50..100' throws. Unexpected exceptions fail the
 // test.
+// Проверяет исключение для незакрытого диапазона. Неожиданное исключение проваливает тест.
 static void test_parser_range_unclosed_throws() {
     Lexer lexer("priority in [50..100");
     auto tokens = lexer.tokenize();
@@ -1168,6 +1243,7 @@ static void test_parser_range_unclosed_throws() {
 
 // Checks parse 'priority in [a..z]' throws. Unexpected exceptions fail the
 // test.
+// Проверяет исключение для неверного типа границы. Неожиданное исключение проваливает тест.
 static void test_parser_range_wrong_type_throws() {
     Lexer lexer("priority in [a..z]");
     auto tokens = lexer.tokenize();
@@ -1183,8 +1259,10 @@ static void test_parser_range_wrong_type_throws() {
 }
 
 // entry point
+// Точка входа.
 
 // Runs this test suite and returns 1 on failure or 0 on success.
+// Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
 
     if (argc >= 2 && std::string(argv[1]) == "-query") {
@@ -1212,10 +1290,14 @@ int main(int argc, char **argv) {
 
     std::vector<Test_Case> tests = {
         // token
+        // Токены.
+// Токены.
         {"Token creation", "create token with values", test_token_creation},
         {"Token default", "create default token", test_token_creation_default},
         {"Token to_string", "convert type to string", test_token_type_to_string},
         // lexer
+        // Лексер.
+// Лексер.
         {"Lexer empty", "tokenize empty query", test_lexer_empty_query},
         {"Lexer numbers", "tokenize numbers", test_lexer_numbers},
         {"Lexer keywords", "tokenize keywords", test_lexer_keywords},
@@ -1238,12 +1320,16 @@ int main(int argc, char **argv) {
         {"Lexer timestamp in query", "deadline < 20260911-123045", test_lexer_timestamp_in_query},
         {"Lexer timestamp and numbers", "42 20260911 0", test_lexer_timestamp_numbers_still_work},
         // ast
+        // AST.
+// AST.
         {"AST comparison", "create comparison node", test_ast_comparison_node},
         {"AST comparison string", "create comparison node with string", test_ast_comparison_node_string},
         {"AST binary", "create binary node", test_ast_binary_node},
         {"AST unary", "create unary node", test_ast_unary_node},
         {"AST special", "create special nodes", test_ast_special_nodes},
         // parser
+        // Парсер.
+// Парсер.
         {"Parser number", "parse 'priority > 5'", test_parser_number_condition},
         {"Parser string", "parse 'tag = bug'", test_parser_string_condition},
         {"Parser keyword as string", "parse 'tag = all and status = and and name = or and any = not'", test_parser_keyword_as_string_value},

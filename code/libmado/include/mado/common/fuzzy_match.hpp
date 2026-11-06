@@ -8,6 +8,8 @@ namespace mado::common {
 
 // Returns a match score if each character in pattern is found
 // sequentially within str. Returns std::nullopt otherwise.
+// Возвращает оценку, если символы шаблона встречаются в строке по порядку. Иначе возвращает
+// nullopt.
 std::optional<int32_t> fuzzy_match(const std::string &pattern, const std::string &str, bool ignore_case);
 
 } // namespace mado::common
