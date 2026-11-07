@@ -1883,6 +1883,223 @@ static void test_parser_long_digit_rejections() {
     test(correct);
 }
 
+
+// Checks every comparison operator on each supported field against explicit nodes.
+// Parse and allocation exceptions fail the test.
+// Проверяет все операторы каждого поля по явно построенным узлам.
+// Исключения разбора и памяти проваливают тест.
+static void test_parser_field_operator_matrix() {
+    const std::pair<const char *, Ast_Comparison_Field> fields[] = {
+        {"priority", Ast_Comparison_Field::Priority},
+        {"tag", Ast_Comparison_Field::Tag}, {"status", Ast_Comparison_Field::Status},
+        {"path", Ast_Comparison_Field::Path}, {"name", Ast_Comparison_Field::Name},
+        {"time", Ast_Comparison_Field::Time}, {"mtime", Ast_Comparison_Field::Mtime},
+        {"deadline", Ast_Comparison_Field::Deadline}, {"any", Ast_Comparison_Field::Any},
+    };
+    const std::pair<const char *, Ast_Comparison_Operator> operators[] = {
+        {"=", Ast_Comparison_Operator::Eq}, {"!=", Ast_Comparison_Operator::Ne},
+        {">", Ast_Comparison_Operator::Gt}, {"<", Ast_Comparison_Operator::Lt},
+        {">=", Ast_Comparison_Operator::Ge}, {"<=", Ast_Comparison_Operator::Le},
+        {"~", Ast_Comparison_Operator::Substr}, {"!~", Ast_Comparison_Operator::Nsubstr},
+        {"^~", Ast_Comparison_Operator::Starts}, {"!^~", Ast_Comparison_Operator::Nstarts},
+        {"$~", Ast_Comparison_Operator::Ends}, {"!$~", Ast_Comparison_Operator::Nends},
+        {"~~", Ast_Comparison_Operator::Fuzzy}, {"!~~", Ast_Comparison_Operator::Nfuzzy},
+        {"%~", Ast_Comparison_Operator::Glob}, {"!%~", Ast_Comparison_Operator::Nglob},
+    };
+    bool correct = true;
+    // Check both the parsed operation and the stored operand type.
+    // Проверяем распознанную операцию и сохранённый тип операнда.
+    for (const auto &[name, field] : fields) {
+        const bool numeric = field == Ast_Comparison_Field::Priority;
+        const bool timestamp = field == Ast_Comparison_Field::Time ||
+                               field == Ast_Comparison_Field::Mtime ||
+                               field == Ast_Comparison_Field::Deadline;
+        const std::string operand = numeric ? "007" : timestamp ? "20240229-235959" : "123-ab";
+        const Ast_Value value = numeric ? Ast_Value{uint16_t{7}} : Ast_Value{operand};
+        // Exercise every operator for this operand type.
+        // Проверяем каждый оператор для данного типа операнда.
+        for (const auto &[text, op] : operators) {
+            const auto expected = ast_make_comparison(field, op, value);
+            correct &= same_ast(parse_query(std::string(name) + text + operand).get(),
+                                expected.get());
+        }
+    }
+    test(correct);
+}
+
+// Checks long and ambiguous digit-prefixed literals as whole source tokens.
+// Allocation errors fail the test.
+// Проверяет длинные и неоднозначные значения с начальной цифрой как целые токены.
+// Ошибки памяти проваливают тест.
+static void test_lexer_numeric_prefix_boundaries() {
+    const std::pair<const char *, Token_Type> cases[] = {
+        {"0", Token_Type::Number}, {"999", Token_Type::Number},
+        {"000", Token_Type::Number}, {"0000", Token_Type::Timestamp},
+        {"1000", Token_Type::Timestamp}, {"10000", Token_Type::String},
+        {"20240229", Token_Type::Timestamp}, {"20230229", Token_Type::String},
+        {"20240229-", Token_Type::Timestamp}, {"20240229-23", Token_Type::Timestamp},
+        {"20240229-2359", Token_Type::Timestamp}, {"20240229-235959", Token_Type::Timestamp},
+        {"20240229-24", Token_Type::String}, {"20240229-2360", Token_Type::String},
+        {"20240229-235960", Token_Type::String}, {"20011212-12312312313213", Token_Type::String},
+        {"1abc", Token_Type::String}, {"1-2-3", Token_Type::String},
+        {"1_", Token_Type::String}, {"123--", Token_Type::String},
+    };
+    bool correct = true;
+    // Appending a range separator must not become part of the value.
+    // Добавленный разделитель диапазона не должен становиться частью значения.
+    for (const auto &[value, kind] : cases) {
+        const std::string input = std::string(value) + "..";
+        const auto tokens = Lexer(input).tokenize();
+        correct &= tokens.size() == 3 && tokens[0].type == kind &&
+                   tokens[0].value == value && tokens[0].position == 0 &&
+                   tokens[0].length == std::string(value).size() &&
+                   tokens[1].type == Token_Type::DotDot &&
+                   tokens[1].position == std::string(value).size() &&
+                   tokens[2].type == Token_Type::End;
+    }
+    const std::string huge(10000, '9');
+    const auto huge_tokens = Lexer(huge).tokenize();
+    test(correct && huge_tokens.size() == 2 &&
+         huge_tokens[0].type == Token_Type::String &&
+         huge_tokens[0].value == huge && huge_tokens[0].length == huge.size());
+}
+
+// Checks list expansion for allof, anyof, in, and has with three operands.
+// Parse and allocation errors fail the test.
+// Проверяет раскрытие allof, anyof, in и has с тремя операндами.
+// Ошибки разбора и памяти проваливают тест.
+static void test_parser_list_ast_shapes() {
+    const std::pair<const char *, Ast_Binary_Operator> lists[] = {
+        {"name = anyof(1, 123abc, @never)", Ast_Binary_Operator::Or},
+        {"name = allof(1, 123abc, @never)", Ast_Binary_Operator::And},
+        {"name in (1, 123abc, @never)", Ast_Binary_Operator::Or},
+        {"name has (1, 123abc, @never)", Ast_Binary_Operator::And},
+    };
+    bool correct = true;
+    // Compare desugared lists against independently built trees.
+    // Сравниваем раскрытые списки с независимо построенными деревьями.
+    for (const auto &[query, combine] : lists) {
+        auto expected = ast_make_binary(
+            combine,
+            ast_make_binary(combine,
+                ast_make_comparison(Ast_Comparison_Field::Name, Ast_Comparison_Operator::Eq, std::string("1")),
+                ast_make_comparison(Ast_Comparison_Field::Name, Ast_Comparison_Operator::Eq, std::string("123abc"))),
+            ast_make_comparison(Ast_Comparison_Field::Name, Ast_Comparison_Operator::Eq,
+                                std::string("99990101-000000")));
+        correct &= same_ast(parse_query(query).get(), expected.get());
+    }
+    test(correct);
+}
+
+// Checks associativity and precedence with an independently constructed AST.
+// Parse and allocation errors fail the test.
+// Проверяет ассоциативность и приоритеты по независимо построенному AST.
+// Ошибки разбора и памяти проваливают тест.
+static void test_parser_mixed_logical_ast() {
+    auto expected = ast_make_binary(Ast_Binary_Operator::Or,
+        ast_make_special(Ast_Node_Type::All),
+        ast_make_binary(Ast_Binary_Operator::Xor,
+            ast_make_special(Ast_Node_Type::Untagged),
+            ast_make_binary(Ast_Binary_Operator::And,
+                ast_make_special(Ast_Node_Type::Unnamed),
+                ast_make_unary(Ast_Unary_Operator::Not,
+                    ast_make_unary(Ast_Unary_Operator::Not,
+                                  ast_make_special(Ast_Node_Type::Unstatused))))));
+    auto left_associative = ast_make_binary(Ast_Binary_Operator::Xor,
+        ast_make_binary(Ast_Binary_Operator::Xor,
+            ast_make_special(Ast_Node_Type::All), ast_make_special(Ast_Node_Type::Untagged)),
+        ast_make_special(Ast_Node_Type::Unnamed));
+    test(same_ast(parse_query("all or untagged xor unnamed and not not unstatused").get(),
+                  expected.get()) &&
+         same_ast(parse_query("all xor untagged xor unnamed").get(), left_associative.get()));
+}
+
+// Checks redundant grouping and spacing without changing expression structure.
+// Parse and allocation errors fail the test.
+// Проверяет лишние скобки и пробелы без изменения структуры выражения.
+// Ошибки разбора и памяти проваливают тест.
+static void test_parser_grouping_and_spacing() {
+    auto expected = ast_make_comparison(Ast_Comparison_Field::Status,
+                                       Ast_Comparison_Operator::Fuzzy,
+                                       std::string("20011212-12312312313213"));
+    const std::string nested = std::string(64, '(') +
+                              "status~~20011212-12312312313213" + std::string(64, ')');
+    test(same_ast(parse_query(nested).get(), expected.get()) &&
+         same_ast(parse_query(" \t(\nstatus \r\n~~\t20011212-12312312313213\n) ").get(),
+                  expected.get()));
+}
+
+// Checks that quoted keywords and macro-looking text remain literal strings.
+// Parse and allocation errors fail the test.
+// Проверяет, что ключевые слова и макросы в кавычках остаются строками.
+// Ошибки разбора и памяти проваливают тест.
+static void test_parser_quoted_syntax_is_literal() {
+    bool correct = true;
+    // Quoting must protect punctuation and reserved words alike.
+    // Кавычки должны защищать и пунктуацию, и служебные слова.
+    for (const auto *value : {"anyof", "allof", "@now", "a,b", "[1..2]", "a or b", ""}) {
+        const auto expected = ast_make_comparison(Ast_Comparison_Field::Name,
+                                                 Ast_Comparison_Operator::Eq, std::string(value));
+        correct &= same_ast(parse_query(std::string("name = \"") + value + "\"").get(),
+                            expected.get());
+    }
+    test(correct);
+}
+
+// Checks malformed delimiters and rejected operand types at exact source positions.
+// Unexpected exceptions fail the test.
+// Проверяет неверные разделители и типы операндов в точных позициях исходного текста.
+// Неожиданные исключения проваливают тест.
+static void test_parser_error_stage_positions() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"name = @zzzz", "@zzzz"},
+        {"name = \"unterminated", "\"unterminated"},
+        {"priority = 1abc", "1abc"},
+        {"deadline = 20230229", "20230229"},
+        {"priority = anyof(1,,2)", ",2)"},
+        {"name = allof(foo,)", ")"},
+        {"priority in [1...2]", ".2]"},
+        {"priority in [1..2..3]", "..3]"},
+        {"name has [foo]", "[foo]"},
+        {"name = anyof(allof(foo))", "(foo))"},
+        {"(all))", ")"},
+    };
+    bool correct = true;
+    // Locate errors by their source suffix rather than hardcoded offsets.
+    // Находим ошибки по фрагменту исходника вместо фиксированных смещений.
+    for (const auto &[query, suffix] : cases) {
+        try {
+            parse_query(query);
+            correct = false;
+        } catch (const Parse_Error &error) {
+            const std::string input(query);
+            const auto expected = input.rfind(suffix);
+            correct &= expected != std::string::npos && error.token().position == expected;
+        }
+    }
+    test(correct);
+}
+
+// Checks preservation of a completed left branch and an incomplete right comparison.
+// Unexpected exceptions fail the test.
+// Проверяет сохранение готовой левой ветки и неполного правого сравнения.
+// Неожиданные исключения проваливают тест.
+static void test_parser_partial_ast_nested_comparison() {
+    Parser parser(Lexer("not (name = foo or priority = )").tokenize());
+    auto expected = ast_make_unary(Ast_Unary_Operator::Not,
+        ast_make_binary(Ast_Binary_Operator::Or,
+            ast_make_comparison(Ast_Comparison_Field::Name, Ast_Comparison_Operator::Eq, std::string("foo")),
+            ast_make_comparison(Ast_Comparison_Field::Priority, Ast_Comparison_Operator::Eq,
+                                std::monostate{})));
+    bool rejected = false;
+    try {
+        parser.parse();
+    } catch (const Parse_Error &) {
+        rejected = true;
+    }
+    test(rejected && same_ast(parser.partial_ast(), expected.get()));
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1915,6 +2132,14 @@ int main(int argc, char **argv) {
         // Токены.
 // Токены.
         {"Token creation", "create token with values", test_token_creation},
+        {"parser_field_operator_matrix", "query edge cases", test_parser_field_operator_matrix},
+        {"lexer_numeric_prefix_boundaries", "query edge cases", test_lexer_numeric_prefix_boundaries},
+        {"parser_list_ast_shapes", "query edge cases", test_parser_list_ast_shapes},
+        {"parser_mixed_logical_ast", "query edge cases", test_parser_mixed_logical_ast},
+        {"parser_grouping_and_spacing", "query edge cases", test_parser_grouping_and_spacing},
+        {"parser_quoted_syntax_is_literal", "query edge cases", test_parser_quoted_syntax_is_literal},
+        {"parser_error_stage_positions", "query edge cases", test_parser_error_stage_positions},
+        {"parser_partial_ast_nested_comparison", "query edge cases", test_parser_partial_ast_nested_comparison},
         {"Partial AST", "preserve completed syntax on failure", test_parser_partial_ast},
         {"Empty partial AST", "expose no tree without completed nodes", test_parser_partial_ast_empty},
         {"Fuzzy name selection", "prefer exact names before fuzzy matches", test_fuzzy_name_selection},
