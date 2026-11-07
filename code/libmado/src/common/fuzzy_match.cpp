@@ -13,24 +13,44 @@ namespace {
 
 // Base score adjustment per unmatched input byte.
 // Поправка к оценке за каждый несовпавший байт.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int32_t UNMATCHED_LETTER_PENALTY = -1;
+
 // Reward for adjacent matched characters.
 // Бонус за соседние совпавшие символы.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int32_t ADJACENCY_BONUS = 15;
+
 // Reward for matching after a word separator.
 // Бонус за совпадение после разделителя слов.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int32_t SEPARATOR_BONUS = 30;
+
 // Reward for matching at a camel-case boundary.
 // Бонус за совпадение на границе camel case.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int32_t CAMEL_BONUS = 30;
+
 // Reward for matching at the start of the input.
 // Бонус за совпадение в начале строки.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int32_t FIRST_LETTER_BONUS = 15;
+
 // Penalty per skipped byte before the first match.
 // Штраф за каждый байт до первого совпадения.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int32_t LEADING_LETTER_PENALTY = -5;
+
 // Caps the total leading-byte penalty.
 // Ограничивает суммарный штраф за пропущенные начальные байты.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int32_t MAX_LEADING_LETTER_PENALTY = -15;
 
 // Scores a fuzzy-match step using position and boundary bonuses. No

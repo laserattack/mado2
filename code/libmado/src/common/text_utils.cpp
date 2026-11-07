@@ -11,6 +11,8 @@ namespace {
 
 // Common-year month lengths used to validate timestamps.
 // Длины месяцев невисокосного года для проверки дат.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int DAYS_PER_MONTH[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 // Checks whether year/month/day is a valid calendar date

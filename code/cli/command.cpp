@@ -183,7 +183,7 @@ class Ls_Command : public Command {
         // Открываем репозиторий относительно текущего каталога.
         auto repo = mado::repository::Repository::open(std::filesystem::current_path());
         if (!repo) {
-            fprintf(stderr, "No MADO/ directory found\n");
+            fprintf(stderr, "No %s/ directory found\n", mado::repository::ENTRY_DIR);
             return false;
         }
 
@@ -304,7 +304,7 @@ class Rm_Command : public Command {
         // Открываем репозиторий относительно текущего каталога.
         auto repo = mado::repository::Repository::open(std::filesystem::current_path());
         if (!repo) {
-            fprintf(stderr, "No MADO/ directory found\n");
+            fprintf(stderr, "No %s/ directory found\n", mado::repository::ENTRY_DIR);
             return false;
         }
 
@@ -330,7 +330,8 @@ class Init_Command : public Command {
         name = "init";
         aliases = {"setup", "start", "install"};
         signature = "[-force]";
-        description = "Initialize MADO/ and restore default templates";
+        description = std::string("Initialize ") + mado::repository::ENTRY_DIR +
+                      "/ and restore default templates";
     }
 
     // Initializes the repository and prints its path. Returns false for
@@ -345,7 +346,9 @@ class Init_Command : public Command {
         // Declare flags
         // Объявляем флаги.
         bool force = false;
-        c.add_bool(&force, {"force", "F", "-force"}, "Create MADO/ even if one exists above");
+        const auto force_description = std::string("Create ") + mado::repository::ENTRY_DIR +
+                                       "/ even if one exists above";
+        c.add_bool(&force, {"force", "F", "-force"}, force_description.c_str());
         //
 
         // Parse flags
@@ -435,7 +438,7 @@ class New_Command : public Command {
 
         auto repo = mado::repository::Repository::open(std::filesystem::current_path());
         if (!repo) {
-            fprintf(stderr, "No MADO/ directory found\n");
+            fprintf(stderr, "No %s/ directory found\n", mado::repository::ENTRY_DIR);
             return false;
         }
 
@@ -492,7 +495,7 @@ class Info_Command : public Command {
 
         const auto repo = mado::repository::Repository::open(std::filesystem::current_path());
         if (!repo) {
-            fprintf(stderr, "No MADO/ directory found\n");
+            fprintf(stderr, "No %s/ directory found\n", mado::repository::ENTRY_DIR);
             return false;
         }
 
@@ -623,6 +626,75 @@ class Debug_Ast_Command : public Command {
     }
 };
 
+// Dispatches portable mtime snapshots. Argument errors return false; OS exceptions propagate.
+// Управляет переносимыми снимками mtime. Неверные аргументы дают false; сбои ОС передаются выше.
+class Mtimes_Command : public Command {
+  public:
+    // Selects dump or restore and sets usage metadata. Allocation failures propagate.
+    // Выбирает сохранение или восстановление и задаёт справку. Сбои памяти передаются выше.
+    explicit Mtimes_Command(bool restore) : restore_(restore) {
+        name = restore ? "restore-mtimes" : "dump-mtimes";
+        signature = restore ? "[-strict] [FILE]" : "[FILE]";
+        const auto index_path = std::string(mado::repository::ENTRY_DIR) + "/" +
+                                mado::repository::MTIMES_FILE;
+        description = std::string(restore ? "Restore " : "Save ") + mado::repository::ENTRY_FILE +
+                      (restore ? " times from " : " times to ") + index_path + " or FILE";
+    }
+
+    // Uses the nearest repository and an optional index path. Returns false on argument errors.
+    // Repository, I/O, and allocation exceptions propagate to the CLI boundary.
+    // Использует ближайший репозиторий и необязательный путь. Неверные аргументы дают false.
+    // Исключения репозитория, ОС и памяти передаются на границу CLI.
+    bool run(const std::string &program_name, int argc, char **argv) const override {
+        Flag_Context c(name.c_str());
+        bool strict = false;
+
+        // Strict missing-file checks are meaningful only for restoration.
+        // Строгая проверка отсутствующих файлов нужна только при восстановлении.
+        const auto strict_description = std::string("Fail before restoring if any indexed ") +
+                                        mado::repository::ENTRY_FILE + " is missing";
+        if (restore_)
+            c.add_bool(&strict, {"strict", "-strict"}, strict_description.c_str());
+
+        // Parse flags consistently with the other commands.
+        // Разбираем флаги так же, как остальные команды.
+        if (!flag_c_parse(c, argc, argv)) {
+            print_command_usage(*this, program_name);
+            return false;
+        }
+
+        argc = flag_c_rest_argc(c);
+        argv = flag_c_rest_argv(c);
+
+        if (argc > 1) {
+            print_command_usage(*this, program_name);
+            return false;
+        }
+
+        const auto repo = mado::repository::Repository::open(std::filesystem::current_path());
+        if (!repo) {
+            fprintf(stderr, "No %s/ directory found\n", mado::repository::ENTRY_DIR);
+            return false;
+        }
+
+        const std::filesystem::path file = argc ? argv[0] : "";
+
+        // Keep the two actions explicit; successful commands produce no output.
+        // Явно разделяем действия; успешные команды ничего не печатают.
+        if (restore_)
+            repo->restore_mtimes(file, strict);
+        else
+            repo->dump_mtimes(file);
+
+        return true;
+    }
+
+  private:
+    // Selects restoration rather than snapshot creation. No owned resources or errors.
+    // Выбирает восстановление вместо сохранения. Собственных ресурсов и ошибок нет.
+    bool restore_;
+};
+
 // Owns the command registry in help display order.
 // Хранит команды в порядке вывода справки.
 const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
@@ -634,6 +706,8 @@ const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     cmds.push_back(std::make_unique<Init_Command>());
     cmds.push_back(std::make_unique<New_Command>());
     cmds.push_back(std::make_unique<Info_Command>());
+    cmds.push_back(std::make_unique<Mtimes_Command>(false));
+    cmds.push_back(std::make_unique<Mtimes_Command>(true));
     cmds.push_back(std::make_unique<Debug_Ast_Command>());
     return cmds;
 }();

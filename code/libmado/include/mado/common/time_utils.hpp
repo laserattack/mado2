@@ -5,6 +5,11 @@
 
 namespace mado::common {
 
+// Sentinel for an absent deadline and default entry times. No errors or exceptions.
+// Метка отсутствующего срока и начальных времён записи. Ошибок и исключений нет.
+inline constexpr char NEVER_TIMESTAMP[] = "99990101-000000";
+
+
 // Converts a timestamp to UTC calendar fields. Conversion failures throw std::runtime_error.
 // Преобразует метку в календарные поля UTC. Сбой вызывает std::runtime_error.
 std::tm utc_time(std::time_t time);

@@ -752,6 +752,250 @@ static void test_create_rejects_missing_or_non_file_template() {
     test(rejected);
 }
 
+// Checks the suffix diagnostic lists the actual forbidden characters with visible escapes.
+// Unexpected exceptions fail the test; the expected domain error is captured.
+// Проверяет, что ошибка суффикса перечисляет запрещённые символы с видимым экранированием.
+// Неожиданные исключения проваливают тест; ожидаемая ошибка данных перехватывается.
+static void test_suffix_error_characters() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    std::string message;
+
+    try {
+        repo.create("bad.");
+    } catch (const std::runtime_error &error) {
+        message = error.what();
+    }
+
+    test(message == R"(Invalid suffix 'bad.': must not contain '/', '\\', ':', '\r', '\n', '.')");
+}
+
+// Checks line breaks are rejected in suffixes and template names before creating entries.
+// Unexpected exceptions fail the test; expected domain errors are checked by their messages.
+// Проверяет отказ для переводов строк в суффиксах и именах шаблонов до создания записей.
+// Неожиданные исключения проваливают тест; ожидаемые ошибки данных проверяются по сообщениям.
+static void test_create_rejects_line_breaks() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    bool rejected = true;
+
+    // Check CR and LF independently for both kinds of user-supplied names.
+    // Проверяем CR и LF отдельно для обоих видов пользовательских имён.
+    for (const auto *name : {"bad\rname", "bad\nname"}) {
+        try {
+            repo.create(name);
+            rejected = false;
+        } catch (const std::runtime_error &error) {
+            rejected &= std::string(error.what()).starts_with("Invalid suffix");
+        }
+
+        try {
+            repo.create("", std::string(name));
+            rejected = false;
+        } catch (const std::runtime_error &error) {
+            rejected &= std::string(error.what()).starts_with("Invalid template name");
+        }
+    }
+
+    test(rejected && std::distance(std::filesystem::directory_iterator(repo.root()),
+                                  std::filesystem::directory_iterator{}) == 1);
+}
+
+// Checks dots remain valid in template names. I/O and allocation exceptions fail the test.
+// Проверяет допустимость точек в именах шаблонов. Исключения ОС и памяти проваливают тест.
+static void test_create_dotted_template_name() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    std::ofstream(repo.root() / "templates" / "note.work.md") << "- NAME: dotted template\n";
+
+    const auto entry = repo.create("", std::string("note.work"));
+
+    test(entry.name() == "dotted template" && std::filesystem::is_regular_file(entry.path()));
+}
+
+// Checks default snapshots, suffix identifiers, ordering, precision, and unchanged contents.
+// Unexpected I/O or allocation exceptions fail the test.
+// Проверяет снимок по умолчанию, суффиксы, порядок, точность и сохранность содержимого.
+// Неожиданные исключения ОС и памяти проваливают тест.
+static void test_mtimes_round_trip() {
+    Temp_Dir tmp;
+    const auto second = make_entry(tmp.path(), "20260102-000000 suffix.v1", "second");
+    const auto first = make_entry(tmp.path(), "20260101-000000", "first");
+    const auto repo = Repository::open(tmp.path());
+    const auto time = std::filesystem::file_time_type::clock::from_sys(
+        std::chrono::sys_time<std::chrono::nanoseconds>{std::chrono::nanoseconds{1700000000123456789LL}});
+    std::filesystem::last_write_time(first / "MAIN.md", time);
+    // Include a pre-1970 timestamp to cover signed Unix offsets.
+    // Добавляем дату до 1970 года для проверки отрицательного смещения Unix.
+    std::filesystem::last_write_time(second / "MAIN.md",
+        std::filesystem::file_time_type::clock::from_sys(
+            std::chrono::sys_time<std::chrono::nanoseconds>{std::chrono::nanoseconds{-123456789012345600LL}}));
+    const auto original_first = std::filesystem::last_write_time(first / "MAIN.md");
+    const auto original_second = std::filesystem::last_write_time(second / "MAIN.md");
+    repo->dump_mtimes();
+    std::ifstream in(repo->root() / ".mtimes", std::ios::binary);
+    const std::string contents(std::istreambuf_iterator<char>(in), {});
+    std::filesystem::last_write_time(first / "MAIN.md", time + std::chrono::hours(24));
+    std::filesystem::last_write_time(second / "MAIN.md", time + std::chrono::hours(48));
+    repo->restore_mtimes();
+    std::ifstream entry(first / "MAIN.md");
+    std::string text;
+    entry >> text;
+    test(std::filesystem::last_write_time(first / "MAIN.md") == original_first &&
+         std::filesystem::last_write_time(second / "MAIN.md") == original_second &&
+         contents.starts_with("mado-mtimes-v1 unix-nanoseconds\n") &&
+         contents.find("20260101-000000") < contents.find("20260102-000000 suffix.v1") &&
+         text == "first");
+}
+
+// Checks a header-only index and an explicit file outside MADO but inside the fixture.
+// Unexpected exceptions fail the test.
+// Проверяет пустой индекс и явный файл вне MADO, но внутри тестового окружения.
+// Неожиданные исключения проваливают тест.
+static void test_mtimes_empty_custom_index() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    const auto file = tmp.path() / "backup times";
+    repo.dump_mtimes(file);
+    repo.restore_mtimes(file);
+    std::ifstream in(file);
+    const std::string contents(std::istreambuf_iterator<char>(in), {});
+    test(contents == "mado-mtimes-v1 unix-nanoseconds\n" &&
+         !std::filesystem::exists(repo.root() / ".mtimes"));
+}
+
+// Checks that identifiers resolve after moving the repository and an omitted entry is untouched.
+// Unexpected filesystem or allocation exceptions fail the test.
+// Проверяет разрешение идентификаторов после переноса и сохранность записи вне индекса.
+// Неожиданные исключения файловой системы или памяти проваливают тест.
+static void test_mtimes_relocated_repository() {
+    Temp_Dir tmp;
+    const auto dir = make_entry(tmp.path(), "20260101-000000", "original");
+    const auto repo = Repository::open(tmp.path());
+    const auto original = std::filesystem::last_write_time(dir / "MAIN.md");
+    repo->dump_mtimes();
+    const auto extra = make_entry(tmp.path(), "20260102-000000", "not in index");
+    const auto extra_time = std::filesystem::last_write_time(extra / "MAIN.md");
+    const auto moved = tmp.path() / "moved";
+    std::filesystem::create_directory(moved);
+    std::filesystem::rename(repo->root(), moved / "MADO");
+    const auto relocated = Repository::open(moved);
+    const auto main = relocated->root() / dir.filename() / "MAIN.md";
+    std::filesystem::last_write_time(main, original + std::chrono::hours(24));
+    relocated->restore_mtimes();
+    test(std::filesystem::last_write_time(main) == original &&
+         std::filesystem::last_write_time(relocated->root() / extra.filename() / "MAIN.md") == extra_time);
+}
+
+// Checks rejection of a deleted MAIN.md before changing a preceding valid entry.
+// Unexpected exceptions fail the test.
+// Проверяет отказ при удалённом MAIN.md до изменения предыдущей корректной записи.
+// Неожиданные исключения проваливают тест.
+static void test_mtimes_missing_main_file() {
+    Temp_Dir tmp;
+    const auto first = make_entry(tmp.path(), "20260101-000000", "first");
+    const auto second = make_entry(tmp.path(), "20260102-000000", "second");
+    const auto repo = Repository::open(tmp.path());
+    repo->dump_mtimes();
+    const auto changed = std::filesystem::last_write_time(first / "MAIN.md") + std::chrono::hours(24);
+    std::filesystem::last_write_time(first / "MAIN.md", changed);
+    const auto expected = std::filesystem::last_write_time(first / "MAIN.md");
+    std::filesystem::remove(second / "MAIN.md");
+    bool rejected = false;
+    try {
+        repo->restore_mtimes({}, true);
+    } catch (const std::runtime_error &) {
+        rejected = true;
+    }
+    test(rejected && std::filesystem::last_write_time(first / "MAIN.md") == expected);
+}
+
+// Checks missing directories and MAIN.md files are skipped before and after existing records.
+// Unexpected filesystem or allocation exceptions fail the test.
+// Проверяет пропуск отсутствующих каталогов и MAIN.md до и после существующих записей.
+// Неожиданные исключения файловой системы или памяти проваливают тест.
+static void test_mtimes_skips_missing_files() {
+    Temp_Dir tmp;
+    const auto first = make_entry(tmp.path(), "20260101-000000", "deleted directory");
+    const auto middle = make_entry(tmp.path(), "20260102-000000", "existing");
+    const auto last = make_entry(tmp.path(), "20260103-000000", "deleted file");
+    const auto repo = Repository::open(tmp.path());
+    const auto original = std::filesystem::last_write_time(middle / "MAIN.md");
+    repo->dump_mtimes();
+    std::filesystem::remove_all(first);
+    std::filesystem::remove(last / "MAIN.md");
+    std::filesystem::last_write_time(middle / "MAIN.md", original + std::chrono::hours(24));
+    repo->restore_mtimes();
+    test(std::filesystem::last_write_time(middle / "MAIN.md") == original &&
+         !std::filesystem::exists(first) && !std::filesystem::exists(last / "MAIN.md"));
+}
+
+// Checks invalid records leave even preceding valid entries unchanged. Unexpected exceptions fail.
+// Проверяет, что неверные строки не меняют даже предыдущие корректные записи. Исключения — провал.
+static void test_mtimes_invalid_records() {
+    Temp_Dir tmp;
+    const auto dir = make_entry(tmp.path(), "20260101-000000", "original");
+    const auto repo = Repository::open(tmp.path());
+    const auto original = std::filesystem::last_write_time(dir / "MAIN.md");
+    const auto index = repo->root() / ".mtimes";
+    const std::string valid = "\"20260101-000000\" 1700000000000000000\n";
+    const std::string invalid[] = {
+        "", "wrong header\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + valid,
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\"../outside\" 1\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\"bad\\\\name\" 1\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\"bad:name\" 1\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\"\" 1\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\".\" 1\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\"broken\" nope\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\"broken\" 99999999999999999999999999999\n",
+        "mado-mtimes-v1 unix-nanoseconds\n" + valid + "\"broken\" 1 trailing\n",
+    };
+    bool rejected = true;
+    // Reuse the same unchanged entry while replacing only the invalid input.
+    // Используем неизменную запись, заменяя только неверный входной файл.
+    for (const auto &contents : invalid) {
+        std::ofstream(index, std::ios::binary) << contents;
+        try {
+            repo->restore_mtimes();
+            rejected = false;
+        } catch (const std::runtime_error &) {
+            rejected &= std::filesystem::last_write_time(dir / "MAIN.md") == original;
+        }
+    }
+    test(rejected);
+}
+
+// Checks missing input, unwritable destinations, and entry-overwrite protection. Exceptions expected.
+// Проверяет отсутствие файла, недоступную цель и защиту записи от перезаписи. Исключения ожидаются.
+static void test_mtimes_io_errors() {
+    Temp_Dir tmp;
+    const auto dir = make_entry(tmp.path(), "20260101-000000", "original");
+    const auto repo = Repository::open(tmp.path());
+    bool missing = false;
+    bool unwritable = false;
+    bool protected_entry = false;
+    try {
+        repo->restore_mtimes();
+    } catch (const std::runtime_error &) {
+        missing = true;
+    }
+    try {
+        repo->dump_mtimes(tmp.path() / "missing" / "index");
+    } catch (const std::runtime_error &) {
+        unwritable = true;
+    }
+    try {
+        repo->dump_mtimes(dir / "MAIN.md");
+    } catch (const std::runtime_error &) {
+        protected_entry = true;
+    }
+    std::ifstream in(dir / "MAIN.md");
+    std::string contents;
+    in >> contents;
+    test(missing && unwritable && protected_entry && contents == "original");
+}
+
 // entry point
 // Точка входа.
 
@@ -759,6 +1003,16 @@ static void test_create_rejects_missing_or_non_file_template() {
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main() {
     std::vector<Test_Case> tests = {
+        {"Suffix error characters", "describe the validation set without hidden control characters", test_suffix_error_characters},
+        {"Create rejects line breaks", "reject CR and LF before creating files", test_create_rejects_line_breaks},
+        {"Create dotted template", "retain dots in template names", test_create_dotted_template_name},
+        {"Mtimes round trip", "preserve exact times and contents", test_mtimes_round_trip},
+        {"Mtimes empty custom index", "explicit destination and empty repository", test_mtimes_empty_custom_index},
+        {"Mtimes relocated repository", "restore after moving without absolute paths", test_mtimes_relocated_repository},
+        {"Mtimes missing MAIN.md", "strict validation finishes before restoring", test_mtimes_missing_main_file},
+        {"Mtimes skips missing files", "restore existing entries despite missing targets", test_mtimes_skips_missing_files},
+        {"Mtimes invalid records", "reject the entire invalid index before writes", test_mtimes_invalid_records},
+        {"Mtimes I/O errors", "missing input and protected destinations", test_mtimes_io_errors},
         {"Open finds MADO", "Repository::open finds MADO in cwd", test_open_finds_mado},
         {"Open finds MADO above", "Repository::open walks up the tree", test_open_finds_mado_above},
         {"Open returns nullopt", "no MADO anywhere", test_open_returns_nullopt_when_missing},

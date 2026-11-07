@@ -2,12 +2,33 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <mado/entry/entry.hpp>
 #include <mado/query/ast.hpp>
 
 namespace mado::repository {
+
+// Template directories in lookup order; the first is the default. No errors or exceptions.
+// Каталоги шаблонов в порядке поиска; первый используется по умолчанию. Ошибок и исключений нет.
+inline constexpr const char *TEMPLATE_DIR_NAMES[] = {"templates", ".templates", "_templates"};
+
+// Repository directory name shared by storage and CLI messages. No errors or exceptions.
+// Имя каталога репозитория для хранения и сообщений CLI. Ошибок и исключений нет.
+inline constexpr char ENTRY_DIR[] = "MADO";
+
+// Default mtime index filename shared by storage and CLI messages. No errors or exceptions.
+// Стандартное имя индекса mtime для хранения и сообщений CLI. Ошибок и исключений нет.
+inline constexpr char MTIMES_FILE[] = ".mtimes";
+
+// Extension of Markdown entry and template files. No errors or exceptions.
+// Расширение файлов записей и шаблонов Markdown. Ошибок и исключений нет.
+inline constexpr char MARKDOWN_EXTENSION[] = ".md";
+
+// Entry filename derived from the shared Markdown extension. May throw std::bad_alloc.
+// Имя файла записи из общего расширения Markdown. Возможен std::bad_alloc.
+inline const std::string ENTRY_FILE = std::string("MAIN") + MARKDOWN_EXTENSION;
 
 // Represents an opened MADO directory and manages its entries and templates.
 // Представляет открытый MADO и управляет записями и шаблонами.
@@ -62,6 +83,20 @@ class Repository {
     // Обходит подходящие записи до false от обработчика. Пропускает некорректные записи.
     // Исключения ввода-вывода и обработчика передаются вызывающему коду.
     void for_each_matching(const mado::query::Ast_Node *filter, Action action) const;
+
+    // Saves MAIN.md modification times as Unix nanoseconds; an empty path uses .mtimes.
+    // Invalid destinations throw Repository_Error; I/O and allocation exceptions propagate.
+    // Сохраняет время MAIN.md в наносекундах Unix; пустой путь выбирает .mtimes.
+    // Неверный путь вызывает Repository_Error; исключения ввода-вывода и памяти передаются выше.
+    void dump_mtimes(const std::filesystem::path &file = {}) const;
+
+    // Validates the index and restores existing MAIN.md times; an empty path uses .mtimes.
+    // Missing files are skipped unless strict is true. Invalid data/targets throw Repository_Error;
+    // I/O and allocation exceptions propagate. Strict validation finishes before any writes.
+    // Проверяет индекс и восстанавливает время существующих MAIN.md; пустой путь выбирает .mtimes.
+    // Отсутствующие файлы пропускаются, если strict равен false. Неверные данные и цели вызывают
+    // Repository_Error; сбои ОС и памяти передаются выше. Строгая проверка завершается до записи.
+    void restore_mtimes(const std::filesystem::path &file = {}, bool strict = false) const;
 
     // Returns the MADO directory. No exceptions.
     // Возвращает каталог MADO. Исключений нет.

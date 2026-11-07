@@ -4,13 +4,18 @@
 #include <mado/common/time_utils.hpp>
 #include <mado/interpreter/interpreter.hpp>
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -18,32 +23,109 @@ namespace mado::repository {
 
 namespace {
 
-// Directory name that identifies a repository.
-// Имя каталога репозитория.
-constexpr const char *ENTRY_DIR = "MADO";
-// Filename that stores an entry and its metadata.
-// Имя файла записи и её метаданных.
-constexpr const char *ENTRY_FILE = "MAIN.md";
-// Built-in task header and default task template contents.
-// Встроенный заголовок задачи и содержимое стандартного шаблона задачи.
-constexpr const char *TASK_TEMPLATE = "- NAME:\n- PRIORITY:\n- TAGS:\n- STATUS:\n- DEADLINE:\n";
-// Default note template contents.
-// Содержимое стандартного шаблона заметки.
-constexpr const char *NOTE_TEMPLATE = "- NAME:\n- TAGS:\n";
+// Versioned header shared by the index reader and writer. No errors or exceptions.
+// Версионный заголовок для чтения и записи индекса. Ошибок и исключений нет.
+constexpr const char *MTIMES_HEADER = "mado-mtimes-v1 unix-nanoseconds";
+
+// Path/drive separators and line breaks forbidden in single names. No errors or exceptions.
+// Разделители путей и дисков и переводы строк, запрещённые в именах. Ошибок и исключений нет.
+constexpr const char *INVALID_PATH_CHARS = "/\\:\r\n";
+
+// Name metadata prefix shared by parsing and built-in templates. No errors or exceptions.
+// Префикс имени для разбора и встроенных шаблонов. Ошибок и исключений нет.
+constexpr std::string_view NAME_PREFIX = "- NAME:";
+
+// Priority metadata prefix shared by parsing and templates. No errors or exceptions.
+// Префикс приоритета для разбора и шаблонов. Ошибок и исключений нет.
+constexpr std::string_view PRIORITY_PREFIX = "- PRIORITY:";
+
+// Tags metadata prefix shared by parsing and templates. No errors or exceptions.
+// Префикс тегов для разбора и шаблонов. Ошибок и исключений нет.
+constexpr std::string_view TAGS_PREFIX = "- TAGS:";
+
+// Status metadata prefix shared by parsing and templates. No errors or exceptions.
+// Префикс статуса для разбора и шаблонов. Ошибок и исключений нет.
+constexpr std::string_view STATUS_PREFIX = "- STATUS:";
+
+// Deadline metadata prefix shared by parsing and templates. No errors or exceptions.
+// Префикс срока для разбора и шаблонов. Ошибок и исключений нет.
+constexpr std::string_view DEADLINE_PREFIX = "- DEADLINE:";
+
 // Caps metadata scanning per entry.
 // Ограничивает число просматриваемых строк метаданных.
+// Static configuration data; no errors or exceptions.
+// Статические данные настройки; ошибок и исключений нет.
 constexpr int MAX_HEADER_LINES = 30;
+
+// Suffix restrictions extend the shared name restrictions. May throw std::bad_alloc.
+// Ограничения суффиксов дополняют общие ограничения имён. Возможен std::bad_alloc.
+const std::string INVALID_SUFFIX_CHARS = std::string(INVALID_PATH_CHARS) + '.';
+
+// Note template filename derived from the Markdown extension. May throw std::bad_alloc.
+// Имя шаблона заметки из расширения Markdown. Возможен std::bad_alloc.
+const std::string NOTE_TEMPLATE_FILE = std::string("note") + MARKDOWN_EXTENSION;
+// Task template filename derived from the Markdown extension. May throw std::bad_alloc.
+// Имя шаблона задачи из расширения Markdown. Возможен std::bad_alloc.
+const std::string TASK_TEMPLATE_FILE = std::string("task") + MARKDOWN_EXTENSION;
+
+// Default task contents assembled from the parsed field prefixes. Allocation can throw bad_alloc.
+// Стандартная задача из распознаваемых префиксов полей. Выделение памяти может вызвать bad_alloc.
+const std::string TASK_TEMPLATE = std::string(NAME_PREFIX) + "\n" +
+                                  std::string(PRIORITY_PREFIX) + "\n" + std::string(TAGS_PREFIX) + "\n" +
+                                  std::string(STATUS_PREFIX) + "\n" + std::string(DEADLINE_PREFIX) + "\n";
+// Default note contents assembled from field prefixes. Allocation can throw bad_alloc.
+// Стандартная заметка из префиксов полей. Выделение памяти может вызвать bad_alloc.
+const std::string NOTE_TEMPLATE = std::string(NAME_PREFIX) + "\n" + std::string(TAGS_PREFIX) + "\n";
 
 // Reports an invalid repository operation or missing repository data.
 // Обозначает недопустимую операцию или отсутствие данных репозитория.
 class Repository_Error : public std::runtime_error {
   public:
     // Reports an invalid repository operation or missing repository data.
-// Обозначает недопустимую операцию или отсутствие данных репозитория.
+    // Обозначает недопустимую операцию или отсутствие данных репозитория.
     // Stores the repository diagnostic. May throw std::bad_alloc.
     explicit Repository_Error(const std::string &message)
         : std::runtime_error(message) {}
 };
+
+// Describes each forbidden character with visible escapes for control characters.
+// Empty input returns an empty string. Allocation failures throw std::bad_alloc.
+// Описывает запрещённые символы с видимыми обозначениями управляющих символов.
+// Для пустого ввода возвращает пустую строку. Сбой памяти вызывает std::bad_alloc.
+std::string describe_invalid_chars(std::string_view chars) {
+    std::string result;
+
+    // Generate the diagnostic from exactly the same character set as validation.
+    // Формируем сообщение из того же набора символов, что используется при проверке.
+    for (char c : chars) {
+        if (!result.empty())
+            result += ", ";
+
+        result += '\'';
+        // Escape characters that would break the diagnostic's quoted representation.
+        // Экранируем символы, нарушающие представление в кавычках внутри сообщения.
+        switch (c) {
+        case '\r':
+            result += "\\r";
+            break;
+        case '\n':
+            result += "\\n";
+            break;
+        case '\\':
+            result += "\\\\";
+            break;
+        case '\'':
+            result += "\\'";
+            break;
+        default:
+            result += c;
+            break;
+        }
+        result += '\'';
+    }
+
+    return result;
+}
 
 // Returns the first supported template directory or nullopt. Filesystem lookup
 // errors throw std::filesystem::filesystem_error.
@@ -52,7 +134,7 @@ class Repository_Error : public std::runtime_error {
 std::optional<std::filesystem::path> find_templates(const std::filesystem::path &root) {
     // Search supported template folders in precedence order.
     // Проверяем допустимые папки шаблонов в порядке приоритета.
-    for (const auto *name : {"templates", ".templates", "_templates"}) {
+    for (const auto *name : TEMPLATE_DIR_NAMES) {
         auto dir = root / name;
         if (std::filesystem::is_directory(dir))
             return dir;
@@ -77,21 +159,12 @@ void write_default_template(const std::filesystem::path &path, const std::string
         throw std::runtime_error("Cannot write template " + path.string());
 }
 
-// Converts a std::filesystem::file_time_type to
-// std::chrono::system_clock::time_point.
-//
-// file_clock and system_clock have different epochs and durations,
-// and C++17 provides no direct conversion. The workaround: take the
-// difference between the given time point and "now" in the file clock
-// (this is a duration and does not depend on the epoch), then apply
-// that duration to "now" in the system clock.
-// Переводит файловое время в системное через разницу с текущим временем, чтобы обойти различие
-// эпох часов.
+// Converts file time to system time using the portable C++20 clock conversion. No exceptions.
+// Переводит файловое время в системное переносимым преобразованием C++20. Исключений нет.
 std::chrono::system_clock::time_point
 file_time_to_system_clock(std::filesystem::file_time_type ft) {
     return std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-        ft - std::filesystem::file_time_type::clock::now() +
-        std::chrono::system_clock::now());
+        std::filesystem::file_time_type::clock::to_sys(ft));
 }
 
 // Splits and deduplicates comma-separated tags, retaining an empty tag for
@@ -192,10 +265,10 @@ Repository Repository::init(const std::filesystem::path &where, bool force) {
     }
     std::filesystem::create_directory(mado_dir);
 
-    const auto templates = find_templates(mado_dir).value_or(mado_dir / "templates");
+    const auto templates = find_templates(mado_dir).value_or(mado_dir / TEMPLATE_DIR_NAMES[0]);
     std::filesystem::create_directory(templates);
-    write_default_template(templates / "note.md", NOTE_TEMPLATE);
-    write_default_template(templates / "task.md", TASK_TEMPLATE);
+    write_default_template(templates / NOTE_TEMPLATE_FILE, NOTE_TEMPLATE);
+    write_default_template(templates / TASK_TEMPLATE_FILE, TASK_TEMPLATE);
     return Repository(mado_dir);
 }
 
@@ -285,22 +358,17 @@ void Repository::for_each_matching(const mado::query::Ast_Node *filter,
 // коллизии вызывают Repository_Error. Сбой ввода-вывода вызывает std::runtime_error.
 mado::entry::Entry Repository::create(
     const std::string &suffix, const std::optional<std::string> &template_name) const {
-    auto is_safe_suffix = [](const std::string &s) {
-        for (char c : s) {
-            if (c == '\\' || c == '/' || c == '.' || c == ':')
-                return false;
-        }
-        return true;
-    };
-
-    if (!is_safe_suffix(suffix))
-        throw Repository_Error("Invalid suffix '" + suffix + "': must not contain '/', '\\', '.', or ':'");
+    // Reject path components and dots in suffixes before creating any files.
+    // Отклоняем части пути и точки в суффиксах до создания любых файлов.
+    if (suffix.find_first_of(INVALID_SUFFIX_CHARS) != std::string::npos)
+        throw Repository_Error("Invalid suffix '" + suffix + "': must not contain " +
+                               describe_invalid_chars(INVALID_SUFFIX_CHARS));
 
     std::string content = TASK_TEMPLATE;
     // Read the entire named template before creating an entry directory.
     // Читаем именованный шаблон целиком до создания каталога записи.
     if (template_name) {
-        if (template_name->empty() || template_name->find_first_of("/\\:") != std::string::npos ||
+        if (template_name->empty() || template_name->find_first_of(INVALID_PATH_CHARS) != std::string::npos ||
             template_name->find('\0') != std::string::npos)
             throw Repository_Error("Invalid template name: " + *template_name);
 
@@ -308,7 +376,7 @@ mado::entry::Entry Repository::create(
         if (!templates)
             throw Repository_Error("No templates directory found. Run 'mado init' to create it.");
 
-        const auto path = *templates / (*template_name + ".md");
+        const auto path = *templates / (*template_name + MARKDOWN_EXTENSION);
         if (!std::filesystem::is_regular_file(path))
             throw Repository_Error("Template '" + *template_name +
                                    "' not found. Run 'mado init' to restore default templates.");
@@ -450,29 +518,29 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
         if (line.empty())
             continue;
 
-        if (!has_name && line.starts_with("- NAME:")) {
-            line.erase(0, 7);
+        if (!has_name && line.starts_with(NAME_PREFIX)) {
+            line.erase(0, NAME_PREFIX.size());
             mado::common::trim_inplace(line);
             e.set_name(std::move(line));
             has_name = true;
-        } else if (!has_tags && line.starts_with("- TAGS:")) {
-            line.erase(0, 7);
+        } else if (!has_tags && line.starts_with(TAGS_PREFIX)) {
+            line.erase(0, TAGS_PREFIX.size());
             mado::common::trim_inplace(line);
             e.set_tags(split_tags(line));
             has_tags = true;
-        } else if (!has_status && line.starts_with("- STATUS:")) {
-            line.erase(0, 9);
+        } else if (!has_status && line.starts_with(STATUS_PREFIX)) {
+            line.erase(0, STATUS_PREFIX.size());
             mado::common::trim_inplace(line);
             e.set_status(std::move(line));
             has_status = true;
-        } else if (!has_priority && line.starts_with("- PRIORITY:")) {
-            line.erase(0, 11);
+        } else if (!has_priority && line.starts_with(PRIORITY_PREFIX)) {
+            line.erase(0, PRIORITY_PREFIX.size());
             mado::common::trim_inplace(line);
             if (auto p = parse_priority(line))
                 e.set_priority(*p);
             has_priority = true;
-        } else if (!has_deadline && line.starts_with("- DEADLINE:")) {
-            line.erase(0, 11);
+        } else if (!has_deadline && line.starts_with(DEADLINE_PREFIX)) {
+            line.erase(0, DEADLINE_PREFIX.size());
             mado::common::trim_inplace(line);
             if (mado::common::is_timestamp(line))
                 e.set_deadline(std::move(line));
@@ -489,6 +557,137 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     }
 
     return e;
+}
+
+// Collects a deterministic, portable snapshot before opening the destination.
+// I/O failures throw runtime_error/filesystem_error; unsafe destinations throw Repository_Error.
+// Собирает переносимый снимок в стабильном порядке до открытия файла назначения.
+// Сбои ОС вызывают runtime_error/filesystem_error; опасный путь — Repository_Error.
+void Repository::dump_mtimes(const std::filesystem::path &file) const {
+    const auto destination = file.empty() ? root_ / MTIMES_FILE : file;
+    std::vector<std::pair<std::string, int64_t>> records;
+
+    // Include every real entry file, independently of its metadata contents.
+    // Включаем каждый настоящий файл записи независимо от содержимого метаданных.
+    for (const auto &dir : std::filesystem::directory_iterator(root_)) {
+        const auto main = dir.path() / ENTRY_FILE;
+        if (dir.is_symlink() || !dir.is_directory() ||
+            std::filesystem::is_symlink(main) || !std::filesystem::is_regular_file(main))
+            continue;
+
+        // Check that the dump destination is not an entry's MAIN.md file.
+        // Проверяем, что файл назначения дампа — не MAIN.md одной из заметок.
+        if (std::filesystem::exists(destination) && std::filesystem::equivalent(destination, main))
+            throw Repository_Error("Mtime index cannot overwrite entry " + main.string());
+
+        const auto file_time = std::filesystem::last_write_time(main);
+
+        // Reject dates outside the index range before narrowing to Unix nanoseconds.
+        // Отклоняем даты вне диапазона индекса до сужения к наносекундам Unix.
+        const auto wide_time = std::filesystem::file_time_type::clock::to_sys(
+            std::chrono::time_point<std::filesystem::file_time_type::clock,
+                                    std::chrono::duration<long double>>{file_time});
+        const auto unix_ticks = std::chrono::duration<long double, std::nano>(
+                                    wide_time.time_since_epoch())
+                                    .count();
+        if (unix_ticks <= static_cast<long double>(std::numeric_limits<int64_t>::lowest()) ||
+            unix_ticks >= static_cast<long double>(std::numeric_limits<int64_t>::max()))
+            throw Repository_Error("Mtime outside index range for " + main.string());
+
+        const auto time = std::filesystem::file_time_type::clock::to_sys(file_time);
+
+        const auto id = dir.path().filename().string();
+        if (id.find_first_of(INVALID_PATH_CHARS) != std::string::npos)
+            throw Repository_Error("Invalid entry identifier " + dir.path().string());
+
+        records.emplace_back(id,
+                             std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count());
+    }
+
+    std::sort(records.begin(), records.end());
+
+    std::ofstream out(destination, std::ios::binary);
+    out << MTIMES_HEADER << '\n';
+
+    // Quoted identifiers preserve spaces in directory suffixes.
+    // Кавычки сохраняют пробелы в суффиксах имён каталогов.
+    for (const auto &[id, time] : records)
+        out << std::quoted(id) << '\t' << time << '\n';
+
+    out.close();
+    if (!out)
+        throw std::runtime_error("Cannot write mtime index " + destination.string());
+}
+
+// Parses and validates all records before applying any filesystem changes.
+// Domain errors throw Repository_Error; filesystem/I/O and allocation exceptions propagate.
+// Разбирает и проверяет все записи до изменений файловой системы.
+// Ошибки данных вызывают Repository_Error; исключения ОС и памяти передаются выше.
+void Repository::restore_mtimes(const std::filesystem::path &file, bool strict) const {
+    const auto source = file.empty() ? root_ / MTIMES_FILE : file;
+    std::ifstream in(source, std::ios::binary);
+    if (!in)
+        throw std::runtime_error("Cannot read mtime index " + source.string());
+
+    std::string line;
+    if (!std::getline(in, line) || line != MTIMES_HEADER)
+        throw Repository_Error("Invalid mtime index header in " + source.string());
+
+    std::vector<std::pair<std::filesystem::path, std::filesystem::file_time_type>> records;
+    std::unordered_set<std::string> seen;
+
+    // Reject invalid data and unsafe targets; missing files are optional unless strict.
+    // Отклоняем неверные данные и опасные цели; отсутствующие файлы обязательны только при strict.
+    while (std::getline(in, line)) {
+        std::istringstream row(line);
+        std::string id;
+        int64_t ticks;
+        if (!(row >> std::quoted(id) >> ticks) || !(row >> std::ws).eof() ||
+            id.empty() || id == "." || id == ".." ||
+            id.find_first_of(INVALID_PATH_CHARS) != std::string::npos || !seen.insert(id).second)
+            throw Repository_Error("Invalid mtime index record in " + source.string());
+
+        const auto dir = root_ / id;
+        const auto main = dir / ENTRY_FILE;
+
+        // Symbolic links are unsafe targets in either mode, including dangling links.
+        // Символические ссылки опасны в обоих режимах, в том числе ссылки без цели.
+        if (std::filesystem::is_symlink(dir) || std::filesystem::is_symlink(main))
+            throw Repository_Error("Invalid symbolic link entry " + main.string());
+
+        // A partial copy or deleted entry must not block ordinary restoration.
+        // Неполная копия или удалённая запись не должны мешать обычному восстановлению.
+        if (!std::filesystem::exists(main) && !strict)
+            continue;
+        if (!std::filesystem::is_regular_file(main))
+            throw Repository_Error("Missing regular entry file " + main.string());
+
+        // Check native clock bounds using a wide duration before integral clock arithmetic.
+        // Проверяем границы файловых часов широким типом до целочисленных преобразований.
+        using File_Duration = std::filesystem::file_time_type::duration;
+        const auto wide_time = std::filesystem::file_time_type::clock::from_sys(
+            std::chrono::sys_time<std::chrono::duration<long double>>{
+                std::chrono::duration<long double>{std::chrono::nanoseconds{ticks}}});
+        const auto native_ticks = std::chrono::duration<long double, File_Duration::period>(
+                                      wide_time.time_since_epoch())
+                                      .count();
+        if (native_ticks <= static_cast<long double>(std::numeric_limits<File_Duration::rep>::lowest()) ||
+            native_ticks >= static_cast<long double>(std::numeric_limits<File_Duration::rep>::max()))
+            throw Repository_Error("Mtime outside filesystem clock range in " + source.string());
+
+        const auto time = std::filesystem::file_time_type::clock::from_sys(
+            std::chrono::sys_time<std::chrono::nanoseconds>{std::chrono::nanoseconds{ticks}});
+
+        records.emplace_back(main, time);
+    }
+
+    if (in.bad())
+        throw std::runtime_error("Cannot read mtime index " + source.string());
+
+    // Only validated records reach the write phase; OS failures propagate with their path.
+    // В фазу записи попадают только проверенные строки; сбои ОС передаются с путём.
+    for (const auto &[main, time] : records)
+        std::filesystem::last_write_time(main, time);
 }
 
 } // namespace mado::repository

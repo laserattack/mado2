@@ -62,6 +62,8 @@ Use `mado -C <directory> <command>` to start from a different directory.
 | `mado new [-template NAME] [-suffix TEXT]` | Creates an entry. Use `-format path` to print its Markdown file path. |
 | `mado ls [QUERY]` | Lists matching entries. An omitted query selects all entries. |
 | `mado rm QUERY` | Deletes the directories of matching entries, including their attachments. |
+| `mado dump-mtimes [FILE]` | Saves entry modification times; defaults to `MADO/.mtimes`. |
+| `mado restore-mtimes [-strict] [FILE]` | Restores entry modification times from the index. |
 | `mado info` | Shows the repository path, entry count, and counts by status, tag, and priority. |
 | `mado debug-ast QUERY` | Prints the query AST, including completed nodes on a parse error. |
 | `mado help [COMMAND]` | Shows general or command-specific usage. |
@@ -83,6 +85,37 @@ preview a deletion, run `ls` with the same query before running `rm`.
   `-hide-*` flags select the fields to include.
 - `info -format jsonl` prints a single JSON object. `info -only-dir` prints
   the repository path, as a JSON string when combined with `-format jsonl`.
+
+### Preserving modification times
+
+`mtime` is the modification time of each entry's `MAIN.md`. Save it before
+copying a repository between systems, then restore it after copying:
+
+```sh
+mado dump-mtimes
+mado restore-mtimes
+
+# Optional paths are relative to the current working directory.
+mado dump-mtimes backup.mtimes
+mado restore-mtimes backup.mtimes
+
+# Require every indexed entry to exist before restoring anything.
+mado restore-mtimes -strict
+```
+
+Both commands use `MADO/.mtimes` by default, finding `MADO` in the current
+directory or its ancestors. Copy this index together with your entries.
+The versioned text file stores the full entry directory name (including its
+suffix) and Unix timestamps in nanoseconds, independent of the time zone.
+The destination filesystem may have lower timestamp precision.
+
+Restoration validates the entire index before changing times. Malformed or
+duplicate records and unsafe targets are errors. Missing entry files or
+directories are skipped by default. With `-strict`, a missing entry is an
+error and no times are changed during validation.
+Entries absent from the index remain unchanged. Filesystem write failures
+stop restoration and may leave earlier entries restored; rerun after fixing
+the failure. Neither command changes entry contents.
 
 ### Templates
 

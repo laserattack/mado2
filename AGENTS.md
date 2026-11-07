@@ -28,6 +28,9 @@
 - Readability is a core requirement. Prefer direct control flow and
   descriptive names. Keep comments brief and explain intent where the
   reader would otherwise have to infer it.
+- Separate logical blocks inside functions and methods with blank lines.
+  Keep related operations together, and visually separate setup, validation,
+  processing, and output or cleanup so code does not form a continuous wall of text.
 
 # Code documentation and naming
 
@@ -45,6 +48,23 @@
 - Use `Word_Word_Word` for classes and structs, `WORD_WORD` for
   global variables and constants, and `word_word` for ordinary
   variables, functions, and methods.
+
+# Constants
+
+- Extract values that define formats, application rules, defaults, or limits
+  and may need to change into descriptive named constants instead of
+  hardcoding them at use sites. Examples include metadata prefixes, filenames,
+  directory names, format versions, sentinel values, and numeric limits.
+- Reuse a shared constant wherever the same logical value is needed. Keep
+  constants in their owning component and the narrowest appropriate scope.
+  Expose a constant in a public header only when callers need it or it has a
+  clear potential use for them. Keep implementation details in source files,
+  regardless of whether their values are literals or computed expressions.
+  Derive related values, such as prefix lengths, from their constants instead
+  of duplicating them.
+- Build diagnostics, help text, and other derived output from those same
+  constants. Do not repeat their values inside string literals: validation
+  rules and their descriptions must stay consistent when a constant changes.
 
 # Error handling
 

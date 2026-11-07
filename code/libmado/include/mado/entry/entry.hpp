@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mado/common/time_utils.hpp>
+
 #include <cstdint>
 #include <filesystem>
 #include <stdexcept>
@@ -7,6 +9,11 @@
 #include <vector>
 
 namespace mado::entry {
+
+// Largest supported priority value. No errors or exceptions.
+// Максимально допустимый приоритет. Ошибок и исключений нет.
+inline constexpr uint16_t MAX_PRIORITY = 999;
+
 
 // Reports invalid entry metadata.
 // Сообщает о некорректных метаданных записи.
@@ -82,9 +89,9 @@ class Entry {
     std::string status_ = "";
     uint16_t priority_ = 0;
     std::vector<std::string> tags_ = {""};
-    std::string time_ = "99990101-000000";
-    std::string mtime_ = "99990101-000000";
-    std::string deadline_ = "99990101-000000";
+    std::string time_ = mado::common::NEVER_TIMESTAMP;
+    std::string mtime_ = mado::common::NEVER_TIMESTAMP;
+    std::string deadline_ = mado::common::NEVER_TIMESTAMP;
 };
 
 } // namespace mado::entry

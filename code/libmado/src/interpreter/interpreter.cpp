@@ -3,6 +3,7 @@
 #include <mado/common/fuzzy_match.hpp>
 #include <mado/common/glob_pattern.hpp>
 #include <mado/common/text_utils.hpp>
+#include <mado/common/time_utils.hpp>
 
 namespace mado::interpreter {
 
@@ -128,7 +129,7 @@ bool Interpreter::evaluate(const mado::query::Ast_Node *node,
         return entry.priority() == 0;
 
     case mado::query::Ast_Node_Type::Undeadlined:
-        return entry.deadline() == "99990101-000000";
+        return entry.deadline() == mado::common::NEVER_TIMESTAMP;
 
     case mado::query::Ast_Node_Type::Binary_Operator: {
         auto *n = static_cast<const mado::query::Ast_Binary_Operator_Node *>(node);

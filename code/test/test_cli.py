@@ -1,5 +1,6 @@
 import json
 import locale
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -159,6 +160,64 @@ class Cli_Tests(unittest.TestCase):
                           self.check_output(created, str(path) + "\n") and
                           path.is_file() and path.read_text() == NOTE)
 
+    # Checks default and explicit mtime indexes through real command execution.
+    # Проверяет стандартный и явный индекс mtime запуском настоящих команд.
+    def test_mtimes_commands(self):
+        self.run_mado("init", "-force")
+        main = self.entry("20260101-000000", "- NAME: sample\n")
+        original = main.stat().st_mtime_ns
+        dumped = self.run_mado("dump-mtimes")
+        index = self.repo / ".mtimes"
+        custom = self.work / "custom times"
+        copied = self.run_mado("dump-mtimes", str(custom))
+        os.utime(main, ns=(original, original + 10000000000))
+        restored = self.run_mado("restore-mtimes")
+        default_time = main.stat().st_mtime_ns
+        os.utime(main, ns=(original, original + 20000000000))
+        explicit = self.run_mado("restore-mtimes", str(custom))
+        self.test(self.check_output(dumped, "") and self.check_output(copied, "") and
+                  self.check_output(restored, "") and self.check_output(explicit, "") and
+                  index.read_bytes() == custom.read_bytes() and default_time == original and
+                  main.stat().st_mtime_ns == original)
+
+    # Checks that -strict rejects missing targets while the default restores existing entries.
+    # Проверяет отказ -strict при отсутствующих целях и восстановление существующих по умолчанию.
+    def test_mtimes_strict_flag(self):
+        self.run_mado("init", "-force")
+        main = self.entry("20260101-000000", "- NAME: existing\n")
+        missing = self.entry("20260102-000000", "- NAME: missing\n")
+        original = main.stat().st_mtime_ns
+        custom = self.work / "custom times"
+        self.run_mado("dump-mtimes", str(custom))
+        missing.unlink()
+        os.utime(main, ns=(original, original + 10000000000))
+        changed = main.stat().st_mtime_ns
+        strict = self.run_mado("restore-mtimes", "-strict", str(custom))
+        unchanged = main.stat().st_mtime_ns == changed
+        restored = self.run_mado("restore-mtimes", str(custom))
+        self.test(self.check_error(strict, "Missing regular entry file") and unchanged and
+                  self.check_output(restored, "") and main.stat().st_mtime_ns == original)
+
+    # Checks argument, repository, and missing-index diagnostics for both commands.
+    # Проверяет диагностику аргументов, отсутствия репозитория и индекса обеих команд.
+    def test_mtimes_command_errors(self):
+        root = Path(self.work.anchor)
+        # Read-only lookup at the filesystem root avoids the project's ancestor repository.
+        # Поиск только для чтения от корня диска исключает репозиторий над тестом.
+        if (root / "MADO").is_dir():
+            self.skipTest("filesystem root contains a MADO repository")
+        missing_repo = [self.run_mado(command, cwd=root)
+                        for command in ("dump-mtimes", "restore-mtimes")]
+        self.run_mado("init", "-force")
+        missing_index = self.run_mado("restore-mtimes")
+        extra = [self.run_mado(command, "one", "two")
+                 for command in ("dump-mtimes", "restore-mtimes")]
+        flags = [self.run_mado(command, "-unknown")
+                 for command in ("dump-mtimes", "restore-mtimes")]
+        self.test(all(self.check_error(result, "No MADO/") for result in missing_repo) and
+                  self.check_error(missing_index, "Cannot read mtime index") and
+                  all(self.check_error(result, "Usage:") for result in extra + flags))
+
     # Checks general help. Failures are reported by unittest.
     # Проверяет общую справку. Сбои регистрирует unittest.
     def test_general_help(self):
@@ -177,6 +236,7 @@ class Cli_Tests(unittest.TestCase):
             "help": "[COMMAND]", "version": "version", "ls": "[QUERY]",
             "rm": "<QUERY>", "init": "[-force]", "new": "[-template <name>]",
             "info": "[-only-dir]", "debug-ast": "<QUERY>",
+            "dump-mtimes": "[FILE]", "restore-mtimes": "[-strict] [FILE]",
         }
         for command, signature in signatures.items():
             with self.subTest(command=command):

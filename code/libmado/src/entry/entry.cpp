@@ -26,8 +26,8 @@ void Entry::set_status(std::string s) {
 // Stores a priority from 0 to 999. Throws Entry_Error outside that range.
 // Сохраняет приоритет от 0 до 999. Выход за диапазон вызывает Entry_Error.
 void Entry::set_priority(uint16_t p) {
-    if (p > 999)
-        throw Entry_Error("Priority must be in [0, 999], got " + std::to_string(p));
+    if (p > MAX_PRIORITY)
+        throw Entry_Error("Priority must be in [0, " + std::to_string(MAX_PRIORITY) + "], got " + std::to_string(p));
     priority_ = p;
 }
 
