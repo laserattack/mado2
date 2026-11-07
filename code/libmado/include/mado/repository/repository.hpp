@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <mado/entry/entry.hpp>
@@ -30,6 +31,24 @@ inline constexpr char MARKDOWN_EXTENSION[] = ".md";
 // Имя файла записи из общего расширения Markdown. Возможен std::bad_alloc.
 inline const std::string ENTRY_FILE = std::string("MAIN") + MARKDOWN_EXTENSION;
 
+// Retains a failed deletion and its OS error; the directory may be partially deleted.
+// Stores data only; no returned errors or exceptions of its own.
+// Сохраняет неудачное удаление и ошибку ОС; каталог может быть удалён частично.
+// Только хранит данные; собственных возвращаемых ошибок и исключений нет.
+struct Remove_Failure {
+    mado::entry::Entry entry;
+    std::error_code error;
+};
+
+// Separates successful deletions from failures so callers can report partial success.
+// Stores data only; no returned errors or exceptions of its own.
+// Разделяет успешные удаления и сбои для сообщения о частичном успехе.
+// Только хранит данные; собственных возвращаемых ошибок и исключений нет.
+struct Remove_Result {
+    std::vector<mado::entry::Entry> removed;
+    std::vector<Remove_Failure> failed;
+};
+
 // Represents an opened MADO directory and manages its entries and templates.
 // Представляет открытый MADO и управляет записями и шаблонами.
 class Repository {
@@ -54,12 +73,11 @@ class Repository {
     // памяти передаются вызывающему коду.
     std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;
 
-    // Finds entries matching the filter, removes their directories, and
-    // returns successful removals. Skips failed deletions. I/O failures
-    // while loading and allocation exceptions can propagate.
-    // Удаляет каталоги подходящих записей и возвращает успешные удаления. Ошибки удаления
-    // пропускаются, исключения чтения и выделения памяти передаются вызывающему коду.
-    std::vector<mado::entry::Entry> remove(const mado::query::Ast_Node *filter) const;
+    // Loads matching entries, then attempts every deletion and returns successes and OS errors.
+    // Failed directories may be partially deleted. Loading and allocation exceptions propagate.
+    // Загружает подходящие записи, пробует удалить каждую и возвращает успехи и ошибки ОС.
+    // При сбое каталог может быть удалён частично. Исключения чтения и памяти передаются выше.
+    Remove_Result remove(const mado::query::Ast_Node *filter) const;
 
     // Creates a UTC timestamped entry with an optional suffix. Uses a named
     // template when supplied and the built-in task header otherwise.

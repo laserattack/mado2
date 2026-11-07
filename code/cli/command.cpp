@@ -238,11 +238,10 @@ class Rm_Command : public Command {
         description = "Remove entries";
     }
 
-    // Removes matching entries. Returns false for invalid options, queries, or
-    // a missing repository. Loading and formatting exceptions propagate.
-    // Удаляет подходящие записи. Возвращает false при неверных параметрах, запросе или
-    // отсутствии репозитория. Исключения загрузки и форматирования передаются вызывающему
-    // коду.
+    // Attempts every matching deletion and reports failures. Returns false for deletion errors,
+    // invalid arguments, or a missing repository. Loading/formatting exceptions propagate.
+    // Пробует удалить все совпадения и сообщает о сбоях. Возвращает false при ошибке удаления,
+    // неверных аргументах или отсутствии репозитория. Исключения чтения/форматирования идут выше.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
 
@@ -308,15 +307,21 @@ class Rm_Command : public Command {
             return false;
         }
 
-        auto removed = repo->remove(ast.get());
-
+        const auto result = repo->remove(ast.get());
         auto formatter = make_entry_info_formatter(fmt);
+
         // Print only entries whose directories were removed.
         // Выводим только записи, каталоги которых удалены.
-        for (const auto &e : removed)
-            formatter->write(e, std::cout);
+        for (const auto &entry : result.removed)
+            formatter->write(entry, std::cout);
 
-        return true;
+        // Report every failed directory and preserve a failing exit status for partial success.
+        // Сообщаем о каждом сбое с каталогом и возвращаем ошибку при частичном успехе.
+        for (const auto &failure : result.failed)
+            std::cerr << "Cannot remove " << failure.entry.path().parent_path().string()
+                      << ": " << failure.error.message() << '\n';
+
+        return result.failed.empty();
     }
 };
 

@@ -55,6 +55,36 @@ class Temp_Dir {
     std::filesystem::path path_;
 };
 
+// Temporarily removes write permissions and restores them before fixture cleanup.
+// Setup failures throw filesystem_error; cleanup suppresses errors, including missing targets.
+// Временно убирает права записи и восстанавливает их перед очисткой окружения.
+// Ошибки подготовки вызывают filesystem_error; очистка подавляет ошибки, включая отсутствие цели.
+class Read_Only_Path {
+  public:
+    // Saves permissions and makes the file/directory read-only. Filesystem errors propagate.
+    // Сохраняет права и запрещает запись в файл/каталог. Ошибки файловой системы передаются выше.
+    explicit Read_Only_Path(std::filesystem::path path)
+        : path_(std::move(path)), permissions_(std::filesystem::status(path_).permissions()) {
+        std::filesystem::permissions(path_, std::filesystem::perms::owner_write |
+            std::filesystem::perms::group_write | std::filesystem::perms::others_write,
+            std::filesystem::perm_options::remove);
+    }
+
+    // Restores original permissions if the target survives. No exceptions.
+    // Восстанавливает исходные права, если цель сохранилась. Исключений нет.
+    ~Read_Only_Path() {
+        std::error_code error;
+        std::filesystem::permissions(path_, permissions_, error);
+    }
+
+    Read_Only_Path(const Read_Only_Path &) = delete;
+    Read_Only_Path &operator=(const Read_Only_Path &) = delete;
+
+  private:
+    std::filesystem::path path_;
+    std::filesystem::perms permissions_;
+};
+
 // Creates a fixture entry and writes its contents. Directory creation can
 // throw filesystem_error.
 // Создаёт тестовую запись и записывает содержимое. Создание каталога может выбросить
@@ -521,11 +551,69 @@ static void test_remove() {
     auto ast = parse("name = b");
     auto removed = repo->remove(ast.get());
 
-    test(removed.size() == 1 &&
-         removed[0].name() == "b" &&
+    test(removed.removed.size() == 1 && removed.failed.empty() &&
+         removed.removed[0].name() == "b" &&
          !std::filesystem::exists(tmp.path() / "MADO" / "20260202-130000") &&
          std::filesystem::exists(tmp.path() / "MADO" / "20260101-120000") &&
          std::filesystem::exists(tmp.path() / "MADO" / "20260303-140000"));
+}
+
+// Checks OS failures and optional successful deletions in an isolated repository.
+// Returns true when checks pass or permissions are bypassed (reported as skipped).
+// Unexpected filesystem/allocation exceptions propagate to the test runner.
+// Проверяет сбои ОС и необязательные успешные удаления в изолированном репозитории.
+// Возвращает true при успехе или обходе прав доступа (выводится пропуск).
+// Неожиданные исключения файловой системы/памяти передаются запускателю тестов.
+static bool check_remove_failures(bool mixed) {
+    Temp_Dir tmp;
+    const auto blocked = make_entry(tmp.path(), "20260101-000000", "- NAME: blocked\n");
+    const auto main = blocked / "MAIN.md";
+    const auto repo = Repository::open(tmp.path());
+
+    // POSIX restricts unlink through the directory; Windows uses the file read-only attribute.
+    // POSIX запрещает unlink правами каталога; Windows использует атрибут файла «только чтение».
+#if defined(_WIN32)
+    Read_Only_Path permissions(main);
+#else
+    Read_Only_Path permissions(blocked);
+#endif
+
+    std::error_code probe_error;
+    std::filesystem::remove(main, probe_error);
+    // Elevated users or permissive filesystems cannot exercise a permission-denied deletion.
+    // Повышенные права или мягкие ограничения ФС не позволяют проверить отказ удаления.
+    if (!probe_error) {
+        std::printf("SKIP: filesystem does not enforce deletion permissions\n");
+        return true;
+    }
+
+    std::filesystem::path removable;
+    if (mixed)
+        removable = make_entry(tmp.path(), "20260102-000000", "- NAME: removable\n");
+
+    const auto result = repo->remove(nullptr);
+    return result.failed.size() == 1 && result.failed[0].entry.path() == main &&
+           result.failed[0].entry.name() == "blocked" && bool(result.failed[0].error) &&
+           std::filesystem::is_regular_file(main) &&
+           (mixed ? result.removed.size() == 1 && result.removed[0].name() == "removable" &&
+                        !std::filesystem::exists(removable)
+                  : result.removed.empty());
+}
+
+// Checks partial deletion reports failures and still removes other matches.
+// Unexpected exceptions fail the test; unenforced permissions are reported as skipped.
+// Проверяет отчёт о частичном удалении и удаление остальных записей.
+// Неожиданные исключения проваливают тест; отсутствие ограничений прав отмечается пропуском.
+static void test_remove_partial_failure() {
+    test(check_remove_failures(true));
+}
+
+// Checks a fully failed deletion returns no successful removals and retains the OS error.
+// Unexpected exceptions fail the test; unenforced permissions are reported as skipped.
+// Проверяет отсутствие успехов и сохранение ошибки ОС при полном отказе удаления.
+// Неожиданные исключения проваливают тест; отсутствие ограничений прав отмечается пропуском.
+static void test_remove_all_failed() {
+    test(check_remove_failures(false));
 }
 
 // Checks nothing removed. Unexpected exceptions fail the test.
@@ -538,7 +626,7 @@ static void test_remove_no_match() {
     auto ast = parse("name = nonexistent");
     auto removed = repo->remove(ast.get());
 
-    test(removed.empty() &&
+    test(removed.removed.empty() && removed.failed.empty() &&
          std::filesystem::exists(tmp.path() / "MADO" / "20260101-120000"));
 }
 
@@ -1043,6 +1131,8 @@ int main() {
         {"Load entry dir suffix", "20260920-215549-serr", test_load_entry_suffix_dir},
         {"Load entry old T separator", "20260920T215549 -> 20260920-215549", test_load_entry_old_t_separator},
         {"Remove", "name = b removes only b", test_remove},
+        {"Remove partial failure", "continue after an OS deletion error", test_remove_partial_failure},
+        {"Remove all failed", "return failed entries and OS errors", test_remove_all_failed},
         {"Remove no match", "nothing removed", test_remove_no_match},
         {"Init creates MADO", "init creates MADO/ and returns repo", test_init_creates_mado},
         {"Init restores templates here", "init restores templates in existing MADO/", test_init_restores_templates_here},

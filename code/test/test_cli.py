@@ -480,6 +480,47 @@ class Cli_Tests(unittest.TestCase):
         self.test(self.check_output(result, str(removed) + "\n") and
                   not removed.parent.exists() and kept.is_file())
 
+    # Checks exit status, output formatting, and diagnostics after deletion failures.
+    # Filesystem errors fail the test; users bypassing permissions cause a skip.
+    # Проверяет код выхода, формат вывода и диагностику после сбоев удаления.
+    # Сбои ФС проваливают тест; обход прав доступа пользователем вызывает пропуск.
+    def check_rm_failure(self, mixed):
+        blocked = self.entry("20260101-000000", "- NAME: blocked\n")
+        removable = self.entry("20260102-000000", "- NAME: removable\n") if mixed else None
+        target = blocked if os.name == "nt" else blocked.parent
+        original_permissions = target.stat().st_mode
+
+        # Restore permissions before TemporaryDirectory attempts to clean the fixture.
+        # Восстанавливаем права до попытки TemporaryDirectory очистить окружение.
+        self.addCleanup(target.chmod, original_permissions)
+        target.chmod(original_permissions & ~0o222)
+        if os.name != "nt" and os.access(target, os.W_OK):
+            self.skipTest("current user bypasses deletion permissions")
+
+        result = self.run_mado("rm", "-format", "jsonl", "all")
+        output = [json.loads(line) for line in result.stdout.splitlines()]
+        expected_paths = [str(removable)] if mixed else []
+
+        return (result.returncode == 1 and
+                [entry["path"] for entry in output] == expected_paths and
+                f"Cannot remove {blocked.parent}: " in result.stderr and
+                bool(result.stderr.split(": ", 1)[-1].strip()) and blocked.is_file() and
+                (not mixed or not removable.parent.exists()))
+
+    # Checks rm preserves JSON output for successes and returns failure for a partial deletion.
+    # Unexpected exceptions fail the test; unenforced permissions cause a skip.
+    # Проверяет JSON успешных удалений и ошибочный код выхода при частичном удалении.
+    # Неожиданные исключения проваливают тест; отсутствие ограничений прав вызывает пропуск.
+    def test_rm_partial_failure(self):
+        self.test(self.check_rm_failure(True))
+
+    # Checks rm reports a failed batch without outputting successful entries.
+    # Unexpected exceptions fail the test; unenforced permissions cause a skip.
+    # Проверяет отчёт о полном отказе удаления без вывода успешных записей.
+    # Неожиданные исключения проваливают тест; отсутствие ограничений прав вызывает пропуск.
+    def test_rm_all_failed(self):
+        self.test(self.check_rm_failure(False))
+
     # Checks rm no matches. Failures are reported by unittest.
     # Проверяет поведение rm при отсутствии совпадений. Сбои регистрирует unittest.
     def test_rm_no_matches(self):

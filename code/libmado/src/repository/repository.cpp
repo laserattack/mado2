@@ -287,28 +287,30 @@ std::vector<mado::entry::Entry> Repository::find(
     return result;
 }
 
-// Removes matching entries and returns successful removals. Skips failed
-// deletions. I/O failures encountered while loading can throw
-// std::runtime_error.
-// Удаляет отобранные записи и возвращает успешно удалённые. Неудачные удаления пропускает.
-// Сбой чтения может вызвать std::runtime_error.
-std::vector<mado::entry::Entry> Repository::remove(
-    const mado::query::Ast_Node *filter) const {
+// Attempts all deletions after loading matching entries, recording each OS failure.
+// Failed directories may be partially deleted. Loading and allocation exceptions propagate.
+// Пробует все удаления после загрузки записей, сохраняя каждый сбой ОС.
+// При сбое каталог может быть удалён частично. Исключения чтения и памяти передаются выше.
+Remove_Result Repository::remove(const mado::query::Ast_Node *filter) const {
+    auto entries = find(filter);
+    Remove_Result result;
+    result.removed.reserve(entries.size());
+    result.failed.reserve(entries.size());
 
-    std::vector<mado::entry::Entry> result;
-    for_each_matching(filter, [&](mado::entry::Entry e) {
-        std::error_code ec;
-        std::filesystem::remove_all(e.path().parent_path(), ec);
-        // TODO: decide what to do when remove_all fails. Options:
-        //   - skip silently (current)
-        //   - throw std::filesystem::filesystem_error
-        //   - return something like Remove_Result with both removed and failed entries
-        // TODO: выбрать обработку сбоя remove_all. Сейчас запись пропускается. Возможные
-        // варианты — исключение filesystem_error или результат со списком сбоев.
-        if (!ec)
-            result.push_back(std::move(e));
-        return true;
-    });
+    // Snapshot the matches first so deletions cannot disturb directory iteration.
+    // Сначала получаем снимок записей, чтобы удаления не нарушали обход каталога.
+    for (auto &entry : entries) {
+        std::error_code error;
+        std::filesystem::remove_all(entry.path().parent_path(), error);
+
+        // Keep failed entries and their error codes while continuing the batch.
+        // Сохраняем неудачные записи и коды ошибок, продолжая пакетное удаление.
+        if (error)
+            result.failed.push_back({std::move(entry), error});
+        else
+            result.removed.push_back(std::move(entry));
+    }
+
     return result;
 }
 

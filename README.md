@@ -72,6 +72,11 @@ Use `mado -C <directory> <command>` to start from a different directory.
 Pass a query as one shell argument and put command flags before it. To
 preview a deletion, run `ls` with the same query before running `rm`.
 
+`rm` attempts every matching deletion and prints successfully removed entries in
+the selected format. Each deletion failure is reported with its directory and OS
+error on stderr; any failure produces exit code 1. A failed directory may have
+been partially deleted. Errors while loading entries occur before deletion begins.
+
 ### Sorting and output
 
 - `ls -sort +status,-priority` sorts by status ascending, then priority
