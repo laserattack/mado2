@@ -34,6 +34,10 @@ enum class Ast_Comparison_Field {
     Any,
 };
 
+// Returns the field's diagnostic name or "Unknown". No exceptions.
+// Возвращает диагностическое имя поля или "Unknown". Исключений нет.
+const char *comparison_field_to_string(Ast_Comparison_Field field);
+
 // Identifies the comparison operation applied to an entry value.
 // Обозначает операцию сравнения значения записи.
 enum class Ast_Comparison_Operator {

@@ -9,22 +9,10 @@ namespace mado::query {
 
 namespace {
 
-// Returns the canonical field name for diagnostics. Unknown fields return "unknown".
-// No exceptions.
-// Возвращает основное имя поля для диагностики или "unknown". Исключений нет.
-const char *comparison_field_name(Ast_Comparison_Field field) {
-    switch (field) {
-    case Ast_Comparison_Field::Priority: return "priority";
-    case Ast_Comparison_Field::Tag: return "tag";
-    case Ast_Comparison_Field::Status: return "status";
-    case Ast_Comparison_Field::Path: return "path";
-    case Ast_Comparison_Field::Name: return "name";
-    case Ast_Comparison_Field::Time: return "time";
-    case Ast_Comparison_Field::Deadline: return "deadline";
-    case Ast_Comparison_Field::Mtime: return "mtime";
-    case Ast_Comparison_Field::Any: return "any";
-    }
-    return "unknown";
+// Lowercases the shared AST field name for query diagnostics. May throw std::bad_alloc.
+// Приводит общее имя поля AST к нижнему регистру. Возможен std::bad_alloc.
+std::string comparison_field_name(Ast_Comparison_Field field) {
+    return mado::common::utf8_tolower(comparison_field_to_string(field));
 }
 
 // Describes the unexpected input and retains its internal token kind.

@@ -66,7 +66,7 @@ const std::string &Ast_Comparison_Operator_Node::as_string() const {
 // Maps the enum to its diagnostic label. Unknown values use a fallback label.
 // Возвращает диагностическую метку перечисления, включая запасную метку для неизвестных
 // значений.
-static const char *comparison_field_to_string(Ast_Comparison_Field field) {
+const char *comparison_field_to_string(Ast_Comparison_Field field) {
     switch (field) {
     case Ast_Comparison_Field::Priority:
         return "Priority";
