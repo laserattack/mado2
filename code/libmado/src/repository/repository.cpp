@@ -621,11 +621,11 @@ void Repository::dump_mtimes(const std::filesystem::path &file) const {
         throw std::runtime_error("Cannot write mtime index " + destination.string());
 }
 
-// Parses and validates all records before applying any filesystem changes.
+// Validates all records before restoring times, optionally preserving newer modifications.
 // Domain errors throw Repository_Error; filesystem/I/O and allocation exceptions propagate.
-// Разбирает и проверяет все записи до изменений файловой системы.
+// Проверяет все записи до восстановления, при необходимости сохраняя более новые изменения.
 // Ошибки данных вызывают Repository_Error; исключения ОС и памяти передаются выше.
-void Repository::restore_mtimes(const std::filesystem::path &file, bool strict) const {
+void Repository::restore_mtimes(const std::filesystem::path &file, bool strict, bool keep_newer) const {
     const auto source = file.empty() ? root_ / MTIMES_FILE : file;
     std::ifstream in(source, std::ios::binary);
     if (!in)
@@ -688,8 +688,14 @@ void Repository::restore_mtimes(const std::filesystem::path &file, bool strict) 
 
     // Only validated records reach the write phase; OS failures propagate with their path.
     // В фазу записи попадают только проверенные строки; сбои ОС передаются с путём.
-    for (const auto &[main, time] : records)
+    for (const auto &[main, time] : records) {
+        // Compare native file times immediately before writing to preserve more recent edits.
+        // Сравниваем файловые времена прямо перед записью, сохраняя более свежие изменения.
+        if (keep_newer && std::filesystem::last_write_time(main) > time)
+            continue;
+
         std::filesystem::last_write_time(main, time);
+    }
 }
 
 } // namespace mado::repository

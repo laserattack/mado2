@@ -198,6 +198,34 @@ class Cli_Tests(unittest.TestCase):
         self.test(self.check_error(strict, "Missing regular entry file") and unchanged and
                   self.check_output(restored, "") and main.stat().st_mtime_ns == original)
 
+    # Checks keep-newer with a custom index and strict mode, plus default overwrite behavior.
+    # Filesystem or process exceptions fail the test.
+    # Проверяет keep-newer с явным индексом и строгим режимом, а также обычную перезапись.
+    # Исключения файловой системы или процесса проваливают тест.
+    def test_mtimes_keep_newer_flag(self):
+        self.run_mado("init", "-force")
+        main = self.entry("20260101-000000", "- NAME: newer\n")
+        missing = self.entry("20260102-000000", "- NAME: missing\n")
+        original = main.stat().st_mtime_ns
+        custom = self.work / "custom times"
+        self.run_mado("dump-mtimes", str(custom))
+
+        os.utime(main, ns=(original, original + 10000000000))
+        newer = main.stat().st_mtime_ns
+        kept = self.run_mado("restore-mtimes", "-strict", "-keep-newer", str(custom))
+        preserved = main.stat().st_mtime_ns == newer
+        missing.unlink()
+        strict = self.run_mado("restore-mtimes", "-strict", "-keep-newer", str(custom))
+        unchanged = main.stat().st_mtime_ns == newer
+        skipped = self.run_mado("restore-mtimes", "-keep-newer", str(custom))
+        still_newer = main.stat().st_mtime_ns == newer
+        overwritten = self.run_mado("restore-mtimes", str(custom))
+
+        self.test(self.check_output(kept, "") and preserved and
+                  self.check_error(strict, "Missing regular entry file") and unchanged and
+                  self.check_output(skipped, "") and still_newer and
+                  self.check_output(overwritten, "") and main.stat().st_mtime_ns == original)
+
     # Checks argument, repository, and missing-index diagnostics for both commands.
     # Проверяет диагностику аргументов, отсутствия репозитория и индекса обеих команд.
     def test_mtimes_command_errors(self):
@@ -236,7 +264,7 @@ class Cli_Tests(unittest.TestCase):
             "help": "[COMMAND]", "version": "version", "ls": "[QUERY]",
             "rm": "<QUERY>", "init": "[-force]", "new": "[-template <name>]",
             "info": "[-only-dir]", "debug-ast": "<QUERY>",
-            "dump-mtimes": "[FILE]", "restore-mtimes": "[-strict] [FILE]",
+            "dump-mtimes": "[FILE]", "restore-mtimes": "[-strict] [-keep-newer] [FILE]",
         }
         for command, signature in signatures.items():
             with self.subTest(command=command):

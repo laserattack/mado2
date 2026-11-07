@@ -936,6 +936,35 @@ static void test_mtimes_round_trip() {
          text == "first");
 }
 
+// Checks keep_newer preserves newer times while restoring older and equal ones.
+// Unexpected filesystem or allocation exceptions fail the test.
+// Проверяет сохранение более новых времён и восстановление старых и равных при keep_newer.
+// Неожиданные исключения файловой системы или памяти проваливают тест.
+static void test_mtimes_keep_newer() {
+    Temp_Dir tmp;
+    const auto newer = make_entry(tmp.path(), "20260101-000000", "newer") / "MAIN.md";
+    const auto older = make_entry(tmp.path(), "20260102-000000", "older") / "MAIN.md";
+    const auto equal = make_entry(tmp.path(), "20260103-000000", "equal") / "MAIN.md";
+    const auto repo = Repository::open(tmp.path());
+    const auto time = std::filesystem::file_time_type::clock::now() - std::chrono::hours(48);
+
+    // Normalize timestamps before taking the snapshot, allowing filesystem precision rounding.
+    // Выравниваем времена перед снимком с учётом округления точности файловой системы.
+    for (const auto &main : {newer, older, equal})
+        std::filesystem::last_write_time(main, time);
+    const auto indexed = std::filesystem::last_write_time(equal);
+    repo->dump_mtimes();
+
+    std::filesystem::last_write_time(newer, indexed + std::chrono::hours(24));
+    std::filesystem::last_write_time(older, indexed - std::chrono::hours(24));
+    const auto newer_time = std::filesystem::last_write_time(newer);
+    repo->restore_mtimes({}, false, true);
+
+    test(std::filesystem::last_write_time(newer) == newer_time &&
+         std::filesystem::last_write_time(older) == indexed &&
+         std::filesystem::last_write_time(equal) == indexed);
+}
+
 // Checks a header-only index and an explicit file outside MADO but inside the fixture.
 // Unexpected exceptions fail the test.
 // Проверяет пустой индекс и явный файл вне MADO, но внутри тестового окружения.
@@ -1095,6 +1124,7 @@ int main() {
         {"Create rejects line breaks", "reject CR and LF before creating files", test_create_rejects_line_breaks},
         {"Create dotted template", "retain dots in template names", test_create_dotted_template_name},
         {"Mtimes round trip", "preserve exact times and contents", test_mtimes_round_trip},
+        {"Mtimes keep newer", "preserve newer times and restore older or equal ones", test_mtimes_keep_newer},
         {"Mtimes empty custom index", "explicit destination and empty repository", test_mtimes_empty_custom_index},
         {"Mtimes relocated repository", "restore after moving without absolute paths", test_mtimes_relocated_repository},
         {"Mtimes missing MAIN.md", "strict validation finishes before restoring", test_mtimes_missing_main_file},

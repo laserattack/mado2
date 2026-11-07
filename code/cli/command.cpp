@@ -639,7 +639,7 @@ class Mtimes_Command : public Command {
     // Выбирает сохранение или восстановление и задаёт справку. Сбои памяти передаются выше.
     explicit Mtimes_Command(bool restore) : restore_(restore) {
         name = restore ? "restore-mtimes" : "dump-mtimes";
-        signature = restore ? "[-strict] [FILE]" : "[FILE]";
+        signature = restore ? "[-strict] [-keep-newer] [FILE]" : "[FILE]";
         const auto index_path = std::string(mado::repository::ENTRY_DIR) + "/" +
                                 mado::repository::MTIMES_FILE;
         description = std::string(restore ? "Restore " : "Save ") + mado::repository::ENTRY_FILE +
@@ -653,13 +653,17 @@ class Mtimes_Command : public Command {
     bool run(const std::string &program_name, int argc, char **argv) const override {
         Flag_Context c(name.c_str());
         bool strict = false;
+        bool keep_newer = false;
 
         // Strict missing-file checks are meaningful only for restoration.
         // Строгая проверка отсутствующих файлов нужна только при восстановлении.
         const auto strict_description = std::string("Fail before restoring if any indexed ") +
                                         mado::repository::ENTRY_FILE + " is missing";
-        if (restore_)
+        if (restore_) {
             c.add_bool(&strict, {"strict", "-strict"}, strict_description.c_str());
+            c.add_bool(&keep_newer, {"keep-newer", "-keep-newer"},
+                       "Preserve modification times newer than the index");
+        }
 
         // Parse flags consistently with the other commands.
         // Разбираем флаги так же, как остальные команды.
@@ -687,7 +691,7 @@ class Mtimes_Command : public Command {
         // Keep the two actions explicit; successful commands produce no output.
         // Явно разделяем действия; успешные команды ничего не печатают.
         if (restore_)
-            repo->restore_mtimes(file, strict);
+            repo->restore_mtimes(file, strict, keep_newer);
         else
             repo->dump_mtimes(file);
 

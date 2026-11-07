@@ -63,7 +63,7 @@ Use `mado -C <directory> <command>` to start from a different directory.
 | `mado ls [QUERY]` | Lists matching entries. An omitted query selects all entries. |
 | `mado rm QUERY` | Deletes the directories of matching entries, including their attachments. |
 | `mado dump-mtimes [FILE]` | Saves entry modification times; defaults to `MADO/.mtimes`. |
-| `mado restore-mtimes [-strict] [FILE]` | Restores entry modification times from the index. |
+| `mado restore-mtimes [-strict] [-keep-newer] [FILE]` | Restores entry modification times from the index. |
 | `mado info` | Shows the repository path, entry count, and counts by status, tag, and priority. |
 | `mado debug-ast QUERY` | Prints the query AST, including completed nodes on a parse error. |
 | `mado help [COMMAND]` | Shows general or command-specific usage. |
@@ -106,6 +106,9 @@ mado restore-mtimes backup.mtimes
 
 # Require every indexed entry to exist before restoring anything.
 mado restore-mtimes -strict
+
+# Preserve entry modification times that are newer than the saved times.
+mado restore-mtimes -keep-newer
 ```
 
 Both commands use `MADO/.mtimes` by default, finding `MADO` in the current
@@ -118,6 +121,11 @@ Restoration validates the entire index before changing times. Malformed or
 duplicate records and unsafe targets are errors. Missing entry files or
 directories are skipped by default. With `-strict`, a missing entry is an
 error and no times are changed during validation.
+With `-keep-newer`, an existing entry whose current modification time is greater
+than its indexed time is left unchanged. Older or equal times are restored.
+Without this flag, indexed times overwrite current times. It can be combined
+with `-strict` and a custom index path.
+
 Entries absent from the index remain unchanged. Filesystem write failures
 stop restoration and may leave earlier entries restored; rerun after fixing
 the failure. Neither command changes entry contents.

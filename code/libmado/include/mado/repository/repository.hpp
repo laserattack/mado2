@@ -109,12 +109,15 @@ class Repository {
     void dump_mtimes(const std::filesystem::path &file = {}) const;
 
     // Validates the index and restores existing MAIN.md times; an empty path uses .mtimes.
-    // Missing files are skipped unless strict is true. Invalid data/targets throw Repository_Error;
+    // Missing files are skipped unless strict is true; keep_newer preserves newer file times.
+    // Invalid data/targets throw Repository_Error;
     // I/O and allocation exceptions propagate. Strict validation finishes before any writes.
     // Проверяет индекс и восстанавливает время существующих MAIN.md; пустой путь выбирает .mtimes.
-    // Отсутствующие файлы пропускаются, если strict равен false. Неверные данные и цели вызывают
+    // Отсутствующие файлы пропускаются при strict=false; keep_newer сохраняет более новые времена.
+    // Неверные данные и цели вызывают
     // Repository_Error; сбои ОС и памяти передаются выше. Строгая проверка завершается до записи.
-    void restore_mtimes(const std::filesystem::path &file = {}, bool strict = false) const;
+    void restore_mtimes(const std::filesystem::path &file = {}, bool strict = false,
+                        bool keep_newer = false) const;
 
     // Returns the MADO directory. No exceptions.
     // Возвращает каталог MADO. Исключений нет.
