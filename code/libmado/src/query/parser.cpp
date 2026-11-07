@@ -1,3 +1,4 @@
+#include <mado/common/text_utils.hpp>
 #include <mado/query/parser.hpp>
 
 #include <utf8proc/utf8proc.h>
@@ -8,13 +9,47 @@ namespace mado::query {
 
 namespace {
 
-// Formats a token kind and its value if present. May throw std::bad_alloc.
-// Форматирует тип токена и его значение, если оно есть. Возможен std::bad_alloc.
-std::string token_repr(const Token &token) {
-    if (token.value.empty()) {
-        return token_type_to_string(token.type);
+// Returns the canonical field name for diagnostics. Unknown fields return "unknown".
+// No exceptions.
+// Возвращает основное имя поля для диагностики или "unknown". Исключений нет.
+const char *comparison_field_name(Ast_Comparison_Field field) {
+    switch (field) {
+    case Ast_Comparison_Field::Priority: return "priority";
+    case Ast_Comparison_Field::Tag: return "tag";
+    case Ast_Comparison_Field::Status: return "status";
+    case Ast_Comparison_Field::Path: return "path";
+    case Ast_Comparison_Field::Name: return "name";
+    case Ast_Comparison_Field::Time: return "time";
+    case Ast_Comparison_Field::Deadline: return "deadline";
+    case Ast_Comparison_Field::Mtime: return "mtime";
+    case Ast_Comparison_Field::Any: return "any";
     }
-    return token_type_to_string(token.type) + ": " + token.value;
+    return "unknown";
+}
+
+// Describes the unexpected input and retains its internal token kind.
+// Allocation failures may throw std::bad_alloc.
+// Описывает неожиданный ввод с сохранением внутреннего типа токена.
+// Сбой выделения памяти может вызвать std::bad_alloc.
+std::string unexpected_input(const Token &token) {
+    if (token.type == Token_Type::End)
+        return ", but the query ended (recognized as End)";
+    if (token.type == Token_Type::Invalid && token.value.empty())
+        return ", got an invalid token (recognized as Invalid)";
+    // Escape quotes and control characters so the token remains on one line.
+    // Экранируем кавычки и управляющие символы, чтобы токен оставался на одной строке.
+    std::string text;
+    for (char c : token.value) {
+        switch (c) {
+        case '\\': text += "\\\\"; break;
+        case '\'': text += "\\'"; break;
+        case '\n': text += "\\n"; break;
+        case '\r': text += "\\r"; break;
+        case '\t': text += "\\t"; break;
+        default: text += c; break;
+        }
+    }
+    return ", got '" + text + "' (recognized as " + token_type_to_string(token.type) + ")";
 }
 
 // Stores codepoint and display-column counts for a query fragment.
@@ -70,12 +105,34 @@ std::string Parse_Error::format(const std::string &query) const {
 
     Display_Metrics m = utf8proc_metrics(query, byte_pos);
 
+    // Measure the original lexeme, including quotes and macro syntax.
+    // End-of-input and zero-width fragments still receive one caret.
+    // Измеряем исходную лексему вместе с кавычками и синтаксисом макроса.
+    // Конец ввода и фрагменты нулевой ширины отмечаем одним указателем.
+    const size_t source_length = token_.length ? token_.length : token_.value.size();
+    size_t span_length = std::min(source_length, query.size() - byte_pos);
+    const auto line_end = query.find_first_of("\r\n", byte_pos);
+    if (line_end != std::string::npos)
+        span_length = std::min(span_length, line_end - byte_pos);
+    const auto span = utf8proc_metrics(query.substr(byte_pos, span_length), span_length);
+    const size_t width = token_.type == Token_Type::End ? 1 : std::max(size_t{1}, span.columns);
+
     std::string pos_str = std::to_string(m.codepoints + 1);
     std::string padding(pos_str.size(), ' ');
 
+    // Keep every diagnostic line aligned with the query gutter.
+    // Выравниваем каждую строку диагностики по полю слева от запроса.
+    std::string message = what();
+    const std::string continuation = "\n" + padding + " | ";
+    size_t newline = message.find('\n');
+    while (newline != std::string::npos) {
+        message.replace(newline, 1, continuation);
+        newline = message.find('\n', newline + continuation.size());
+    }
+
     return pos_str + " | " + query + "\n" +
-           padding + " | " + std::string(m.columns, ' ') + "^\n" +
-           padding + " | " + what() + "\n";
+           padding + " | " + std::string(m.columns, ' ') + std::string(width, '^') + "\n" +
+           padding + " | " + message + "\n";
 }
 
 // Checks for End. Copying a token may throw std::bad_alloc.
@@ -140,20 +197,20 @@ bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) c
 std::string Parser::value_type_desc(Ast_Comparison_Field field) const {
     switch (field) {
     case Ast_Comparison_Field::Priority:
-        return "numeric value";
+        return "a number";
     case Ast_Comparison_Field::Tag:
     case Ast_Comparison_Field::Status:
     case Ast_Comparison_Field::Path:
     case Ast_Comparison_Field::Name:
-        return "string value";
+        return "a string";
     case Ast_Comparison_Field::Time:
     case Ast_Comparison_Field::Deadline:
     case Ast_Comparison_Field::Mtime:
-        return "timestamp value";
+        return "a timestamp";
     case Ast_Comparison_Field::Any:
-        return "value";
+        return "a value";
     }
-    return "value";
+    return "a value";
 }
 
 // Builds the complete query AST. Throws Parse_Error for empty or invalid
@@ -168,7 +225,7 @@ std::unique_ptr<Ast_Node> Parser::parse() {
     auto ast = parse_expression();
 
     if (!is_at_end()) {
-        throw Parse_Error("Expected binary operator, end of query, got " + token_repr(get_it()), get_it());
+        throw Parse_Error("Expected a binary operator or the end of the query" + unexpected_input(get_it()), get_it());
     }
 
     return ast;
@@ -257,7 +314,7 @@ std::unique_ptr<Ast_Node> Parser::parse_primary() {
         auto rparen = eat_it(); // ) / Распознаём оператор или разделитель `)`.
 
         if (rparen.type != Token_Type::Rparen) {
-            throw Parse_Error("Expected ')', got " + token_repr(rparen), rparen);
+            throw Parse_Error("Expected ')'" + unexpected_input(rparen), rparen);
         }
 
         return expr;
@@ -270,6 +327,23 @@ std::unique_ptr<Ast_Node> Parser::parse_primary() {
 // Первый токен определяет вид выражения.
 std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
     auto field = eat_it();
+
+    // Annotate failed comparisons only when the field name was fuzzy-matched.
+    // Preserve the offending token so the caret still points to the error.
+    // Дополняем ошибку сравнения только при нечётком распознавании имени поля.
+    // Сохраняем проблемный токен, чтобы указатель остался на месте ошибки.
+    const auto comparison = [&](Ast_Comparison_Field resolved_field) {
+        try {
+            return parse_comparison(resolved_field);
+        } catch (const Parse_Error &error) {
+            const auto name = mado::common::utf8_tolower(token_type_to_string(field.type));
+            if (mado::common::equals_ignore_case(field.value, name))
+                throw;
+            throw Parse_Error(std::string(error.what()) + "\nField '" + name +
+                                  "' matched from '" + field.value + "'",
+                              error.token());
+        }
+    };
 
     switch (field.type) {
 
@@ -300,26 +374,26 @@ std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
     // expr: field in [..v]
     // Для in и has доступны сокращения со списком, а для in также диапазоны.
     case Token_Type::Priority:
-        return parse_comparison(Ast_Comparison_Field::Priority);
+        return comparison(Ast_Comparison_Field::Priority);
     case Token_Type::Tag:
-        return parse_comparison(Ast_Comparison_Field::Tag);
+        return comparison(Ast_Comparison_Field::Tag);
     case Token_Type::Status:
-        return parse_comparison(Ast_Comparison_Field::Status);
+        return comparison(Ast_Comparison_Field::Status);
     case Token_Type::Path:
-        return parse_comparison(Ast_Comparison_Field::Path);
+        return comparison(Ast_Comparison_Field::Path);
     case Token_Type::Name:
-        return parse_comparison(Ast_Comparison_Field::Name);
+        return comparison(Ast_Comparison_Field::Name);
     case Token_Type::Time:
-        return parse_comparison(Ast_Comparison_Field::Time);
+        return comparison(Ast_Comparison_Field::Time);
     case Token_Type::Deadline:
-        return parse_comparison(Ast_Comparison_Field::Deadline);
+        return comparison(Ast_Comparison_Field::Deadline);
     case Token_Type::Mtime:
-        return parse_comparison(Ast_Comparison_Field::Mtime);
+        return comparison(Ast_Comparison_Field::Mtime);
     case Token_Type::Any:
-        return parse_comparison(Ast_Comparison_Field::Any);
+        return comparison(Ast_Comparison_Field::Any);
 
     default:
-        throw Parse_Error("Expected field name, special keyword, got " + token_repr(field), field);
+        throw Parse_Error("Expected a field name or a special keyword" + unexpected_input(field), field);
     }
 }
 
@@ -327,6 +401,7 @@ std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
 // or types.
 // Разбирает сравнение, список или диапазон. Неверный синтаксис или тип вызывают Parse_Error.
 std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
+    const std::string context = " for '" + std::string(comparison_field_name(field)) + "'";
 
     // expr: field in [v..v]
     // expr: field in [v..]
@@ -352,13 +427,23 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
         }
 
         if (combine_and) { // has / Содержит все значения.
-            throw Parse_Error("Expected '(', got " + token_repr(next), next);
+            throw Parse_Error("Expected '(' after 'has'" + context + unexpected_input(next), next);
         } else { // in / Проверка вхождения.
-            throw Parse_Error("Expected '(', '[', got " + token_repr(next), next);
+            throw Parse_Error("Expected '(' or '[' after 'in'" + context + unexpected_input(next), next);
         }
     }
 
-    auto op = parse_comparison_operator();
+    const auto operator_token = get_it();
+    Ast_Comparison_Operator op;
+    // Report all operators accepted at the field boundary.
+    // На границе поля перечисляем все допустимые операторы.
+    try {
+        op = parse_comparison_operator();
+    } catch (const Parse_Error &error) {
+        throw Parse_Error("Expected a comparison operator, 'in', or 'has'" +
+                              context + unexpected_input(error.token()),
+                          error.token());
+    }
 
     // expr: field comp_op anyof(v,v,v,...)
     // expr: field comp_op allof(v,v,v,...)
@@ -377,7 +462,12 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
     // Иначе ожидаем одиночное значение подходящего типа.
     auto tok = get_it();
     if (!value_matches_field(field, tok)) {
-        throw Parse_Error("Expected " + value_type_desc(field) + ", got " + token_repr(tok), tok);
+        // A comparison accepts either one value or a list modifier.
+        // Сравнение принимает одиночное значение или модификатор списка.
+        throw Parse_Error("Expected " + value_type_desc(field) +
+                              ", anyof(...), or allof(...) after '" + operator_token.value +
+                              "'" + context + unexpected_input(tok),
+                          tok);
     }
     return parse_value(field, op);
 }
@@ -387,6 +477,7 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
 // Преобразует включительные границы в сравнения. Пустой или неверный диапазон вызывает
 // Parse_Error.
 std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
+    const std::string context = " in the range for '" + std::string(comparison_field_name(field)) + "'";
 
     // '[' is guaranteed by the caller
     // Вызывающий код гарантирует открывающую квадратную скобку.
@@ -396,14 +487,15 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
     if (get_it().type != Token_Type::DotDot) {
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
-            throw Parse_Error("Expected " + value_type_desc(field) + ", '..', got " + token_repr(tok), tok);
+            throw Parse_Error("Expected " + value_type_desc(field) + " or '..' after '['" +
+                                  context + unexpected_input(tok), tok);
         }
         low = parse_value(field, Ast_Comparison_Operator::Ge);
     }
 
     auto dots = eat_it(); // .. / Распознаём оператор или разделитель `..`.
     if (dots.type != Token_Type::DotDot) {
-        throw Parse_Error("Expected '..', got " + token_repr(dots), dots);
+        throw Parse_Error("Expected '..' after the lower bound" + context + unexpected_input(dots), dots);
     }
 
     std::unique_ptr<Ast_Node> high;
@@ -411,9 +503,11 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
             if (low) {
-                throw Parse_Error("Expected " + value_type_desc(field) + ", ']', got " + token_repr(tok), tok);
+                throw Parse_Error("Expected " + value_type_desc(field) + " or ']' after '..'" +
+                                      context + unexpected_input(tok), tok);
             } else {
-                throw Parse_Error("Expected " + value_type_desc(field) + ", got " + token_repr(tok), tok);
+                throw Parse_Error("Expected " + value_type_desc(field) + " after '..'" +
+                                      context + unexpected_input(tok), tok);
             }
         }
         high = parse_value(field, Ast_Comparison_Operator::Le);
@@ -421,11 +515,13 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     auto rbr = eat_it(); // ] / Распознаём оператор или разделитель `]`.
     if (rbr.type != Token_Type::Rbracket) {
-        throw Parse_Error("Expected ']', got " + token_repr(rbr), rbr);
+        throw Parse_Error("Expected ']' after the upper bound" + context + unexpected_input(rbr), rbr);
     }
 
     if (!low && !high) {
-        throw Parse_Error("Range must have at least one bound", rbr);
+        throw Parse_Error("Range must have at least one bound. Expected " +
+                              value_type_desc(field) + context,
+                          rbr);
     }
 
     // Join two bounds with AND and keep a lone bound as a single comparison.
@@ -444,6 +540,8 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
     Ast_Comparison_Field field,
     Ast_Comparison_Operator op,
     bool combine_and) {
+    const std::string context = " in the value list for '" +
+                                std::string(comparison_field_name(field)) + "'";
 
     // '(' is guaranteed by the caller
     // Вызывающий код гарантирует открывающую круглую скобку.
@@ -451,7 +549,9 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
 
     if (get_it().type == Token_Type::Rparen) {
         auto rparen = eat_it(); // ) / Распознаём оператор или разделитель `)`.
-        throw Parse_Error("List cannot be empty, expected value, got " + token_repr(rparen), rparen);
+        throw Parse_Error("List cannot be empty, expected " + value_type_desc(field) +
+                              " after '('" + context + unexpected_input(rparen),
+                          rparen);
     }
 
     auto combine = combine_and ? Ast_Binary_Operator::And : Ast_Binary_Operator::Or;
@@ -462,7 +562,9 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
     while (true) {
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
-            throw Parse_Error("Expected " + value_type_desc(field) + ", got " + token_repr(tok), tok);
+            const std::string delimiter = result ? "," : "(";
+            throw Parse_Error("Expected " + value_type_desc(field) + " after '" + delimiter +
+                                  "'" + context + unexpected_input(tok), tok);
         }
         auto cmp = parse_value(field, op);
 
@@ -477,7 +579,7 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
         if (next.type == Token_Type::Rparen) {
             break;
         }
-        throw Parse_Error("Expected ',', ')', got " + token_repr(next), next);
+        throw Parse_Error("Expected ',' or ')' after a value" + context + unexpected_input(next), next);
     }
 
     return result;
@@ -563,7 +665,7 @@ Ast_Comparison_Operator Parser::parse_comparison_operator() {
     case Token_Type::Nglob:
         return Ast_Comparison_Operator::Nglob;
     default:
-        throw Parse_Error("Expected comparison operator, got " + token_repr(op), op);
+        throw Parse_Error("Expected a comparison operator" + unexpected_input(op), op);
     }
 }
 

@@ -1474,6 +1474,281 @@ static void test_parser_hyphenated_value() {
                   parse_query("name in (\"_a-2\", \"foo--bar\", \"foo-\")").get()));
 }
 
+// Checks operand diagnostics at comparison and list boundaries.
+// Unexpected exceptions fail the test.
+// Проверяет диагностику операндов после сравнения и внутри списка.
+// Неожиданные исключения проваливают тест.
+static void test_parser_expected_operand_diagnostics() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"s ~", "Expected a string, anyof(...), or allof(...) after '~' for 'status', but the query ended (recognized as End)\nField 'status' matched from 's'"},
+        {"priority =", "Expected a number, anyof(...), or allof(...) after '=' for 'priority', but the query ended (recognized as End)"},
+        {"priority = \"\"", "Expected a number, anyof(...), or allof(...) after '=' for 'priority', got '' (recognized as String)"},
+        {"priority = \"a'b\"", "Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'a\\'b' (recognized as String)"},
+        {"priority = \"a\nb\"", "Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'a\\nb' (recognized as String)"},
+        {"deadline >", "Expected a timestamp, anyof(...), or allof(...) after '>' for 'deadline', but the query ended (recognized as End)"},
+        {"any =", "Expected a value, anyof(...), or allof(...) after '=' for 'any', but the query ended (recognized as End)"},
+        {"name = )", "Expected a string, anyof(...), or allof(...) after '=' for 'name', got ')' (recognized as Rparen)"},
+        {"name = anyof(", "Expected a string after '(' in the value list for 'name', but the query ended (recognized as End)"},
+        {"name = anyof()", "List cannot be empty, expected a string after '(' in the value list for 'name', got ')' (recognized as Rparen)"},
+        {"priority = allof()", "List cannot be empty, expected a number after '(' in the value list for 'priority', got ')' (recognized as Rparen)"},
+        {"deadline in ()", "List cannot be empty, expected a timestamp after '(' in the value list for 'deadline', got ')' (recognized as Rparen)"},
+        {"tag has ()", "List cannot be empty, expected a string after '(' in the value list for 'tag', got ')' (recognized as Rparen)"},
+        {"any in ()", "List cannot be empty, expected a value after '(' in the value list for 'any', got ')' (recognized as Rparen)"},
+        {"name in [..]", "Range must have at least one bound. Expected a string in the range for 'name'"},
+        {"priority in [..]", "Range must have at least one bound. Expected a number in the range for 'priority'"},
+        {"deadline in [..]", "Range must have at least one bound. Expected a timestamp in the range for 'deadline'"},
+        {"any in [..]", "Range must have at least one bound. Expected a value in the range for 'any'"},
+        {"priority in [..oops]", "Expected a number after '..' in the range for 'priority', got 'oops' (recognized as String)"},
+        {"deadline in [2026..oops]", "Expected a timestamp or ']' after '..' in the range for 'deadline', got 'oops' (recognized as String)"},
+        {"priority = anyof(1,)", "Expected a number after ',' in the value list for 'priority', got ')' (recognized as Rparen)"},
+        {"priority = allof(1,", "Expected a number after ',' in the value list for 'priority', but the query ended (recognized as End)"},
+        {"not (all or deadline in [oops..])", "Expected a timestamp or '..' after '[' in the range for 'deadline', got 'oops' (recognized as String)"},
+        {"priority in [1 2]", "Expected '..' after the lower bound in the range for 'priority', got '2' (recognized as Number)"},
+        {"time in [2026..2027", "Expected ']' after the upper bound in the range for 'time', but the query ended (recognized as End)"},
+        {"tag = anyof(foo bar)", "Expected ',' or ')' after a value in the value list for 'tag', got 'bar' (recognized as String)"},
+        {"priority has", "Expected '(' after 'has' for 'priority', but the query ended (recognized as End)"},
+        {"priority in", "Expected '(' or '[' after 'in' for 'priority', but the query ended (recognized as End)"},
+        {"priority", "Expected a comparison operator, 'in', or 'has' for 'priority', but the query ended (recognized as End)"},
+        {"name na 123", "Expected a comparison operator, 'in', or 'has' for 'name', got 'na' (recognized as Name)"},
+    };
+    bool correct = true;
+    // List elements accept values, while the comparison also accepts list modifiers.
+    // Элементы списка принимают значения, а сравнение также принимает модификаторы списка.
+    for (const auto &[query, expected] : cases) {
+        try {
+            parse_query(query);
+            correct = false;
+        } catch (const Parse_Error &error) {
+            correct &= std::string(error.what()) == expected;
+        }
+    }
+    test(correct);
+}
+
+// Checks fuzzy field context across comparisons, lists, and ranges.
+// Exact names keep their diagnostics. Unexpected exceptions fail the test.
+// Проверяет контекст нечёткого поля в сравнениях, списках и диапазонах.
+// Точные имена сохраняют диагностику. Неожиданные исключения проваливают тест.
+static void test_parser_fuzzy_field_diagnostics() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"prio =", "priority"},
+        {"s ~", "status"},
+        {"prio = anyof()", "priority"},
+        {"deadl in [..]", "deadline"},
+        {"not (all and prio > )", "priority"},
+    };
+    bool correct = true;
+    // Each parser owns its query, so nested failures cannot reuse stale context.
+    // У каждого парсера свой запрос, поэтому вложенные ошибки не используют старый контекст.
+    for (const auto &[query, field] : cases) {
+        try {
+            parse_query(query);
+            correct = false;
+        } catch (const Parse_Error &error) {
+            const std::string message = error.what();
+            correct &= message.find(std::string("\nField '") + field + "' matched from '") !=
+                           std::string::npos &&
+                       error.token().position > 0;
+        }
+    }
+    try {
+        parse_query("PRIORITY =");
+        correct = false;
+    } catch (const Parse_Error &error) {
+        correct &= std::string(error.what()).find("matched from") == std::string::npos;
+    }
+    test(correct);
+}
+
+// Checks multiline diagnostic alignment at one- and two-digit columns.
+// Проверяет выравнивание многострочной диагностики при одно- и двузначной позиции.
+static void test_multiline_error_format() {
+    const Parse_Error short_error("first\nsecond", Token{Token_Type::End, "", 3});
+    const Parse_Error long_error("first\nsecond", Token{Token_Type::End, "", 10});
+    test(short_error.format("p =") ==
+             "4 | p =\n  |    ^\n  | first\n  | second\n" &&
+         long_error.format("priority =") ==
+             "11 | priority =\n   |           ^\n   | first\n   | second\n");
+}
+
+// Checks original token spans, including escaped strings, macros, and Unicode.
+// Unexpected exceptions fail the test.
+// Проверяет исходные фрагменты токенов, включая экранирование, макросы и Unicode.
+// Неожиданные исключения проваливают тест.
+static void test_error_fragment_highlight() {
+    const std::pair<const char *, size_t> cases[] = {
+        {"priority = abc", 3},
+        {"priority = \"a\\\"b\"", 6},
+        {"priority = @never", 6},
+        {"priority = \"猫\"", 4},
+        {"priority = \"é\"", 3},
+        {"priority =", 1},
+    };
+    bool correct = true;
+    // Inspect the marker line separately from the diagnostic text.
+    // Проверяем строку выделения отдельно от текста сообщения.
+    for (const auto &[query, width] : cases) {
+        try {
+            parse_query(query);
+            correct = false;
+        } catch (const Parse_Error &error) {
+            const auto output = error.format(query);
+            const auto marker_start = output.find('^');
+            const auto marker_end = output.find('\n', marker_start);
+            correct &= marker_start != std::string::npos &&
+                       output.substr(marker_start, marker_end - marker_start) ==
+                           std::string(width, '^');
+        }
+    }
+    test(correct);
+}
+
+
+// Parses a query and returns its formatted error, or an empty string on success.
+// Allocation errors propagate.
+// Разбирает запрос и возвращает форматированную ошибку либо пустую строку при успехе.
+// Ошибки выделения памяти передаются вызывающему коду.
+static std::string query_error_output(const std::string &query) {
+    try {
+        parse_query(query);
+    } catch (const Parse_Error &error) {
+        return error.format(query);
+    }
+    return {};
+}
+
+// Checks the complete diagnostic for quoted Unicode operands.
+// Проверяет полный вывод ошибки для Unicode-операндов в кавычках.
+static void test_unicode_error_values() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"priority = \"русский\"",
+         "12 | priority = \"русский\"\n"
+         "   |            ^^^^^^^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'русский' (recognized as String)\n"},
+        {"priority = \"漢字\"",
+         "12 | priority = \"漢字\"\n"
+         "   |            ^^^^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got '漢字' (recognized as String)\n"},
+        {"priority = \"🙂\"",
+         "12 | priority = \"🙂\"\n"
+         "   |            ^^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got '🙂' (recognized as String)\n"},
+        {"priority = \"é\"",
+         "12 | priority = \"é\"\n"
+         "   |            ^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'é' (recognized as String)\n"},
+        {"priority = \"русский 漢字 🙂\"",
+         "12 | priority = \"русский 漢字 🙂\"\n"
+         "   |            ^^^^^^^^^^^^^^^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'русский 漢字 🙂' (recognized as String)\n"},
+    };
+    bool correct = true;
+    // Compare all output, including the query, gutter, marker, and context.
+    // Сравниваем весь вывод, включая запрос, разделитель, выделение и контекст.
+    for (const auto &[query, output] : cases)
+        correct &= query_error_output(query) == output;
+    test(correct);
+}
+
+// Checks that Unicode before an error affects columns and alignment correctly.
+// Проверяет номера позиций и выравнивание при Unicode перед ошибкой.
+static void test_unicode_before_error() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"name = \"русский\" or prio = abc",
+         "28 | name = \"русский\" or prio = abc\n"
+         "   |                            ^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'abc' (recognized as String)\n"
+         "   | Field 'priority' matched from 'prio'\n"},
+        {"name = \"漢字\" or prio = abc",
+         "23 | name = \"漢字\" or prio = abc\n"
+         "   |                         ^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'abc' (recognized as String)\n"
+         "   | Field 'priority' matched from 'prio'\n"},
+        {"name = \"🙂\" or prio = abc",
+         "22 | name = \"🙂\" or prio = abc\n"
+         "   |                       ^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'abc' (recognized as String)\n"
+         "   | Field 'priority' matched from 'prio'\n"},
+        {"name = \"é\" or prio = abc",
+         "23 | name = \"é\" or prio = abc\n"
+         "   |                      ^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'abc' (recognized as String)\n"
+         "   | Field 'priority' matched from 'prio'\n"},
+        {"name = \"русский 漢字 🙂\" or prio = abc",
+         "33 | name = \"русский 漢字 🙂\" or prio = abc\n"
+         "   |                                    ^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got 'abc' (recognized as String)\n"
+         "   | Field 'priority' matched from 'prio'\n"},
+    };
+    bool correct = true;
+    // Compare all output, including the query, gutter, marker, and context.
+    // Сравниваем весь вывод, включая запрос, разделитель, выделение и контекст.
+    for (const auto &[query, output] : cases)
+        correct &= query_error_output(query) == output;
+    test(correct);
+}
+
+// Checks diagnostics for unsupported unquoted Unicode input.
+// Проверяет диагностику неподдерживаемого Unicode без кавычек.
+static void test_unquoted_unicode_errors() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"флоывлфоывофыв",
+         "1 | флоывлфоывофыв\n"
+         "  | ^\n"
+         "  | Expected a field name or a special keyword, got an invalid token (recognized as Invalid)\n"},
+        {"漢字",
+         "1 | 漢字\n"
+         "  | ^\n"
+         "  | Expected a field name or a special keyword, got an invalid token (recognized as Invalid)\n"},
+        {"🙂",
+         "1 | 🙂\n"
+         "  | ^\n"
+         "  | Expected a field name or a special keyword, got an invalid token (recognized as Invalid)\n"},
+    };
+    bool correct = true;
+    // Compare all output, including the query, gutter, marker, and context.
+    // Сравниваем весь вывод, включая запрос, разделитель, выделение и контекст.
+    for (const auto &[query, output] : cases)
+        correct &= query_error_output(query) == output;
+    test(correct);
+}
+
+// Checks source-span highlighting for a macro after Unicode text.
+// Проверяет выделение исходного макроса после текста Unicode.
+static void test_unicode_before_macro_error() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"name = \"漢字🙂\" or prio = @never",
+         "24 | name = \"漢字🙂\" or prio = @never\n"
+         "   |                           ^^^^^^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', got '99990101-000000' (recognized as Timestamp)\n"
+         "   | Field 'priority' matched from 'prio'\n"},
+    };
+    bool correct = true;
+    // Compare all output, including the query, gutter, marker, and context.
+    // Сравниваем весь вывод, включая запрос, разделитель, выделение и контекст.
+    for (const auto &[query, output] : cases)
+        correct &= query_error_output(query) == output;
+    test(correct);
+}
+
+// Checks one caret at the end of a query containing Unicode.
+// Проверяет один указатель в конце запроса с Unicode.
+static void test_unicode_before_end_error() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"name = \"漢字🙂\" or prio =",
+         "23 | name = \"漢字🙂\" or prio =\n"
+         "   |                          ^\n"
+         "   | Expected a number, anyof(...), or allof(...) after '=' for 'priority', but the query ended (recognized as End)\n"
+         "   | Field 'priority' matched from 'prio'\n"},
+    };
+    bool correct = true;
+    // Compare all output, including the query, gutter, marker, and context.
+    // Сравниваем весь вывод, включая запрос, разделитель, выделение и контекст.
+    for (const auto &[query, output] : cases)
+        correct &= query_error_output(query) == output;
+    test(correct);
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1561,6 +1836,15 @@ int main(int argc, char **argv) {
         {"Parser special", "parse 'all'", test_parser_special},
         {"Parser empty", "empty query throws", test_parser_empty_throws},
         {"Parser unexpected", "unexpected token throws", test_parser_unexpected_token_throws},
+        {"Parser operand diagnostics", "list all legal comparison operands", test_parser_expected_operand_diagnostics},
+        {"Multiline diagnostics", "align all message lines with the gutter", test_multiline_error_format},
+        {"Error fragment", "underline the original erroneous token", test_error_fragment_highlight},
+        {"unicode_error_values", "verify exact Unicode diagnostics", test_unicode_error_values},
+        {"unicode_before_error", "verify exact Unicode diagnostics", test_unicode_before_error},
+        {"unquoted_unicode_errors", "verify exact Unicode diagnostics", test_unquoted_unicode_errors},
+        {"unicode_before_macro_error", "verify exact Unicode diagnostics", test_unicode_before_macro_error},
+        {"unicode_before_end_error", "verify exact Unicode diagnostics", test_unicode_before_end_error},
+        {"Parser fuzzy field diagnostics", "explain resolved field names in errors", test_parser_fuzzy_field_diagnostics},
         {"Parser priority", "parse 'not not priority > 1 or priority > 2 xor priority > 3 and not priority > 4'", test_parser_priority},
         {"Parser anyof number", "parse 'priority = anyof(1, 2, 3)'", test_parser_anyof_number},
         {"Parser allof number", "parse 'priority = allof(1, 2)'", test_parser_allof_number},

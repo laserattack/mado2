@@ -121,11 +121,16 @@ struct Token {
     Token_Type type{Token_Type::Invalid};
     std::string value;
     size_t position{0}; // character offset from the start of the query string / Смещение символа от начала запроса.
+    // Original source length in bytes, independent of decoded or expanded value.
+    // Длина исходного фрагмента в байтах независимо от раскрытого значения.
+    size_t length{0};
 
     Token() = default;
 
-    Token(Token_Type t, std::string v, size_t pos)
-        : type(t), value(std::move(v)), position(pos) {}
+    // Stores the token and optional source span. Moving the value does not throw.
+    // Сохраняет токен и необязательную длину фрагмента. Перемещение не бросает исключений.
+    Token(Token_Type t, std::string v, size_t pos, size_t source_length = 0)
+        : type(t), value(std::move(v)), position(pos), length(source_length) {}
 };
 
 // Returns the diagnostic name for a token kind. May throw std::bad_alloc.

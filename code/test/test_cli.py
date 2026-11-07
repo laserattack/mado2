@@ -409,7 +409,7 @@ class Cli_Tests(unittest.TestCase):
         for command in ("ls", "rm"):
             with self.subTest(command=command):
                 result = self.run_mado(command, "name =")
-                self.test(self.check_error(result, "Expected string") and entry.is_file())
+                self.test(self.check_error(result, "Expected a string") and entry.is_file())
 
     # Checks rm removes only matching entries. Failures are reported by unittest.
     # Проверяет удаление только подходящих записей. Сбои регистрирует unittest.
@@ -475,7 +475,7 @@ class Cli_Tests(unittest.TestCase):
     # Checks that an invalid query produces a diagnostic and no AST.
     # Проверяет диагностику неверного запроса и отсутствие AST в выводе.
     def test_debug_invalid_query(self):
-        self.test(self.check_error(self.run_mado("debug", "name ="), "Expected string"))
+        self.test(self.check_error(self.run_mado("debug", "name ="), "Expected a string"))
 
     # Checks that an empty query is rejected. unittest reports failures.
     # Проверяет отказ для пустого запроса. Сбои регистрирует unittest.

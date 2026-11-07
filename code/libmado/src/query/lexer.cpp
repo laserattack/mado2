@@ -134,14 +134,14 @@ void Lexer::eat_it(size_t n) {
 // std::bad_alloc.
 // Создаёт токен с типом, текстом и начальным смещением. Возможен std::bad_alloc.
 Token Lexer::make_token(Token_Type type, size_t start) const {
-    return Token{type, query_.substr(start, pos_ - start), start};
+    return Token{type, query_.substr(start, pos_ - start), start, pos_ - start};
 }
 
 // Builds a token with the given kind, text, and starting offset. May throw
 // std::bad_alloc.
 // Создаёт токен с типом, текстом и начальным смещением. Возможен std::bad_alloc.
 Token Lexer::make_token(Token_Type type, std::string value, size_t start) const {
-    return Token{type, std::move(value), start};
+    return Token{type, std::move(value), start, pos_ - start};
 }
 
 // Scans a number or timestamp and emits Invalid for malformed values. May
