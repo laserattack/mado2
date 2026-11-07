@@ -1054,11 +1054,11 @@ static void test_mtimes_empty_custom_index() {
     Temp_Dir tmp;
     const auto repo = Repository::init(tmp.path(), true);
     const auto file = tmp.path() / "backup times";
-    repo.dump_mtimes(file);
-    repo.restore_mtimes(file);
+    const auto dumped = repo.dump_mtimes(file);
+    const auto restored = repo.restore_mtimes(file);
     std::ifstream in(file);
     const std::string contents(std::istreambuf_iterator<char>(in), {});
-    test(contents == "mado-mtimes-v1 unix-nanoseconds\n" &&
+    test(dumped == file && restored == file && contents == "mado-mtimes-v1 unix-nanoseconds\n" &&
          !std::filesystem::exists(repo.root() / "mtimes"));
 }
 

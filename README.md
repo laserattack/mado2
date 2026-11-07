@@ -115,7 +115,9 @@ Without an explicit path, `dump-mtimes` writes `MADO/mtimes`.
 `restore-mtimes` searches for the first regular file in this order:
 `MADO/mtimes`, `MADO/.mtimes`, `MADO/_mtimes`.
 Both commands find `MADO` in the current directory or its ancestors.
-An explicit path bypasses the search. Copy the index together with your entries.
+An explicit path bypasses the search. On success, both commands print the absolute
+path of the index they wrote or read. Failed operations do not print a success
+path. Copy the index together with your entries.
 The versioned text file stores the full entry directory name (including its
 suffix) and Unix timestamps in nanoseconds, independent of the time zone.
 The destination filesystem may have lower timestamp precision.

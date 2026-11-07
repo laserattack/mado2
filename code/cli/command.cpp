@@ -688,12 +688,11 @@ class Mtimes_Command : public Command {
 
         const std::filesystem::path file = argc ? argv[0] : "";
 
-        // Keep the two actions explicit; successful commands produce no output.
-        // Явно разделяем действия; успешные команды ничего не печатают.
-        if (restore_)
-            repo->restore_mtimes(file, strict, keep_newer);
-        else
-            repo->dump_mtimes(file);
+        // Print the actual index path only after the entire operation succeeds.
+        // Печатаем фактический путь индекса только после успешного завершения операции.
+        const auto index = restore_ ? repo->restore_mtimes(file, strict, keep_newer)
+                                    : repo->dump_mtimes(file);
+        std::cout << index.string() << '\n';
 
         return true;
     }

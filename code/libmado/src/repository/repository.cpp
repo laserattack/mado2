@@ -561,12 +561,13 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     return e;
 }
 
-// Collects a deterministic, portable snapshot before opening the destination.
+// Saves a deterministic snapshot and returns its absolute path only after successful writing.
 // I/O failures throw runtime_error/filesystem_error; unsafe destinations throw Repository_Error.
-// Собирает переносимый снимок в стабильном порядке до открытия файла назначения.
+// Сохраняет переносимый снимок и возвращает абсолютный путь только после успешной записи.
 // Сбои ОС вызывают runtime_error/filesystem_error; опасный путь — Repository_Error.
-void Repository::dump_mtimes(const std::filesystem::path &file) const {
-    const auto destination = file.empty() ? root_ / MTIMES_FILE_NAMES[0] : file;
+std::filesystem::path Repository::dump_mtimes(const std::filesystem::path &file) const {
+    const auto destination = std::filesystem::absolute(
+        file.empty() ? root_ / MTIMES_FILE_NAMES[0] : file);
     std::vector<std::pair<std::string, int64_t>> records;
 
     // Include every real entry file, independently of its metadata contents.
@@ -619,14 +620,17 @@ void Repository::dump_mtimes(const std::filesystem::path &file) const {
     out.close();
     if (!out)
         throw std::runtime_error("Cannot write mtime index " + destination.string());
+
+    return destination;
 }
 
-// Validates all records before restoring times, optionally preserving newer modifications.
+// Validates and restores times, optionally preserving newer edits; returns the selected absolute path.
 // Domain errors throw Repository_Error; filesystem/I/O and allocation exceptions propagate.
-// Проверяет все записи до восстановления, при необходимости сохраняя более новые изменения.
+// Проверяет и восстанавливает времена с возможным сохранением новых; возвращает выбранный абсолютный путь.
 // Ошибки данных вызывают Repository_Error; исключения ОС и памяти передаются выше.
-void Repository::restore_mtimes(const std::filesystem::path &file, bool strict, bool keep_newer) const {
-    auto source = file.empty() ? root_ / MTIMES_FILE_NAMES[0] : file;
+std::filesystem::path Repository::restore_mtimes(const std::filesystem::path &file, bool strict, bool keep_newer) const {
+    auto source = std::filesystem::absolute(
+        file.empty() ? root_ / MTIMES_FILE_NAMES[0] : file);
 
     // Search supported names only when no explicit path was supplied.
     // Ищем поддерживаемые имена только при отсутствии явно заданного пути.
@@ -709,6 +713,8 @@ void Repository::restore_mtimes(const std::filesystem::path &file, bool strict, 
 
         std::filesystem::last_write_time(main, time);
     }
+
+    return source;
 }
 
 } // namespace mado::repository

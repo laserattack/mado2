@@ -175,8 +175,8 @@ class Cli_Tests(unittest.TestCase):
         default_time = main.stat().st_mtime_ns
         os.utime(main, ns=(original, original + 20000000000))
         explicit = self.run_mado("restore-mtimes", str(custom))
-        self.test(self.check_output(dumped, "") and self.check_output(copied, "") and
-                  self.check_output(restored, "") and self.check_output(explicit, "") and
+        self.test(self.check_output(dumped, str(index) + "\n") and self.check_output(copied, str(custom) + "\n") and
+                  self.check_output(restored, str(index) + "\n") and self.check_output(explicit, str(custom) + "\n") and
                   index.read_bytes() == custom.read_bytes() and default_time == original and
                   main.stat().st_mtime_ns == original)
 
@@ -196,7 +196,7 @@ class Cli_Tests(unittest.TestCase):
         unchanged = main.stat().st_mtime_ns == changed
         restored = self.run_mado("restore-mtimes", str(custom))
         self.test(self.check_error(strict, "Missing regular entry file") and unchanged and
-                  self.check_output(restored, "") and main.stat().st_mtime_ns == original)
+                  self.check_output(restored, str(custom) + "\n") and main.stat().st_mtime_ns == original)
 
     # Checks keep-newer with a custom index and strict mode, plus default overwrite behavior.
     # Filesystem or process exceptions fail the test.
@@ -221,10 +221,10 @@ class Cli_Tests(unittest.TestCase):
         still_newer = main.stat().st_mtime_ns == newer
         overwritten = self.run_mado("restore-mtimes", str(custom))
 
-        self.test(self.check_output(kept, "") and preserved and
+        self.test(self.check_output(kept, str(custom) + "\n") and preserved and
                   self.check_error(strict, "Missing regular entry file") and unchanged and
-                  self.check_output(skipped, "") and still_newer and
-                  self.check_output(overwritten, "") and main.stat().st_mtime_ns == original)
+                  self.check_output(skipped, str(custom) + "\n") and still_newer and
+                  self.check_output(overwritten, str(custom) + "\n") and main.stat().st_mtime_ns == original)
 
     # Checks default dumps use mtimes and restoration discovers an underscored index.
     # Filesystem or process exceptions fail the test.
@@ -243,11 +243,33 @@ class Cli_Tests(unittest.TestCase):
         restored = self.run_mado("restore-mtimes")
         help_result = self.run_mado("help")
 
-        self.test(self.check_output(dumped, "") and self.check_output(restored, "") and
+        self.test(self.check_output(dumped, str(default) + "\n") and self.check_output(restored, str(legacy) + "\n") and
                   main.stat().st_mtime_ns == original and not default.exists() and legacy.is_file() and
                   "Save entry modification times to MADO/mtimes or FILE" in help_result.stderr and
                   "Restore entry modification times from MADO/mtimes or FILE" in help_result.stderr and
                   all(f"MADO/{name}" not in help_result.stderr for name in (".mtimes", "_mtimes")))
+
+    # Checks successful empty-index commands print absolute paths for relative arguments.
+    # Filesystem or process exceptions fail the test.
+    # Проверяет вывод абсолютных путей для относительных аргументов и пустого индекса.
+    # Исключения файловой системы или процесса проваливают тест.
+    def test_mtimes_relative_output_path(self):
+        self.run_mado("init", "-force")
+        dumped = self.run_mado("dump-mtimes", "backup times")
+        restored = self.run_mado("restore-mtimes", "backup times")
+        expected = str(self.work / "backup times") + "\n"
+
+        self.test(self.check_output(dumped, expected) and self.check_output(restored, expected))
+
+    # Checks failed dump commands never print a success path.
+    # Filesystem or process exceptions fail the test.
+    # Проверяет отсутствие пути успеха при сбое дампа.
+    # Исключения файловой системы или процесса проваливают тест.
+    def test_mtimes_dump_failure_output(self):
+        self.run_mado("init", "-force")
+        result = self.run_mado("dump-mtimes", "missing/index")
+
+        self.test(self.check_error(result, "Cannot write mtime index"))
 
     # Checks argument, repository, and missing-index diagnostics for both commands.
     # Проверяет диагностику аргументов, отсутствия репозитория и индекса обеих команд.

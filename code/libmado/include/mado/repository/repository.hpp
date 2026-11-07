@@ -103,20 +103,24 @@ class Repository {
     void for_each_matching(const mado::query::Ast_Node *filter, Action action) const;
 
     // Saves MAIN.md modification times as Unix nanoseconds; an empty path uses MTIMES_FILE_NAMES[0].
-    // Invalid destinations throw Repository_Error; I/O and allocation exceptions propagate.
+    // Returns the absolute destination path. Invalid destinations throw Repository_Error;
+    // I/O and allocation exceptions propagate.
     // Сохраняет время MAIN.md в наносекундах Unix; пустой путь выбирает MTIMES_FILE_NAMES[0].
-    // Неверный путь вызывает Repository_Error; исключения ввода-вывода и памяти передаются выше.
-    void dump_mtimes(const std::filesystem::path &file = {}) const;
+    // Возвращает абсолютный путь назначения. Неверный путь вызывает Repository_Error;
+    // исключения ввода-вывода и памяти передаются выше.
+    std::filesystem::path dump_mtimes(const std::filesystem::path &file = {}) const;
 
     // Restores MAIN.md times; an empty path searches MTIMES_FILE_NAMES in order.
+    // Returns the absolute selected index path after success.
     // Missing files are skipped unless strict is true; keep_newer preserves newer file times.
     // Invalid data/targets throw Repository_Error;
     // I/O and allocation exceptions propagate. Strict validation finishes before any writes.
     // Восстанавливает время MAIN.md; пустой путь ищет файл по порядку MTIMES_FILE_NAMES.
+    // После успеха возвращает абсолютный путь выбранного индекса.
     // Отсутствующие файлы пропускаются при strict=false; keep_newer сохраняет более новые времена.
     // Неверные данные и цели вызывают
     // Repository_Error; сбои ОС и памяти передаются выше. Строгая проверка завершается до записи.
-    void restore_mtimes(const std::filesystem::path &file = {}, bool strict = false,
+    std::filesystem::path restore_mtimes(const std::filesystem::path &file = {}, bool strict = false,
                         bool keep_newer = false) const;
 
     // Returns the MADO directory. No exceptions.
