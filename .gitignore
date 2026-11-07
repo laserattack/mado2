@@ -1,6 +1,8 @@
 build/
 /.mado-test-*/
 *.o
+mtimes
 .mtimes
+_mtimes
 digest.txt
 test_query

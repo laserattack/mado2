@@ -19,9 +19,9 @@ inline constexpr const char *TEMPLATE_DIR_NAMES[] = {"templates", ".templates", 
 // Имя каталога репозитория для хранения и сообщений CLI. Ошибок и исключений нет.
 inline constexpr char ENTRY_DIR[] = "MADO";
 
-// Default mtime index filename shared by storage and CLI messages. No errors or exceptions.
-// Стандартное имя индекса mtime для хранения и сообщений CLI. Ошибок и исключений нет.
-inline constexpr char MTIMES_FILE[] = ".mtimes";
+// Mtime index filenames in lookup order; the first is the dump default. No errors or exceptions.
+// Имена индекса mtime в порядке поиска; первое — стандартное для дампа. Ошибок и исключений нет.
+inline constexpr const char *MTIMES_FILE_NAMES[] = {"mtimes", ".mtimes", "_mtimes"};
 
 // Extension of Markdown entry and template files. No errors or exceptions.
 // Расширение файлов записей и шаблонов Markdown. Ошибок и исключений нет.
@@ -102,17 +102,17 @@ class Repository {
     // Исключения ввода-вывода и обработчика передаются вызывающему коду.
     void for_each_matching(const mado::query::Ast_Node *filter, Action action) const;
 
-    // Saves MAIN.md modification times as Unix nanoseconds; an empty path uses .mtimes.
+    // Saves MAIN.md modification times as Unix nanoseconds; an empty path uses MTIMES_FILE_NAMES[0].
     // Invalid destinations throw Repository_Error; I/O and allocation exceptions propagate.
-    // Сохраняет время MAIN.md в наносекундах Unix; пустой путь выбирает .mtimes.
+    // Сохраняет время MAIN.md в наносекундах Unix; пустой путь выбирает MTIMES_FILE_NAMES[0].
     // Неверный путь вызывает Repository_Error; исключения ввода-вывода и памяти передаются выше.
     void dump_mtimes(const std::filesystem::path &file = {}) const;
 
-    // Validates the index and restores existing MAIN.md times; an empty path uses .mtimes.
+    // Restores MAIN.md times; an empty path searches MTIMES_FILE_NAMES in order.
     // Missing files are skipped unless strict is true; keep_newer preserves newer file times.
     // Invalid data/targets throw Repository_Error;
     // I/O and allocation exceptions propagate. Strict validation finishes before any writes.
-    // Проверяет индекс и восстанавливает время существующих MAIN.md; пустой путь выбирает .mtimes.
+    // Восстанавливает время MAIN.md; пустой путь ищет файл по порядку MTIMES_FILE_NAMES.
     // Отсутствующие файлы пропускаются при strict=false; keep_newer сохраняет более новые времена.
     // Неверные данные и цели вызывают
     // Repository_Error; сбои ОС и памяти передаются выше. Строгая проверка завершается до записи.

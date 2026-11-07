@@ -167,7 +167,7 @@ class Cli_Tests(unittest.TestCase):
         main = self.entry("20260101-000000", "- NAME: sample\n")
         original = main.stat().st_mtime_ns
         dumped = self.run_mado("dump-mtimes")
-        index = self.repo / ".mtimes"
+        index = self.repo / "mtimes"
         custom = self.work / "custom times"
         copied = self.run_mado("dump-mtimes", str(custom))
         os.utime(main, ns=(original, original + 10000000000))
@@ -225,6 +225,29 @@ class Cli_Tests(unittest.TestCase):
                   self.check_error(strict, "Missing regular entry file") and unchanged and
                   self.check_output(skipped, "") and still_newer and
                   self.check_output(overwritten, "") and main.stat().st_mtime_ns == original)
+
+    # Checks default dumps use mtimes and restoration discovers an underscored index.
+    # Filesystem or process exceptions fail the test.
+    # Проверяет запись в mtimes по умолчанию и поиск индекса с подчёркиванием при восстановлении.
+    # Исключения файловой системы или процесса проваливают тест.
+    def test_mtimes_index_discovery(self):
+        self.run_mado("init", "-force")
+        main = self.entry("20260101-000000", "- NAME: entry\n")
+        original = main.stat().st_mtime_ns
+        dumped = self.run_mado("dump-mtimes")
+        default = self.repo / "mtimes"
+        legacy = self.repo / "_mtimes"
+        default.rename(legacy)
+
+        os.utime(main, ns=(original, original + 10000000000))
+        restored = self.run_mado("restore-mtimes")
+        help_result = self.run_mado("help")
+
+        self.test(self.check_output(dumped, "") and self.check_output(restored, "") and
+                  main.stat().st_mtime_ns == original and not default.exists() and legacy.is_file() and
+                  "Save entry modification times to MADO/mtimes or FILE" in help_result.stderr and
+                  "Restore entry modification times from MADO/mtimes or FILE" in help_result.stderr and
+                  all(f"MADO/{name}" not in help_result.stderr for name in (".mtimes", "_mtimes")))
 
     # Checks argument, repository, and missing-index diagnostics for both commands.
     # Проверяет диагностику аргументов, отсутствия репозитория и индекса обеих команд.

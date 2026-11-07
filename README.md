@@ -62,7 +62,7 @@ Use `mado -C <directory> <command>` to start from a different directory.
 | `mado new [-template NAME] [-suffix TEXT]` | Creates an entry. Use `-format path` to print its Markdown file path. |
 | `mado ls [QUERY]` | Lists matching entries. An omitted query selects all entries. |
 | `mado rm QUERY` | Deletes the directories of matching entries, including their attachments. |
-| `mado dump-mtimes [FILE]` | Saves entry modification times; defaults to `MADO/.mtimes`. |
+| `mado dump-mtimes [FILE]` | Saves entry modification times; defaults to `MADO/mtimes`. |
 | `mado restore-mtimes [-strict] [-keep-newer] [FILE]` | Restores entry modification times from the index. |
 | `mado info` | Shows the repository path, entry count, and counts by status, tag, and priority. |
 | `mado debug-ast QUERY` | Prints the query AST, including completed nodes on a parse error. |
@@ -111,8 +111,11 @@ mado restore-mtimes -strict
 mado restore-mtimes -keep-newer
 ```
 
-Both commands use `MADO/.mtimes` by default, finding `MADO` in the current
-directory or its ancestors. Copy this index together with your entries.
+Without an explicit path, `dump-mtimes` writes `MADO/mtimes`.
+`restore-mtimes` searches for the first regular file in this order:
+`MADO/mtimes`, `MADO/.mtimes`, `MADO/_mtimes`.
+Both commands find `MADO` in the current directory or its ancestors.
+An explicit path bypasses the search. Copy the index together with your entries.
 The versioned text file stores the full entry directory name (including its
 suffix) and Unix timestamps in nanoseconds, independent of the time zone.
 The destination filesystem may have lower timestamp precision.

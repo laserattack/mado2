@@ -566,7 +566,7 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
 // Собирает переносимый снимок в стабильном порядке до открытия файла назначения.
 // Сбои ОС вызывают runtime_error/filesystem_error; опасный путь — Repository_Error.
 void Repository::dump_mtimes(const std::filesystem::path &file) const {
-    const auto destination = file.empty() ? root_ / MTIMES_FILE : file;
+    const auto destination = file.empty() ? root_ / MTIMES_FILE_NAMES[0] : file;
     std::vector<std::pair<std::string, int64_t>> records;
 
     // Include every real entry file, independently of its metadata contents.
@@ -626,7 +626,20 @@ void Repository::dump_mtimes(const std::filesystem::path &file) const {
 // Проверяет все записи до восстановления, при необходимости сохраняя более новые изменения.
 // Ошибки данных вызывают Repository_Error; исключения ОС и памяти передаются выше.
 void Repository::restore_mtimes(const std::filesystem::path &file, bool strict, bool keep_newer) const {
-    const auto source = file.empty() ? root_ / MTIMES_FILE : file;
+    auto source = file.empty() ? root_ / MTIMES_FILE_NAMES[0] : file;
+
+    // Search supported names only when no explicit path was supplied.
+    // Ищем поддерживаемые имена только при отсутствии явно заданного пути.
+    if (file.empty()) {
+        for (const auto *name : MTIMES_FILE_NAMES) {
+            const auto candidate = root_ / name;
+            if (std::filesystem::is_regular_file(candidate)) {
+                source = candidate;
+                break;
+            }
+        }
+    }
+
     std::ifstream in(source, std::ios::binary);
     if (!in)
         throw std::runtime_error("Cannot read mtime index " + source.string());

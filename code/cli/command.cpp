@@ -641,9 +641,9 @@ class Mtimes_Command : public Command {
         name = restore ? "restore-mtimes" : "dump-mtimes";
         signature = restore ? "[-strict] [-keep-newer] [FILE]" : "[FILE]";
         const auto index_path = std::string(mado::repository::ENTRY_DIR) + "/" +
-                                mado::repository::MTIMES_FILE;
-        description = std::string(restore ? "Restore " : "Save ") + mado::repository::ENTRY_FILE +
-                      (restore ? " times from " : " times to ") + index_path + " or FILE";
+                                mado::repository::MTIMES_FILE_NAMES[0];
+        description = restore ? "Restore entry modification times from " + index_path + " or FILE"
+                              : "Save entry modification times to " + index_path + " or FILE";
     }
 
     // Uses the nearest repository and an optional index path. Returns false on argument errors.

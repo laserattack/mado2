@@ -921,7 +921,7 @@ static void test_mtimes_round_trip() {
     const auto original_first = std::filesystem::last_write_time(first / "MAIN.md");
     const auto original_second = std::filesystem::last_write_time(second / "MAIN.md");
     repo->dump_mtimes();
-    std::ifstream in(repo->root() / ".mtimes", std::ios::binary);
+    std::ifstream in(repo->root() / "mtimes", std::ios::binary);
     const std::string contents(std::istreambuf_iterator<char>(in), {});
     std::filesystem::last_write_time(first / "MAIN.md", time + std::chrono::hours(24));
     std::filesystem::last_write_time(second / "MAIN.md", time + std::chrono::hours(48));
@@ -965,6 +965,87 @@ static void test_mtimes_keep_newer() {
          std::filesystem::last_write_time(equal) == indexed);
 }
 
+// Checks ordered discovery of all supported index names without rewriting legacy indexes.
+// Unexpected filesystem or allocation exceptions fail the test.
+// Проверяет порядок поиска всех имён индекса без перезаписи старых индексов.
+// Неожиданные исключения файловой системы или памяти проваливают тест.
+static void test_mtimes_index_precedence() {
+    Temp_Dir tmp;
+    const auto main = make_entry(tmp.path(), "20260101-000000", "entry") / "MAIN.md";
+    const auto repo = Repository::open(tmp.path());
+    const auto base = std::filesystem::last_write_time(main) - std::chrono::hours(24);
+    const char *names[] = {"mtimes", ".mtimes", "_mtimes"};
+    std::vector<std::filesystem::file_time_type> saved;
+
+    // Give each candidate a distinct timestamp to identify which one is chosen.
+    // Задаём каждому кандидату своё время, чтобы определить выбранный файл.
+    for (unsigned i = 0; i < 3; ++i) {
+        std::filesystem::last_write_time(main, base + std::chrono::hours(i));
+        saved.push_back(std::filesystem::last_write_time(main));
+        repo->dump_mtimes(repo->root() / names[i]);
+    }
+
+    bool ordered = true;
+    // Removing the preceding candidate must expose the next one in lookup order.
+    // Удаление предыдущего кандидата должно открывать следующий по порядку поиска.
+    for (unsigned i = 0; i < 3; ++i) {
+        std::filesystem::last_write_time(main, base + std::chrono::hours(10));
+        repo->restore_mtimes();
+        ordered &= std::filesystem::last_write_time(main) == saved[i];
+        std::filesystem::remove(repo->root() / names[i]);
+    }
+
+    test(ordered);
+}
+
+// Checks discovery skips directories, while an explicit missing path never falls back.
+// Unexpected filesystem or allocation exceptions fail the test.
+// Проверяет пропуск каталогов при поиске и отсутствие поиска для явного отсутствующего пути.
+// Неожиданные исключения файловой системы или памяти проваливают тест.
+static void test_mtimes_index_path_selection() {
+    Temp_Dir tmp;
+    const auto main = make_entry(tmp.path(), "20260101-000000", "entry") / "MAIN.md";
+    const auto repo = Repository::open(tmp.path());
+    const auto original = std::filesystem::last_write_time(main);
+    repo->dump_mtimes(repo->root() / ".mtimes");
+    std::filesystem::create_directory(repo->root() / "mtimes");
+    std::filesystem::last_write_time(main, original + std::chrono::hours(24));
+    repo->restore_mtimes();
+    const bool restored = std::filesystem::last_write_time(main) == original;
+
+    bool rejected = false;
+    try {
+        repo->restore_mtimes(tmp.path() / "missing-index");
+    } catch (const std::runtime_error &error) {
+        rejected = std::string(error.what()).starts_with("Cannot read mtime index");
+    }
+
+    test(restored && rejected);
+}
+
+// Checks corrupt preferred indexes produce an error instead of silently selecting an older one.
+// Unexpected filesystem or allocation exceptions fail the test.
+// Проверяет ошибку повреждённого приоритетного индекса вместо тихого выбора старого.
+// Неожиданные исключения файловой системы или памяти проваливают тест.
+static void test_mtimes_invalid_preferred_index() {
+    Temp_Dir tmp;
+    const auto main = make_entry(tmp.path(), "20260101-000000", "entry") / "MAIN.md";
+    const auto repo = Repository::open(tmp.path());
+    repo->dump_mtimes(repo->root() / ".mtimes");
+    std::ofstream(repo->root() / "mtimes") << "invalid header\n";
+    std::filesystem::last_write_time(main, std::filesystem::last_write_time(main) + std::chrono::hours(24));
+    const auto changed = std::filesystem::last_write_time(main);
+
+    bool rejected = false;
+    try {
+        repo->restore_mtimes();
+    } catch (const std::runtime_error &error) {
+        rejected = std::string(error.what()).starts_with("Invalid mtime index header");
+    }
+
+    test(rejected && std::filesystem::last_write_time(main) == changed);
+}
+
 // Checks a header-only index and an explicit file outside MADO but inside the fixture.
 // Unexpected exceptions fail the test.
 // Проверяет пустой индекс и явный файл вне MADO, но внутри тестового окружения.
@@ -978,7 +1059,7 @@ static void test_mtimes_empty_custom_index() {
     std::ifstream in(file);
     const std::string contents(std::istreambuf_iterator<char>(in), {});
     test(contents == "mado-mtimes-v1 unix-nanoseconds\n" &&
-         !std::filesystem::exists(repo.root() / ".mtimes"));
+         !std::filesystem::exists(repo.root() / "mtimes"));
 }
 
 // Checks that identifiers resolve after moving the repository and an omitted entry is untouched.
@@ -1054,7 +1135,7 @@ static void test_mtimes_invalid_records() {
     const auto dir = make_entry(tmp.path(), "20260101-000000", "original");
     const auto repo = Repository::open(tmp.path());
     const auto original = std::filesystem::last_write_time(dir / "MAIN.md");
-    const auto index = repo->root() / ".mtimes";
+    const auto index = repo->root() / "mtimes";
     const std::string valid = "\"20260101-000000\" 1700000000000000000\n";
     const std::string invalid[] = {
         "", "wrong header\n",
@@ -1125,6 +1206,9 @@ int main() {
         {"Create dotted template", "retain dots in template names", test_create_dotted_template_name},
         {"Mtimes round trip", "preserve exact times and contents", test_mtimes_round_trip},
         {"Mtimes keep newer", "preserve newer times and restore older or equal ones", test_mtimes_keep_newer},
+        {"Mtimes index precedence", "discover default, hidden, and underscored indexes in order", test_mtimes_index_precedence},
+        {"Mtimes index path selection", "skip directories and respect explicit paths", test_mtimes_index_path_selection},
+        {"Mtimes invalid preferred index", "do not fall back from corrupt indexes", test_mtimes_invalid_preferred_index},
         {"Mtimes empty custom index", "explicit destination and empty repository", test_mtimes_empty_custom_index},
         {"Mtimes relocated repository", "restore after moving without absolute paths", test_mtimes_relocated_repository},
         {"Mtimes missing MAIN.md", "strict validation finishes before restoring", test_mtimes_missing_main_file},
