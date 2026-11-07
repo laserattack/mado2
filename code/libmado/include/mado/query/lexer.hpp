@@ -59,12 +59,10 @@ class Lexer {
     // Перемещает готовое значение в токен. Перемещение не выбрасывает исключений.
     Token make_token(Token_Type type, std::string value, size_t start) const;
 
-    // Scans a number or timestamp and emits Invalid for malformed values. May
-    // throw std::bad_alloc.
-    // Scans numbers and timestamps. Invalid input yields Invalid.
+    // Reads a digit-prefixed value as a number, timestamp, or string fallback.
     // May throw std::bad_alloc.
-    // Разбирает число или метку времени. Некорректное значение даёт Invalid. Возможен
-    // std::bad_alloc.
+    // Читает значение с начальной цифрой как число, метку времени или строку.
+    // Возможен std::bad_alloc.
     Token parse_number_and_timestamp();
 
     // Reads a time macro and its optional signed offset. Invalid macros yield

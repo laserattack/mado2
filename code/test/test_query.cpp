@@ -290,35 +290,35 @@ static void test_lexer_timestamp_with_t_only() {
 }
 
 // Checks how the lexer classifies `20260230`. Unexpected exceptions fail the test.
-// Проверяет отклонение невозможной даты. Неожиданное исключение проваливает тест.
+// Проверяет распознавание невозможной даты как строки. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_invalid_date() {
     Lexer lexer("20260230");
     auto tokens = lexer.tokenize();
 
     test(tokens.size() == 2 &&
-         tokens[0].type == Token_Type::Invalid &&
+         tokens[0].type == Token_Type::String &&
          tokens[1].type == Token_Type::End);
 }
 
 // Checks how the lexer classifies `202613`. Unexpected exceptions fail the test.
-// Проверяет отклонение неверного месяца. Неожиданное исключение проваливает тест.
+// Проверяет распознавание неверного месяца как строки. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_invalid_month() {
     Lexer lexer("202613");
     auto tokens = lexer.tokenize();
 
     test(tokens.size() == 2 &&
-         tokens[0].type == Token_Type::Invalid &&
+         tokens[0].type == Token_Type::String &&
          tokens[1].type == Token_Type::End);
 }
 
 // Checks how the lexer classifies `12345`. Unexpected exceptions fail the test.
-// Проверяет отклонение неверной длины даты. Неожиданное исключение проваливает тест.
+// Проверяет распознавание даты неверной длины как строки. Неожиданное исключение проваливает тест.
 static void test_lexer_timestamp_invalid_length() {
     Lexer lexer("12345");
     auto tokens = lexer.tokenize();
 
     test(tokens.size() == 2 &&
-         tokens[0].type == Token_Type::Invalid &&
+         tokens[0].type == Token_Type::String &&
          tokens[1].type == Token_Type::End);
 }
 
@@ -1843,6 +1843,46 @@ static void test_parser_partial_ast_empty() {
     test(correct && ast && valid.partial_ast() == nullptr);
 }
 
+// Checks digit-only operands of arbitrary length in string fields and lists.
+// Allocation and parse errors fail the test.
+// Проверяет цифровые операнды произвольной длины в строковых полях и списках.
+// Ошибки памяти и разбора проваливают тест.
+static void test_parser_long_digit_strings() {
+    bool correct = true;
+    for (const auto *field : {"name", "status", "tag", "path", "any"}) {
+        for (const auto *value : {"12312", "1231231", "123123123123123",
+                                  "0000000000000000000000000000000000000001",
+                                  "20260230", "20011212-12312312313213", "123-foo", "123abc", "12x"}) {
+            const std::string prefix = std::string(field) + " ~~ ";
+            correct &= same_ast(parse_query(prefix + value).get(),
+                                parse_query(prefix + "\"" + value + "\"").get());
+        }
+    }
+    test(correct &&
+         same_ast(parse_query("name in [12312..1231231]").get(),
+                  parse_query("name in [\"12312\"..\"1231231\"]").get()) &&
+         same_ast(parse_query("status = anyof(12312, 1231231)").get(),
+                  parse_query("status = anyof(\"12312\", \"1231231\")").get()));
+}
+
+// Checks that numeric coercion does not hide malformed syntax or typed-field errors.
+// Проверяет, что преобразование в строки не скрывает неверный синтаксис и ошибки типов.
+static void test_parser_long_digit_rejections() {
+    bool correct = true;
+    for (const auto *query : {"priority = 12312", "deadline = 20260230", "deadline = 20011212-12312312313213",
+                              "priority = 123abc",
+                              "name = \"12312", "name = @unknown"}) {
+        try {
+            parse_query(query);
+            correct = false;
+        } catch (const Parse_Error &) {
+            // Rejection is the expected result for each independent parser.
+            // Каждый независимый парсер должен отклонить запрос.
+        }
+    }
+    test(correct);
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1909,6 +1949,8 @@ int main(int argc, char **argv) {
         {"Time macro syntax", "compare macro and literal ASTs", test_parser_time_macro_syntax},
         {"Invalid macro syntax", "reject invalid macros in expressions", test_parser_invalid_time_macro_syntax},
         {"String field operands", "compare typed and quoted ASTs", test_parser_string_fields_coerce_values},
+        {"Long digit strings", "accept digit-only text beyond number and date limits", test_parser_long_digit_strings},
+        {"Long digit rejection boundaries", "keep malformed input and typed fields invalid", test_parser_long_digit_rejections},
         {"Time macro values", "resolve all time macros at a fixed time", test_time_macro_values},
         {"UTC conversion failure", "reject unrepresentable UTC times", test_utc_conversion_failure},
         {"Time macro range", "tokenize spaced offsets and a range delimiter", test_time_macro_range_tokens},

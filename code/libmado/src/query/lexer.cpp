@@ -3,6 +3,7 @@
 #include <mado/query/lexer.hpp>
 #include <mado/query/time_macro.hpp>
 
+#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <optional>
@@ -144,46 +145,38 @@ Token Lexer::make_token(Token_Type type, std::string value, size_t start) const 
     return Token{type, std::move(value), start, pos_ - start};
 }
 
-// Scans a number or timestamp and emits Invalid for malformed values. May
-// throw std::bad_alloc.
-// Разбирает число или метку времени. Некорректное значение даёт Invalid. Возможен
-// std::bad_alloc.
+// Reads a digit-prefixed value as a number, timestamp, or string fallback.
+// May throw std::bad_alloc.
+// Читает значение с начальной цифрой как число, метку времени или строку (строка как фалбек).
+// Возможен std::bad_alloc.
 Token Lexer::parse_number_and_timestamp() {
     size_t start = pos_;
 
     assert(mado::common::is_digit(get_it()) &&
            "parse_number_and_timestamp called without digit");
 
-    while (!is_at_end() && mado::common::is_digit(get_it())) {
+    // Read the complete bare value before classifying it by type.
+    // Читаем значение без кавычек целиком до определения его типа.
+    while (mado::common::is_identifier_char(get_it()) || get_it() == '-') {
         eat_it();
     }
 
-    // If exactly 8 digits are followed by '-', continue as timestamp
-    // Если после восьми цифр идёт дефис, продолжаем читать метку времени.
-    if (get_it() == '-' && pos_ - start == 8) {
-        eat_it(); // - / Распознаём оператор или разделитель `-`.
-
-        while (!is_at_end() && mado::common::is_digit(get_it())) {
-            eat_it();
-        }
-    }
-
     size_t length = pos_ - start;
+    const std::string value = query_.substr(start, length);
 
     // 1-3 digits: number (0-999)
     // Одна–три цифры обозначают число от 0 до 999.
-    if (length <= 3) {
+    if (length <= 3 && std::all_of(value.begin(), value.end(), mado::common::is_digit)) {
         return make_token(Token_Type::Number, start);
     }
 
     // 4+ digits: maybe timestamp (YYYY, YYYYMM, YYYYMMDD, YYYYMMDD-...)
     // Четыре цифры и более могут образовать метку времени.
-    std::string value = query_.substr(start, length);
     if (mado::common::is_timestamp(value)) {
         return make_token(Token_Type::Timestamp, start);
     }
 
-    return make_token(Token_Type::Invalid, start);
+    return make_token(Token_Type::String, start);
 }
 
 // Scans quoted text and emits Invalid when the quote is unterminated. May
