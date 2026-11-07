@@ -1,7 +1,6 @@
 #include "entry_info_format.hpp"
 
 #include <mado/common/fuzzy_match.hpp>
-#include <mado/common/text_utils.hpp>
 
 #include <format>
 #include <memory>
@@ -216,24 +215,11 @@ const std::vector<Format_Info> FORMATS = {
 // Сначала ищет точное имя, затем нечёткое совпадение. Если совпадения нет, возвращает nullopt.
 // Возможен std::bad_alloc.
 std::optional<Entry_Info_Format> parse_entry_info_format(const std::string &name) {
-    if (name.empty())
+    const auto found = mado::common::find_fuzzy_match(
+        name, FORMATS, [](const auto &item) { return item.name; });
+    if (found == FORMATS.end())
         return std::nullopt;
-
-    std::optional<Entry_Info_Format> best_format;
-    std::optional<int32_t> best_score;
-    // Prefer an exact format name over every fuzzy score.
-    // Точное имя формата имеет приоритет над нечёткими совпадениями.
-    for (const auto &f : FORMATS) {
-        if (mado::common::equals_ignore_case(name, f.name))
-            return f.format;
-
-        auto score = mado::common::fuzzy_match(name, f.name, true);
-        if (score && (!best_score || *score > *best_score)) {
-            best_score = score;
-            best_format = f.format;
-        }
-    }
-    return best_format;
+    return found->format;
 }
 
 // Creates the requested formatter or returns nullptr for an unknown value. May

@@ -240,39 +240,22 @@ Token Lexer::parse_identifier_and_keyword() {
 
     std::string result = query_.substr(start, pos_ - start);
 
-    std::optional<int32_t> best_score;
-    Token_Type best_type = Token_Type::Invalid;
-
-    // Search keywords in token order and retain the best fuzzy match.
-    // Проверяем ключевые слова по порядку токенов и сохраняем лучшее нечёткое совпадение.
-    for (int i = 0;; i++) {
-        Token_Type type = static_cast<Token_Type>(i);
-
-        if (type == Token_Type::Invalid)
-            break;
-
-        if (!token_is_keyword(type))
-            continue;
-
-        std::string keyword = token_type_to_string(type);
-
-        if (mado::common::equals_ignore_case(keyword, result)) {
-            return make_token(type, std::move(result), start);
+    // Build the keyword dictionary once in token order to preserve fuzzy ties.
+    // Создаём словарь один раз в порядке токенов для сохранения равных оценок.
+    static const auto KEYWORDS = [] {
+        std::vector<std::pair<std::string, Token_Type>> keywords;
+        for (int i = 0; i < static_cast<int>(Token_Type::Invalid); ++i) {
+            const auto type = static_cast<Token_Type>(i);
+            if (token_is_keyword(type))
+                keywords.emplace_back(token_type_to_string(type), type);
         }
+        return keywords;
+    }();
 
-        auto score = mado::common::fuzzy_match(result, keyword, true);
-
-        if (score && (!best_score || *score > *best_score)) {
-            best_score = *score;
-            best_type = type;
-        }
-    }
-
-    if (best_type != Token_Type::Invalid) {
-        return make_token(best_type, std::move(result), start);
-    }
-
-    return make_token(Token_Type::String, std::move(result), start);
+    const auto found = mado::common::find_fuzzy_match(
+        result, KEYWORDS, [](const auto &item) -> const std::string & { return item.first; });
+    const auto type = found == KEYWORDS.end() ? Token_Type::String : found->second;
+    return make_token(type, std::move(result), start);
 }
 
 // Scans an operator or punctuation, emitting Invalid for unknown input. May

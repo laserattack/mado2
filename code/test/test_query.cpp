@@ -1,6 +1,7 @@
 #include "test_utils.hpp"
 
 #include <mado/common/time_utils.hpp>
+#include <mado/common/fuzzy_match.hpp>
 #include <mado/query/ast.hpp>
 #include <mado/query/lexer.hpp>
 #include <mado/query/parser.hpp>
@@ -1749,6 +1750,42 @@ static void test_unicode_before_end_error() {
     test(correct);
 }
 
+// Checks exact-match priority and fuzzy lookup using the shared selector.
+// Allocation errors fail the test.
+// Проверяет приоритет точного совпадения и общий нечёткий поиск.
+// Сбой выделения памяти проваливает тест.
+static void test_fuzzy_name_selection() {
+    const std::string names[] = {"names", "name", "priority"};
+    // Return each candidate unchanged as its searchable name. No exceptions.
+    // Возвращаем кандидата как его имя для поиска. Исключений нет.
+    const auto name = [](const std::string &value) -> const std::string & { return value; };
+    test(mado::common::find_fuzzy_match("NAME", names, name) == std::begin(names) + 1 &&
+         mado::common::find_fuzzy_match("prio", names, name) == std::begin(names) + 2);
+}
+
+// Checks that equally scored candidates retain their dictionary order.
+// Проверяет сохранение порядка словаря для кандидатов с одинаковой оценкой.
+static void test_fuzzy_name_ties() {
+    const std::string names[] = {"ab", "ac"};
+    // Return the candidate name without copying. No exceptions.
+    // Возвращаем имя кандидата без копирования. Исключений нет.
+    const auto name = [](const std::string &value) -> const std::string & { return value; };
+    test(mado::common::find_fuzzy_match("a", names, name) == std::begin(names));
+}
+
+// Checks empty dictionaries, empty patterns, and unmatched patterns.
+// Проверяет пустые словари, пустые шаблоны и отсутствие совпадений.
+static void test_fuzzy_name_missing() {
+    const std::string names[] = {"name"};
+    const std::vector<std::string> empty;
+    // Return the candidate name without copying. No exceptions.
+    // Возвращаем имя кандидата без копирования. Исключений нет.
+    const auto name = [](const std::string &value) -> const std::string & { return value; };
+    test(mado::common::find_fuzzy_match("", names, name) == std::end(names) &&
+         mado::common::find_fuzzy_match("zzz", names, name) == std::end(names) &&
+         mado::common::find_fuzzy_match("name", empty, name) == empty.end());
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1781,6 +1818,9 @@ int main(int argc, char **argv) {
         // Токены.
 // Токены.
         {"Token creation", "create token with values", test_token_creation},
+        {"Fuzzy name selection", "prefer exact names before fuzzy matches", test_fuzzy_name_selection},
+        {"Fuzzy name ties", "keep the first equal score", test_fuzzy_name_ties},
+        {"Fuzzy name missing", "reject empty and unmatched input", test_fuzzy_name_missing},
         {"Token default", "create default token", test_token_creation_default},
         {"Token to_string", "convert type to string", test_token_type_to_string},
         // lexer

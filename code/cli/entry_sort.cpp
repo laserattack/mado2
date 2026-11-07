@@ -27,20 +27,11 @@ std::optional<Sort_Field> parse_sort_field(const std::string &name) {
         {"tags", Sort_Field::Tags},
     };
 
-    std::optional<Sort_Field> best_field;
-    std::optional<int32_t> best_score;
-    // Prefer an exact field name over every fuzzy score.
-    // Точное имя поля имеет приоритет над нечёткими совпадениями.
-    for (const auto &[field_name, field] : fields) {
-        if (mado::common::equals_ignore_case(name, field_name))
-            return field;
-        auto score = mado::common::fuzzy_match(name, field_name, true);
-        if (score && (!best_score || *score > *best_score)) {
-            best_score = score;
-            best_field = field;
-        }
-    }
-    return best_field;
+    const auto found = mado::common::find_fuzzy_match(
+        name, fields, [](const auto &item) -> const std::string & { return item.first; });
+    if (found == std::end(fields))
+        return std::nullopt;
+    return found->second;
 }
 
 // Concatenates tags for lexicographic comparison. May throw std::bad_alloc.

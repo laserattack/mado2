@@ -1,7 +1,6 @@
 #include <mado/query/time_macro.hpp>
 
 #include <mado/common/fuzzy_match.hpp>
-#include <mado/common/text_utils.hpp>
 #include <mado/common/time_utils.hpp>
 
 #include <chrono>
@@ -31,18 +30,11 @@ std::optional<Time_Macro> find_time_macro(const std::string &name) {
         {"year", Time_Macro::Year}, {"never", Time_Macro::Never},
     };
 
-    std::optional<Time_Macro> best;
-    std::optional<int32_t> best_score;
-    for (const auto &[macro_name, macro] : macros) {
-        if (mado::common::equals_ignore_case(name, macro_name))
-            return macro;
-        const auto score = mado::common::fuzzy_match(name, macro_name, true);
-        if (score && (!best_score || *score > *best_score)) {
-            best = macro;
-            best_score = score;
-        }
-    }
-    return best;
+    const auto found = mado::common::find_fuzzy_match(
+        name, macros, [](const auto &item) -> const std::string & { return item.first; });
+    if (found == std::end(macros))
+        return std::nullopt;
+    return found->second;
 }
 
 // Formats a supported calendar date with optional wall-clock time. Returns
