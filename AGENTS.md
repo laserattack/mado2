@@ -89,6 +89,13 @@
   them, even when automatic cleanup is in place. Never stage or commit
   temporary artifacts.
 
+# Maintenance scripts
+
+- Prefer portable Python for entry generators and other maintenance scripts.
+- Do not add tests for generation or maintenance scripts, and do not document
+  these scripts in README files unless the user explicitly requests it.
+  This is an exception to the behavior-change testing requirement below.
+
 # Tests
 
 - Test query syntax, ASTs, matching, and repository behavior directly

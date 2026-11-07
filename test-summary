@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-meson test -C build --print-errorlogs || exit $?
-grep 'tests passed' build/meson-logs/testlog.txt
