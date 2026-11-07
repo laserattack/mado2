@@ -206,6 +206,7 @@ std::string Parser::value_type_desc(Ast_Comparison_Field field) const {
 // Строит AST запроса. Некорректный или пустой запрос вызывает Parse_Error, сбой выделения
 // памяти — std::bad_alloc.
 std::unique_ptr<Ast_Node> Parser::parse() {
+    partial_ast_.reset();
     if (is_at_end()) {
         throw Parse_Error("Empty query", get_it());
     }
@@ -213,6 +214,7 @@ std::unique_ptr<Ast_Node> Parser::parse() {
     auto ast = parse_expression();
 
     if (!is_at_end()) {
+        partial_ast_ = std::move(ast);
         throw Parse_Error("Expected a binary operator or the end of the query" + unexpected_input(get_it()), get_it());
     }
 
@@ -234,7 +236,14 @@ std::unique_ptr<Ast_Node> Parser::parse_or() {
     // Сворачиваем последовательные операнды OR слева направо.
     while (get_it().type == Token_Type::Or) {
         eat_it();
-        auto right = parse_xor();
+        std::unique_ptr<Ast_Node> right;
+        try {
+            right = parse_xor();
+        } catch (const Parse_Error &) {
+            partial_ast_ = ast_make_binary(Ast_Binary_Operator::Or,
+                                           std::move(left), std::move(partial_ast_));
+            throw;
+        }
         left = ast_make_binary(Ast_Binary_Operator::Or,
                                std::move(left), std::move(right));
     }
@@ -251,7 +260,14 @@ std::unique_ptr<Ast_Node> Parser::parse_xor() {
     // Сворачиваем последовательные операнды XOR слева направо.
     while (get_it().type == Token_Type::Xor) {
         eat_it();
-        auto right = parse_and();
+        std::unique_ptr<Ast_Node> right;
+        try {
+            right = parse_and();
+        } catch (const Parse_Error &) {
+            partial_ast_ = ast_make_binary(Ast_Binary_Operator::Xor,
+                                           std::move(left), std::move(partial_ast_));
+            throw;
+        }
         left = ast_make_binary(Ast_Binary_Operator::Xor,
                                std::move(left), std::move(right));
     }
@@ -268,7 +284,14 @@ std::unique_ptr<Ast_Node> Parser::parse_and() {
     // Сворачиваем последовательные операнды AND слева направо.
     while (get_it().type == Token_Type::And) {
         eat_it();
-        auto right = parse_not();
+        std::unique_ptr<Ast_Node> right;
+        try {
+            right = parse_not();
+        } catch (const Parse_Error &) {
+            partial_ast_ = ast_make_binary(Ast_Binary_Operator::And,
+                                           std::move(left), std::move(partial_ast_));
+            throw;
+        }
         left = ast_make_binary(Ast_Binary_Operator::And,
                                std::move(left), std::move(right));
     }
@@ -281,7 +304,13 @@ std::unique_ptr<Ast_Node> Parser::parse_and() {
 std::unique_ptr<Ast_Node> Parser::parse_not() {
     if (get_it().type == Token_Type::Not) {
         eat_it();
-        auto expr = parse_not();
+        std::unique_ptr<Ast_Node> expr;
+        try {
+            expr = parse_not();
+        } catch (const Parse_Error &) {
+            partial_ast_ = ast_make_unary(Ast_Unary_Operator::Not, std::move(partial_ast_));
+            throw;
+        }
         return ast_make_unary(Ast_Unary_Operator::Not, std::move(expr));
     }
 
@@ -302,6 +331,7 @@ std::unique_ptr<Ast_Node> Parser::parse_primary() {
         auto rparen = eat_it(); // ) / Распознаём оператор или разделитель `)`.
 
         if (rparen.type != Token_Type::Rparen) {
+            partial_ast_ = std::move(expr);
             throw Parse_Error("Expected ')'" + unexpected_input(rparen), rparen);
         }
 
@@ -450,6 +480,9 @@ std::unique_ptr<Ast_Node> Parser::parse_comparison(Ast_Comparison_Field field) {
     // Иначе ожидаем одиночное значение подходящего типа.
     auto tok = get_it();
     if (!value_matches_field(field, tok)) {
+        // The field and operator are already known even without a valid value.
+        // Поле и оператор уже известны даже при отсутствии допустимого значения.
+        partial_ast_ = ast_make_comparison(field, op, std::monostate{});
         // A comparison accepts either one value or a list modifier.
         // Сравнение принимает одиночное значение или модификатор списка.
         throw Parse_Error("Expected " + value_type_desc(field) +
@@ -483,6 +516,7 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     auto dots = eat_it(); // .. / Распознаём оператор или разделитель `..`.
     if (dots.type != Token_Type::DotDot) {
+        partial_ast_ = std::move(low);
         throw Parse_Error("Expected '..' after the lower bound" + context + unexpected_input(dots), dots);
     }
 
@@ -491,6 +525,7 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
             if (low) {
+                partial_ast_ = std::move(low);
                 throw Parse_Error("Expected " + value_type_desc(field) + " or ']' after '..'" +
                                       context + unexpected_input(tok), tok);
             } else {
@@ -503,6 +538,12 @@ std::unique_ptr<Ast_Node> Parser::parse_range(Ast_Comparison_Field field) {
 
     auto rbr = eat_it(); // ] / Распознаём оператор или разделитель `]`.
     if (rbr.type != Token_Type::Rbracket) {
+        // Keep both completed bounds even when their closing bracket is missing.
+        // Сохраняем обе готовые границы даже при отсутствии закрывающей скобки.
+        if (low && high)
+            partial_ast_ = ast_make_binary(Ast_Binary_Operator::And, std::move(low), std::move(high));
+        else
+            partial_ast_ = low ? std::move(low) : std::move(high);
         throw Parse_Error("Expected ']' after the upper bound" + context + unexpected_input(rbr), rbr);
     }
 
@@ -551,6 +592,7 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
         auto tok = get_it();
         if (!value_matches_field(field, tok)) {
             const std::string delimiter = result ? "," : "(";
+            partial_ast_ = std::move(result);
             throw Parse_Error("Expected " + value_type_desc(field) + " after '" + delimiter +
                                   "'" + context + unexpected_input(tok), tok);
         }
@@ -567,6 +609,7 @@ std::unique_ptr<Ast_Node> Parser::parse_list(
         if (next.type == Token_Type::Rparen) {
             break;
         }
+        partial_ast_ = std::move(result);
         throw Parse_Error("Expected ',' or ')' after a value" + context + unexpected_input(next), next);
     }
 

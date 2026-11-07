@@ -45,7 +45,18 @@ class Parser {
     // памяти — std::bad_alloc.
     std::unique_ptr<Ast_Node> parse(); // parse AST / Строит AST. Некорректный запрос вызывает Parse_Error.
 
+    // Returns the tree built before the last parse error, or nullptr if none.
+    // Valid until the next parse or parser destruction. No exceptions.
+    // Incomplete operators can have null operands. For diagnostics only.
+    // Возвращает дерево, построенное до последней ошибки, или nullptr.
+    // Действует до следующего разбора или удаления парсера. Исключений нет.
+    // Операторы могут иметь нулевые операнды. Только для диагностики.
+    const Ast_Node *partial_ast() const { return partial_ast_.get(); }
+
   private:
+    // Owns completed nodes retained while a syntax error unwinds the parser.
+    // Владеет готовыми узлами, сохранёнными при выходе из разбора с ошибкой.
+    std::unique_ptr<Ast_Node> partial_ast_;
     std::vector<Token> tokens_; // Tokens from lexer / Токены от лексера.
     size_t current_{0};         // Index of the current token in tokens_ / Индекс текущего токена в tokens_.
 

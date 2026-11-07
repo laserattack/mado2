@@ -1786,6 +1786,63 @@ static void test_fuzzy_name_missing() {
          mado::common::find_fuzzy_match("name", empty, name) == empty.end());
 }
 
+// Checks preservation of completed nodes at each parser boundary.
+// Unexpected exceptions fail the test.
+// Проверяет сохранение готовых узлов на всех границах парсера.
+// Неожиданные исключения проваливают тест.
+static void test_parser_partial_ast() {
+    const std::pair<const char *, std::unique_ptr<Ast_Node>> cases[] = {
+        {"nme = )", ast_make_comparison(Ast_Comparison_Field::Name,
+                                        Ast_Comparison_Operator::Eq, std::monostate{})},
+        {"name =", ast_make_comparison(Ast_Comparison_Field::Name,
+                                      Ast_Comparison_Operator::Eq, std::monostate{})},
+        {"all junk", parse_query("all")},
+        {"all and", ast_make_binary(Ast_Binary_Operator::And, parse_query("all"), nullptr)},
+        {"all xor", ast_make_binary(Ast_Binary_Operator::Xor, parse_query("all"), nullptr)},
+        {"all or (name = foo and)",
+         ast_make_binary(Ast_Binary_Operator::Or, parse_query("all"),
+                         ast_make_binary(Ast_Binary_Operator::And, parse_query("name = foo"), nullptr))},
+        {"not (all", ast_make_unary(Ast_Unary_Operator::Not, parse_query("all"))},
+        {"priority = anyof(1,2,)", parse_query("priority = anyof(1,2)")},
+        {"priority = allof(1 2)", parse_query("priority = 1")},
+        {"priority in [1 oops]", parse_query("priority >= 1")},
+        {"priority in [1..oops]", parse_query("priority >= 1")},
+        {"priority in [1..2", parse_query("priority in [1..2]")},
+        {"priority in [..2", parse_query("priority <= 2")},
+    };
+    bool correct = true;
+    // Compare partial tree structure directly, without depending on CLI rendering.
+    // Сравниваем структуру частичного дерева напрямую, без зависимости от вывода CLI.
+    for (const auto &[query, expected] : cases) {
+        Parser parser(Lexer(query).tokenize());
+        try {
+            parser.parse();
+            correct = false;
+        } catch (const Parse_Error &) {
+            correct &= same_ast(parser.partial_ast(), expected.get());
+        }
+    }
+    test(correct);
+}
+
+// Checks that a parser with no completed node exposes no partial tree.
+// Проверяет отсутствие частичного дерева, когда ещё не построено ни одного узла.
+static void test_parser_partial_ast_empty() {
+    bool correct = true;
+    for (const auto *query : {"", "priority = anyof()", "priority in [..]"}) {
+        Parser parser(Lexer(query).tokenize());
+        try {
+            parser.parse();
+            correct = false;
+        } catch (const Parse_Error &) {
+            correct &= parser.partial_ast() == nullptr;
+        }
+    }
+    Parser valid(Lexer("all").tokenize());
+    const auto ast = valid.parse();
+    test(correct && ast && valid.partial_ast() == nullptr);
+}
+
 // Runs this test suite and returns 1 on failure or 0 on success.
 // Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main(int argc, char **argv) {
@@ -1818,6 +1875,8 @@ int main(int argc, char **argv) {
         // Токены.
 // Токены.
         {"Token creation", "create token with values", test_token_creation},
+        {"Partial AST", "preserve completed syntax on failure", test_parser_partial_ast},
+        {"Empty partial AST", "expose no tree without completed nodes", test_parser_partial_ast_empty},
         {"Fuzzy name selection", "prefer exact names before fuzzy matches", test_fuzzy_name_selection},
         {"Fuzzy name ties", "keep the first equal score", test_fuzzy_name_ties},
         {"Fuzzy name missing", "reject empty and unmatched input", test_fuzzy_name_missing},

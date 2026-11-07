@@ -84,7 +84,7 @@ class Cli_Tests(unittest.TestCase):
             "init": ("setup", "start", "install"),
             "new": ("add", "create", "note", "task"),
             "info": ("repo", "about", "summary", "stat"),
-            "debug": ("check",),
+            "debug-ast": ("debug", "check"),
         }
         general = self.run_mado("help")
         # Use the help alias to look up every alias without modifying a repository.
@@ -166,7 +166,7 @@ class Cli_Tests(unittest.TestCase):
         self.test(
             result.returncode == 0 and result.stdout == "",
             all(re.search(rf"^  {name}\s+-", result.stderr, re.MULTILINE)
-                for name in ("help", "version", "ls", "rm", "init", "new", "info", "debug")),
+                for name in ("help", "version", "ls", "rm", "init", "new", "info", "debug-ast")),
             "<command> [OPTIONS]" in result.stderr and "-C <path>" in result.stderr,
         )
 
@@ -176,7 +176,7 @@ class Cli_Tests(unittest.TestCase):
         signatures = {
             "help": "[COMMAND]", "version": "version", "ls": "[QUERY]",
             "rm": "<QUERY>", "init": "[-force]", "new": "[-template <name>]",
-            "info": "[-only-dir]", "debug": "<QUERY>",
+            "info": "[-only-dir]", "debug-ast": "<QUERY>",
         }
         for command, signature in signatures.items():
             with self.subTest(command=command):
@@ -467,28 +467,40 @@ class Cli_Tests(unittest.TestCase):
     # Checks AST output from a compound query. unittest reports failures.
     # Проверяет вывод AST составного запроса. Сбои регистрирует unittest.
     def test_debug_prints_ast(self):
-        result = self.run_mado("debug", "priority = 3 and not all")
+        result = self.run_mado("debug-ast", "priority = 3 and not all")
         self.test(self.check_output(result,
                                     "Binary: And\n  Comparison: Priority Eq 3\n"
                                     "  Unary: Not\n    All\n"))
 
-    # Checks that an invalid query produces a diagnostic and no AST.
-    # Проверяет диагностику неверного запроса и отсутствие AST в выводе.
+    # Checks AST output and failure status when parsing stops after a valid node.
+    # Проверяет вывод AST и код ошибки при остановке после готового узла.
+    def test_debug_ast_partial_output(self):
+        result = self.run_mado("debug-ast", "all and")
+        self.test(result.returncode == 1 and
+                  result.stdout == "Binary: And\n  All\n" and
+                  "query ended" in result.stderr)
+
+    # Checks a partial comparison with a missing operand and its diagnostic.
+    # Проверяет частичное сравнение с отсутствующим операндом и диагностику.
     def test_debug_invalid_query(self):
-        self.test(self.check_error(self.run_mado("debug", "name ="), "Expected a string"))
+        result = self.run_mado("debug-ast", "nme = )")
+        self.test(result.returncode == 1 and
+                  result.stdout == "Comparison: Name Eq <missing>\n" and
+                  "Expected a string" in result.stderr and
+                  "Field 'name' matched from 'nme'" in result.stderr)
 
     # Checks that an empty query is rejected. unittest reports failures.
     # Проверяет отказ для пустого запроса. Сбои регистрирует unittest.
     def test_debug_empty_query(self):
-        self.test(self.check_error(self.run_mado("debug", ""), "Empty query"))
+        self.test(self.check_error(self.run_mado("debug-ast", ""), "Empty query"))
 
     # Checks rejection of missing and extra arguments. unittest reports failures.
     # Проверяет отказ при отсутствии аргумента или лишних аргументах.
     def test_debug_argument_errors(self):
-        self.test(self.check_error(self.run_mado("debug"), "QUERY is required") and
-                  self.check_error(self.run_mado("debug", "all", "all"),
+        self.test(self.check_error(self.run_mado("debug-ast"), "QUERY is required") and
+                  self.check_error(self.run_mado("debug-ast", "all", "all"),
                                    "QUERY must be a single argument") and
-                  self.check_error(self.run_mado("debug", "-unknown"), "Usage:"))
+                  self.check_error(self.run_mado("debug-ast", "-unknown"), "Usage:"))
 
 
 # Runs the suite and exits with unittest's success or failure status.

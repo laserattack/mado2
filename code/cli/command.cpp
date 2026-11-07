@@ -570,20 +570,20 @@ class Info_Command : public Command {
 
 // Parses and prints a query AST without opening a repository.
 // Разбирает запрос и печатает AST без открытия репозитория.
-class Debug_Command : public Command {
+class Debug_Ast_Command : public Command {
   public:
     // Sets usage metadata. May throw std::bad_alloc.
     // Задаёт метаданные справки. Возможен std::bad_alloc.
-    Debug_Command() {
-        name = "debug";
-        aliases = {"check"};
+    Debug_Ast_Command() {
+        name = "debug-ast";
+        aliases = {"debug", "check"};
         signature = "<QUERY>";
         description = "Print the query AST";
     }
 
-    // Prints the AST on success. Returns false for invalid arguments or
-    // syntax. Clock and allocation exceptions propagate.
-    // Печатает AST при успехе. Неверные аргументы или синтаксис дают false.
+    // Prints the AST or its completed portion on a parse error. Returns false for
+    // invalid arguments or syntax. Clock and allocation exceptions propagate.
+    // Печатает AST или готовую часть при ошибке. Неверные аргументы и синтаксис дают false.
     // Исключения часов и выделения памяти передаются вызывающему коду.
     bool run(const std::string &program_name,
              int argc, char **argv) const override {
@@ -599,8 +599,7 @@ class Debug_Command : public Command {
         // Запрос нужно передать одним аргументом командной строки.
         if (argc != 1) {
             print_command_usage(*this, program_name);
-            fprintf(stderr, "%s\n", argc == 0 ? "QUERY is required" :
-                                               "QUERY must be a single argument");
+            fprintf(stderr, "%s\n", argc == 0 ? "QUERY is required" : "QUERY must be a single argument");
             return false;
         }
 
@@ -611,6 +610,12 @@ class Debug_Command : public Command {
             const auto ast = parser.parse();
             mado::query::ast_print(ast.get());
         } catch (const mado::query::Parse_Error &e) {
+            // Show completed nodes before the diagnostic, retaining failure status.
+            // Выводим построенные узлы перед диагностикой, сохраняя код ошибки.
+            if (parser.partial_ast()) {
+                mado::query::ast_print(parser.partial_ast());
+                std::fflush(stdout);
+            }
             fprintf(stderr, "%s", e.format(query).c_str());
             return false;
         }
@@ -629,7 +634,7 @@ const std::vector<std::unique_ptr<Command>> COMMANDS = [] {
     cmds.push_back(std::make_unique<Init_Command>());
     cmds.push_back(std::make_unique<New_Command>());
     cmds.push_back(std::make_unique<Info_Command>());
-    cmds.push_back(std::make_unique<Debug_Command>());
+    cmds.push_back(std::make_unique<Debug_Ast_Command>());
     return cmds;
 }();
 

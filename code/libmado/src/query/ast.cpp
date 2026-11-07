@@ -204,8 +204,10 @@ void ast_print(const Ast_Node *node, size_t depth) {
 
         if (n->is_number()) {
             printf("%d\n", n->as_number());
-        } else {
+        } else if (n->is_string()) {
             printf("%s\n", n->as_string().c_str());
+        } else {
+            printf("<missing>\n");
         }
         break;
     }

@@ -63,7 +63,7 @@ Use `mado -C <directory> <command>` to start from a different directory.
 | `mado ls [QUERY]` | Lists matching entries. An omitted query selects all entries. |
 | `mado rm QUERY` | Deletes the directories of matching entries, including their attachments. |
 | `mado info` | Shows the repository path, entry count, and counts by status, tag, and priority. |
-| `mado debug QUERY` | Prints the parsed query tree without opening a repository. |
+| `mado debug-ast QUERY` | Prints the query AST, including completed nodes on a parse error. |
 | `mado help [COMMAND]` | Shows general or command-specific usage. |
 | `mado version` | Prints the executable version. |
 
@@ -126,7 +126,7 @@ mado ls 'name %~ "fix *" and priority in [3..9]'
 mado ls 'status in (open, reopened) and tag has (bug, auth)'
 mado ls 'name ~ anyof("login", "redirect")'
 mado ls 'tag ~ allof(bug, auth)'
-mado debug 'not (status = closed or untagged)'
+mado debug-ast 'not (status = closed or untagged)'
 ```
 
 `in [low..high]` includes both bounds. Either bound can be omitted.

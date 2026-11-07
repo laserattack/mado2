@@ -87,9 +87,9 @@ struct Ast_Node {
     Ast_Node(Ast_Node_Type t) : type(t) {}
 };
 
-// number in range [0,999]
-// Число в диапазоне от 0 до 999.
-using Ast_Value = std::variant<uint16_t, std::string>;
+// A number, string, or missing operand in a diagnostic partial AST.
+// Число, строка или отсутствующий операнд в частичном AST для диагностики.
+using Ast_Value = std::variant<uint16_t, std::string, std::monostate>;
 
 // Stores a field comparison and its numeric or string operand.
 // Хранит сравнение поля и числовой либо строковый операнд.
