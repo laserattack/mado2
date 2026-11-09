@@ -421,6 +421,23 @@ class Cli_Tests(unittest.TestCase):
                   self.check_output(only, '{"name":"Example","tags":["bug"]}\n') and
                   self.check_output(self.run_mado("ls", "-format", "jsonl", "-only-hidden"), "{}\n"))
 
+    def test_ls_json_escapes_tab_in_name(self):
+        name = "first\tsecond"
+        self.entry("20260101-000000", f"- NAME: {name}\n")
+        result = self.run_mado("ls", "-format", "jsonl")
+
+        self.test(result.returncode == 0 and result.stderr == "" and
+                  r'"name":"first\tsecond"' in result.stdout and
+                  json.loads(result.stdout)["name"] == name)
+
+    def test_ls_json_escapes_other_control_characters(self):
+        name = "first\x00\x01\b\f\x1fsecond"
+        self.entry("20260101-000000", f"- NAME: {name}\n")
+        result = self.run_mado("ls", "-format", "jsonl")
+
+        self.test(result.returncode == 0 and result.stderr == "" and
+                  json.loads(result.stdout)["name"] == name)
+
     def test_ls_invalid_sort(self):
         for spec in ("", "+", "zzzz"):
             with self.subTest(spec=spec):

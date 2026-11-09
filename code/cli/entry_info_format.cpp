@@ -13,6 +13,7 @@ namespace cli {
 
 // Writes a JSON string literal to os.
 void print_json_string(const std::string &str, std::ostream &os) {
+    constexpr unsigned char JSON_CONTROL_LIMIT = 0x20;
     os << '"';
     for (char c : str) {
         switch (c) {
@@ -22,8 +23,14 @@ void print_json_string(const std::string &str, std::ostream &os) {
         case '\\':
             os << "\\\\";
             break;
+        case '\t':
+            os << "\\t";
+            break;
         default:
-            os << c;
+            if (const auto byte = static_cast<unsigned char>(c); byte < JSON_CONTROL_LIMIT)
+                os << std::format("\\u{:04x}", byte);
+            else
+                os << c;
         }
     }
     os << '"';
