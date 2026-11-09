@@ -448,15 +448,18 @@ std::filesystem::path Repository::dump_mtimes(const std::filesystem::path &file)
 
     for (const auto &dir : std::filesystem::directory_iterator(root_)) {
         const auto main = dir.path() / ENTRY_FILE;
+
         if (dir.is_symlink() || !dir.is_directory() ||
             std::filesystem::is_symlink(main) || !std::filesystem::is_regular_file(main))
             continue;
 
+        // Check that the dump destination does not refer to any entry's MAIN.md.
         if (std::filesystem::exists(destination) && std::filesystem::equivalent(destination, main))
             throw Repository_Error("Mtime index cannot overwrite entry " + main.string());
 
+        // Check whether mtime fits the index format. The index stores time as
+        // a signed 64-bit count of nanoseconds since the Unix epoch (int64_t).
         const auto file_time = std::filesystem::last_write_time(main);
-
         const auto wide_time = std::filesystem::file_time_type::clock::to_sys(
             std::chrono::time_point<std::filesystem::file_time_type::clock,
                                     std::chrono::duration<long double>>{file_time});
@@ -521,14 +524,21 @@ std::filesystem::path Repository::restore_mtimes(const std::filesystem::path &fi
         std::istringstream row(line);
         std::string id;
         int64_t ticks;
-        if (!(row >> std::quoted(id) >> ticks) || !(row >> std::ws).eof() ||
+        if (
+            // Read the entry ID into id and its modification time into ticks.
+            !(row >> std::quoted(id) >> ticks) || !(row >> std::ws).eof() ||
+            // Validate the entry ID.
             id.empty() || id == "." || id == ".." ||
-            id.find_first_of(INVALID_PATH_CHARS) != std::string::npos || !seen.insert(id).second)
+            id.find_first_of(INVALID_PATH_CHARS) != std::string::npos ||
+            // Has this ID already appeared?
+            !seen.insert(id).second)
             throw Repository_Error("Invalid mtime index record in " + source.string());
 
         const auto dir = root_ / id;
         const auto main = dir / ENTRY_FILE;
 
+        // last_write_time follows symlinks and would modify the target file.
+        // Reject symlinks to prevent that.
         if (std::filesystem::is_symlink(dir) || std::filesystem::is_symlink(main))
             throw Repository_Error("Invalid symbolic link entry " + main.string());
 
@@ -537,6 +547,8 @@ std::filesystem::path Repository::restore_mtimes(const std::filesystem::path &fi
         if (!std::filesystem::is_regular_file(main))
             throw Repository_Error("Missing regular entry file " + main.string());
 
+        // Check whether the entry's modification time fits the current system's
+        // file clock.
         using File_Duration = std::filesystem::file_time_type::duration;
         const auto wide_time = std::filesystem::file_time_type::clock::from_sys(
             std::chrono::sys_time<std::chrono::duration<long double>>{
@@ -551,12 +563,14 @@ std::filesystem::path Repository::restore_mtimes(const std::filesystem::path &fi
         const auto time = std::filesystem::file_time_type::clock::from_sys(
             std::chrono::sys_time<std::chrono::nanoseconds>{std::chrono::nanoseconds{ticks}});
 
+        // Save the entry's file path and its new modification time.
         records.emplace_back(main, time);
     }
 
     if (in.bad())
         throw std::runtime_error("Cannot read mtime index " + source.string());
 
+    // Update modification times.
     for (const auto &[main, time] : records) {
         if (keep_newer && std::filesystem::last_write_time(main) > time)
             continue;
