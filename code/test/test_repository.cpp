@@ -950,6 +950,67 @@ static void test_mtimes_skips_missing_files() {
          !std::filesystem::exists(first) && !std::filesystem::exists(last / "MAIN.md"));
 }
 
+static bool check_mtimes_symlink(bool directory_link, bool strict) {
+    Temp_Dir tmp;
+    const auto regular = make_entry(tmp.path(), "20260101-000000", "regular") / "MAIN.md";
+    const auto linked_dir = make_entry(tmp.path(), "20260102-000000", "linked");
+    const auto linked_file = linked_dir / "MAIN.md";
+    const auto repo = Repository::open(tmp.path());
+    const auto original = std::filesystem::last_write_time(regular);
+    const auto linked_original = std::filesystem::last_write_time(linked_file);
+    repo->dump_mtimes();
+
+    const auto target = tmp.path() / "target";
+    std::error_code error;
+    if (directory_link) {
+        std::filesystem::rename(linked_dir, target);
+        std::filesystem::create_directory_symlink(target, linked_dir, error);
+    } else {
+        std::filesystem::rename(linked_file, target);
+        std::filesystem::create_symlink(target, linked_file, error);
+    }
+    if (error) {
+        bool unavailable = error == std::errc::permission_denied ||
+                           error == std::errc::operation_not_permitted ||
+                           error == std::errc::operation_not_supported;
+#if defined(_WIN32)
+        constexpr int SYMLINK_PRIVILEGE_NOT_HELD = 1314;
+        unavailable |= error.category() == std::system_category() &&
+                       error.value() == SYMLINK_PRIVILEGE_NOT_HELD;
+#endif
+        if (!unavailable)
+            throw std::filesystem::filesystem_error("Cannot create test symlink", linked_dir, error);
+        std::printf("SKIP: cannot create symlink: %s\n", error.message().c_str());
+        return true;
+    }
+
+    const auto target_file = directory_link ? target / "MAIN.md" : target;
+    std::filesystem::last_write_time(regular, original + std::chrono::hours(24));
+    std::filesystem::last_write_time(target_file, linked_original + std::chrono::hours(24));
+    const auto changed = std::filesystem::last_write_time(regular);
+    const auto target_time = std::filesystem::last_write_time(target_file);
+
+    bool rejected = false;
+    try {
+        repo->restore_mtimes({}, strict);
+    } catch (const std::runtime_error &failure) {
+        if (!std::string(failure.what()).starts_with("Invalid symbolic link entry"))
+            throw;
+        rejected = true;
+    }
+
+    return rejected == strict && std::filesystem::last_write_time(target_file) == target_time &&
+           std::filesystem::last_write_time(regular) == (strict ? changed : original);
+}
+
+static void test_mtimes_skips_symlinks() {
+    test(check_mtimes_symlink(true, false) && check_mtimes_symlink(false, false));
+}
+
+static void test_mtimes_strict_rejects_symlinks() {
+    test(check_mtimes_symlink(true, true) && check_mtimes_symlink(false, true));
+}
+
 static void test_mtimes_invalid_records() {
     Temp_Dir tmp;
     const auto dir = make_entry(tmp.path(), "20260101-000000", "original");
@@ -1026,6 +1087,8 @@ int main() {
         {"Mtimes relocated repository", "restore after moving without absolute paths", test_mtimes_relocated_repository},
         {"Mtimes missing MAIN.md", "strict validation finishes before restoring", test_mtimes_missing_main_file},
         {"Mtimes skips missing files", "restore existing entries despite missing targets", test_mtimes_skips_missing_files},
+        {"Mtimes skips symlinks", "restore ordinary entries without changing symlink targets", test_mtimes_skips_symlinks},
+        {"Mtimes strict rejects symlinks", "report symlinks before restoring any times", test_mtimes_strict_rejects_symlinks},
         {"Mtimes invalid records", "reject the entire invalid index before writes", test_mtimes_invalid_records},
         {"Mtimes I/O errors", "missing input and protected destinations", test_mtimes_io_errors},
         {"Open finds MADO", "Repository::open finds MADO in cwd", test_open_finds_mado},

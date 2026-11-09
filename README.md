@@ -123,9 +123,9 @@ suffix) and Unix timestamps in nanoseconds, independent of the time zone.
 The destination filesystem may have lower timestamp precision.
 
 Restoration validates the entire index before changing times. Malformed or
-duplicate records and unsafe targets are errors. Missing entry files or
-directories are skipped by default. With `-strict`, a missing entry is an
-error and no times are changed during validation.
+duplicate records are errors. Missing entries and entries whose directory or
+`MAIN.md` is a symbolic link are skipped by default. With `-strict`, either
+case aborts restoration before any times are changed.
 With `-keep-newer`, an existing entry whose current modification time is greater
 than its indexed time is left unchanged. Older or equal times are restored.
 Without this flag, indexed times overwrite current times. It can be combined

@@ -550,10 +550,9 @@ class Mtimes_Command : public Command {
         bool strict = false;
         bool keep_newer = false;
 
-        const auto strict_description = std::string("Fail before restoring if any indexed ") +
-                                        mado::repository::ENTRY_FILE + " is missing";
         if (restore_) {
-            c.add_bool(&strict, {"strict", "-strict"}, strict_description.c_str());
+            c.add_bool(&strict, {"strict", "-strict"},
+                       "Fail before restoring if any indexed entry is missing or uses a symlink");
             c.add_bool(&keep_newer, {"keep-newer", "-keep-newer"},
                        "Preserve modification times newer than the index");
         }

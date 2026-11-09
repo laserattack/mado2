@@ -537,9 +537,12 @@ std::filesystem::path Repository::restore_mtimes(const std::filesystem::path &fi
         const auto main = dir / ENTRY_FILE;
 
         // last_write_time follows symlinks and would modify the target file.
-        // Reject symlinks to prevent that.
-        if (std::filesystem::is_symlink(dir) || std::filesystem::is_symlink(main))
-            throw Repository_Error("Invalid symbolic link entry " + main.string());
+        // Skip symlinks by default and report them in strict mode.
+        if (std::filesystem::is_symlink(dir) || std::filesystem::is_symlink(main)) {
+            if (strict)
+                throw Repository_Error("Invalid symbolic link entry " + main.string());
+            continue;
+        }
 
         if (!std::filesystem::exists(main) && !strict)
             continue;
