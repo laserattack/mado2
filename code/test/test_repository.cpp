@@ -115,6 +115,39 @@ static void test_open_returns_nullopt_when_missing() {
              : !repo);
 }
 
+static void test_for_each_matching_filters_entries() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-000000", "- STATUS: open\n");
+    make_entry(tmp.path(), "20260102-000000", "- STATUS: closed\n");
+    make_entry(tmp.path(), "20260103-000000", "- STATUS: open\n");
+    const auto repo = Repository::open(tmp.path());
+    const auto filter = parse("status = open");
+    std::vector<mado::entry::Entry> matches;
+
+    repo->for_each_matching(filter.get(), [&](mado::entry::Entry entry) {
+        matches.push_back(std::move(entry));
+        return true;
+    });
+
+    test(matches.size() == 2 && matches[0].status() == "open" &&
+         matches[1].status() == "open");
+}
+
+static void test_for_each_matching_stops_on_false() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-000000", "- NAME: first\n");
+    make_entry(tmp.path(), "20260102-000000", "- NAME: second\n");
+    const auto repo = Repository::open(tmp.path());
+    int visits = 0;
+
+    repo->for_each_matching(nullptr, [&](mado::entry::Entry) {
+        ++visits;
+        return false;
+    });
+
+    test(visits == 1);
+}
+
 static void test_find_empty_repo() {
     Temp_Dir tmp;
     std::filesystem::create_directories(tmp.path() / "MADO");
@@ -998,6 +1031,8 @@ int main() {
         {"Open finds MADO", "Repository::open finds MADO in cwd", test_open_finds_mado},
         {"Open finds MADO above", "Repository::open walks up the tree", test_open_finds_mado_above},
         {"Open returns nullopt", "no MADO anywhere", test_open_returns_nullopt_when_missing},
+        {"For each matching", "visit matching entries through the public API", test_for_each_matching_filters_entries},
+        {"Stop matching iteration", "stop after the callback returns false", test_for_each_matching_stops_on_false},
         {"Find empty repo", "no entries", test_find_empty_repo},
         {"Find one entry", "single entry with fields", test_find_one_entry},
         {"Find skips non-timestamp dirs", "non-timestamp dirs ignored", test_find_skips_non_timestamp_dirs},

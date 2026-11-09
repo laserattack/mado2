@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -56,8 +57,8 @@ class Repository {
     // Iterates over entries matching the filter and calls `action` for
     // each. The action receives the entry by value, so it can move it
     // out. If the action returns false, iteration stops early.
-    template <class Action>
-    void for_each_matching(const mado::query::Ast_Node *filter, Action action) const;
+    void for_each_matching(const mado::query::Ast_Node *filter,
+                           std::function<bool(mado::entry::Entry)> action) const;
 
     std::filesystem::path dump_mtimes(const std::filesystem::path &file = {}) const;
 

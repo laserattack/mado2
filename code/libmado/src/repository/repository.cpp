@@ -228,9 +228,8 @@ Remove_Result Repository::remove(const mado::query::Ast_Node *filter) const {
     return result;
 }
 
-template <class Action>
 void Repository::for_each_matching(const mado::query::Ast_Node *filter,
-                                   Action action) const {
+                                   std::function<bool(mado::entry::Entry)> action) const {
 
     std::error_code ec;
     if (!std::filesystem::is_directory(root_, ec))
