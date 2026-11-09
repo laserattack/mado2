@@ -7,7 +7,9 @@ entry lives in its own directory, so it can include attachments alongside
 `MAIN.md`. Use queries to filter entries by metadata, then sort and format
 the results for your editor or scripts.
 
-![A girl typing on her laptop with mado open in an evening room](assets/mado-notes-slate-540.png)
+<p align="center">
+  <img src="assets/mado-ghost-crt-512.png" width="512" alt="">
+</p>
 
 ## Build
 
