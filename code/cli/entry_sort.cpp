@@ -11,10 +11,6 @@ namespace cli {
 
 namespace {
 
-// Resolves a sort field, preferring exact matches. Returns nullopt for an
-// unknown field. May throw std::bad_alloc.
-// Ищет поле сортировки, предпочитая точное совпадение. Неизвестное поле даёт nullopt. Возможен
-// std::bad_alloc.
 std::optional<Sort_Field> parse_sort_field(const std::string &name) {
     static const std::pair<std::string, Sort_Field> fields[] = {
         {"time", Sort_Field::Time},
@@ -34,8 +30,6 @@ std::optional<Sort_Field> parse_sort_field(const std::string &name) {
     return found->second;
 }
 
-// Concatenates tags for lexicographic comparison. May throw std::bad_alloc.
-// Объединяет теги для лексикографического сравнения. Возможен std::bad_alloc.
 std::string join_tags(const mado::entry::Entry &entry) {
     std::string result;
     for (const auto &tag : entry.tags())
@@ -43,15 +37,9 @@ std::string join_tags(const mado::entry::Entry &entry) {
     return result;
 }
 
-// Compares one sort field. Equal advances to the next key and stable sorting
-// preserves ties. Tag concatenation may throw std::bad_alloc.
-// Сравнивает записи по одному полю. При равенстве проверяется следующий ключ. Объединение
-// тегов может вызвать std::bad_alloc.
 std::strong_ordering compare_entries(const mado::entry::Entry &a,
                                      const mado::entry::Entry &b,
                                      Sort_Field field) {
-    // Use each field’s native ordering.
-    // Сравниваем значения в естественном для поля порядке.
     switch (field) {
     case Sort_Field::Time:
         return a.time() <=> b.time();
@@ -73,18 +61,11 @@ std::strong_ordering compare_entries(const mado::entry::Entry &a,
 
     // Equal means the entries tie on this field, so sorting checks the next
     // criterion. If all criteria tie, stable_sort preserves their original order.
-    // При равенстве по полю проверяется следующий критерий. Если равны все поля, stable_sort
-    // сохраняет исходный порядок.
     return std::strong_ordering::equal;
 }
 
 } // namespace
 
-// Parses comma-separated fields and optional signs. Skips blank fields and
-// returns nullopt for empty input or an invalid field. May throw
-// std::bad_alloc.
-// Разбирает поля через запятую и необязательные знаки. Пропускает пустые поля, возвращает
-// nullopt при пустом вводе или неверном поле. Возможен std::bad_alloc.
 std::optional<std::vector<Sort_Criterion>> parse_sort(const std::string &spec) {
     if (spec.empty())
         return std::nullopt;
@@ -92,8 +73,6 @@ std::optional<std::vector<Sort_Criterion>> parse_sort(const std::string &spec) {
     std::vector<Sort_Criterion> criteria;
     std::istringstream input(spec);
     std::string token;
-    // Read one criterion at a time, preserving its order.
-    // Читаем критерии по одному, сохраняя их порядок.
     while (std::getline(input, token, ',')) {
         mado::common::trim_inplace(token);
         if (token.empty())
@@ -115,16 +94,10 @@ std::optional<std::vector<Sort_Criterion>> parse_sort(const std::string &spec) {
     return criteria;
 }
 
-// Stably sorts entries by the given keys, leaving them alone when there are
-// none. Comparison and allocation exceptions propagate.
-// Стабильно сортирует записи по ключам. Без ключей порядок сохраняется. Исключения сравнения и
-// выделения памяти передаются вызывающему коду.
 void sort_entries(std::vector<mado::entry::Entry> &entries,
                   const std::vector<Sort_Criterion> &criteria) {
     if (!criteria.empty()) {
         std::stable_sort(entries.begin(), entries.end(), [&](const auto &a, const auto &b) {
-            // The first differing key decides the order.
-            // Порядок определяет первый различающийся ключ.
             for (const auto &criterion : criteria) {
                 const auto order = compare_entries(a, b, criterion.field);
                 if (order != 0)

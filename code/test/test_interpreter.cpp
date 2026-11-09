@@ -10,12 +10,7 @@ using namespace mado::interpreter;
 using namespace mado::query;
 
 // helpers
-// Вспомогательные функции.
 
-// Builds the complete query AST. Throws Parse_Error for empty or invalid
-// queries and std::bad_alloc on allocation failure.
-// Строит AST запроса. Некорректный или пустой запрос вызывает Parse_Error, сбой выделения
-// памяти — std::bad_alloc.
 static std::unique_ptr<Ast_Node> parse(const std::string &query) {
     Lexer lexer(query);
     auto tokens = lexer.tokenize();
@@ -23,43 +18,30 @@ static std::unique_ptr<Ast_Node> parse(const std::string &query) {
     return parser.parse();
 }
 
-// Evaluates the filter against the fixture. Allocation failures propagate.
-// Проверяет фильтр на тестовой записи. Ошибки выделения памяти передаются вызывающему коду.
 static bool matches(const Entry &e, const Ast_Node *filter) {
     const Interpreter interp;
     return interp.evaluate(filter, e);
 }
 
 // test
-// Тесты.
 
-// Checks evaluate(nullptr) = true. Unexpected exceptions fail the test.
-// Проверяет совпадение при нулевом фильтре. Неожиданное исключение проваливает тест.
 static void test_match_null_filter() {
     Entry e;
     test(matches(e, nullptr));
 }
 
-// Checks all node. Unexpected exceptions fail the test.
-// Проверяет совпадение с all. Неожиданное исключение проваливает тест.
 static void test_match_all() {
     Entry e;
     auto ast = parse("all");
     test(matches(e, ast.get()));
 }
 
-// Checks untagged on default. Unexpected exceptions fail the test.
-// Проверяет совпадение с untagged при отсутствии тегов. Неожиданное исключение проваливает
-// тест.
 static void test_match_untagged_default() {
     Entry e;
     auto ast = parse("untagged");
     test(matches(e, ast.get()));
 }
 
-// Checks untagged on tagged. Unexpected exceptions fail the test.
-// Проверяет отсутствие совпадения с untagged при наличии тегов. Неожиданное исключение
-// проваливает тест.
 static void test_match_untagged_tagged() {
     Entry e;
     e.set_tags({"bug"});
@@ -67,18 +49,12 @@ static void test_match_untagged_tagged() {
     test(!matches(e, ast.get()));
 }
 
-// Checks unstatused on default. Unexpected exceptions fail the test.
-// Проверяет совпадение с unstatused при отсутствии статуса. Неожиданное исключение проваливает
-// тест.
 static void test_match_unstatused_default() {
     Entry e;
     auto ast = parse("unstatused");
     test(matches(e, ast.get()));
 }
 
-// Checks unstatused on statused. Unexpected exceptions fail the test.
-// Проверяет отсутствие совпадения с unstatused при наличии статуса. Неожиданное исключение
-// проваливает тест.
 static void test_match_unstatused_statused() {
     Entry e;
     e.set_status("opened");
@@ -86,18 +62,12 @@ static void test_match_unstatused_statused() {
     test(!matches(e, ast.get()));
 }
 
-// Checks unnamed on default. Unexpected exceptions fail the test.
-// Проверяет совпадение с unnamed при отсутствии имени. Неожиданное исключение проваливает
-// тест.
 static void test_match_unnamed_default() {
     Entry e;
     auto ast = parse("unnamed");
     test(matches(e, ast.get()));
 }
 
-// Checks unnamed on named. Unexpected exceptions fail the test.
-// Проверяет отсутствие совпадения с unnamed при наличии имени. Неожиданное исключение
-// проваливает тест.
 static void test_match_unnamed_named() {
     Entry e;
     e.set_name("bug");
@@ -105,18 +75,12 @@ static void test_match_unnamed_named() {
     test(!matches(e, ast.get()));
 }
 
-// Checks unprioritized on default. Unexpected exceptions fail the test.
-// Проверяет совпадение с unprioritized при приоритете по умолчанию. Неожиданное исключение
-// проваливает тест.
 static void test_match_unprioritized_default() {
     Entry e;
     auto ast = parse("unprioritized");
     test(matches(e, ast.get()));
 }
 
-// Checks unprioritized on prioritized. Unexpected exceptions fail the test.
-// Проверяет отсутствие совпадения с unprioritized при заданном приоритете. Неожиданное
-// исключение проваливает тест.
 static void test_match_unprioritized_prioritized() {
     Entry e;
     e.set_priority(5);
@@ -124,18 +88,12 @@ static void test_match_unprioritized_prioritized() {
     test(!matches(e, ast.get()));
 }
 
-// Checks undeadlined on default. Unexpected exceptions fail the test.
-// Проверяет совпадение с undeadlined при отсутствии срока. Неожиданное исключение проваливает
-// тест.
 static void test_match_undeadlined_default() {
     Entry e;
     auto ast = parse("undeadlined");
     test(matches(e, ast.get()));
 }
 
-// Checks undeadlined on deadlined. Unexpected exceptions fail the test.
-// Проверяет отсутствие совпадения с undeadlined при наличии срока. Неожиданное исключение
-// проваливает тест.
 static void test_match_undeadlined_deadlined() {
     Entry e;
     e.set_deadline("20260101-000000");
@@ -143,8 +101,6 @@ static void test_match_undeadlined_deadlined() {
     test(!matches(e, ast.get()));
 }
 
-// Checks priority > 3 and name = bug. Unexpected exceptions fail the test.
-// Проверяет истинный AND. Неожиданное исключение проваливает тест.
 static void test_match_and_true() {
     Entry e;
     e.set_priority(5);
@@ -153,8 +109,6 @@ static void test_match_and_true() {
     test(matches(e, ast.get()));
 }
 
-// Checks priority = 67 or name = bug. Unexpected exceptions fail the test.
-// Проверяет истинный OR. Неожиданное исключение проваливает тест.
 static void test_match_or_true() {
     Entry e;
     e.set_priority(5);
@@ -163,8 +117,6 @@ static void test_match_or_true() {
     test(matches(e, ast.get()));
 }
 
-// Checks priority > 3 xor name = bug. Unexpected exceptions fail the test.
-// Проверяет истинный XOR. Неожиданное исключение проваливает тест.
 static void test_match_xor_true() {
     Entry e;
     e.set_priority(1);
@@ -174,10 +126,7 @@ static void test_match_xor_true() {
 }
 
 // unary
-// Унарные операции.
 
-// Checks not name = bug. Unexpected exceptions fail the test.
-// Проверяет истинный NOT. Неожиданное исключение проваливает тест.
 static void test_match_not_true() {
     Entry e;
     e.set_name("bug");
@@ -186,10 +135,7 @@ static void test_match_not_true() {
 }
 
 // tags
-// Теги.
 
-// Checks tag = crit. Unexpected exceptions fail the test.
-// Проверяет равенство хотя бы одного тега. Неожиданное исключение проваливает тест.
 static void test_match_tag_eq_any() {
     Entry e;
     e.set_tags({"bug", "crit"});
@@ -197,8 +143,6 @@ static void test_match_tag_eq_any() {
     test(matches(e, ast.get()));
 }
 
-// Checks tag = feature. Unexpected exceptions fail the test.
-// Проверяет отсутствие равного тега. Неожиданное исключение проваливает тест.
 static void test_match_tag_eq_none() {
     Entry e;
     e.set_tags({"bug", "crit"});
@@ -206,24 +150,18 @@ static void test_match_tag_eq_none() {
     test(!matches(e, ast.get()));
 }
 
-// Checks tag = ''. Unexpected exceptions fail the test.
-// Проверяет сравнение с пустым тегом по умолчанию. Неожиданное исключение проваливает тест.
 static void test_match_tag_empty_default() {
     Entry e;
     auto ast = parse("tag = ''");
     test(matches(e, ast.get()));
 }
 
-// Checks name = '' on default. Unexpected exceptions fail the test.
-// Проверяет равенство пустого имени. Неожиданное исключение проваливает тест.
 static void test_match_name_empty_eq() {
     Entry e;
     auto ast = parse("name = ''");
     test(matches(e, ast.get()));
 }
 
-// Checks name = '' on named. Unexpected exceptions fail the test.
-// Проверяет неравенство пустого имени. Неожиданное исключение проваливает тест.
 static void test_match_name_empty_ne() {
     Entry e;
     e.set_name("bug");
@@ -231,8 +169,6 @@ static void test_match_name_empty_ne() {
     test(!matches(e, ast.get()));
 }
 
-// Checks any = test, name matches. Unexpected exceptions fail the test.
-// Проверяет поиск имени через any. Неожиданное исключение проваливает тест.
 static void test_match_any_name() {
     Entry e;
     e.set_name("test");
@@ -240,8 +176,6 @@ static void test_match_any_name() {
     test(matches(e, ast.get()));
 }
 
-// Checks any = 5, name matches. Unexpected exceptions fail the test.
-// Проверяет поиск числа в имени через any. Неожиданное исключение проваливает тест.
 static void test_match_any_number_as_name() {
     Entry e;
     e.set_name("5");
@@ -249,9 +183,6 @@ static void test_match_any_number_as_name() {
     test(matches(e, ast.get()));
 }
 
-// Checks any = 20260920-101010, name matches. Unexpected exceptions fail the
-// test.
-// Проверяет поиск метки времени в имени через any. Неожиданное исключение проваливает тест.
 static void test_match_any_time_as_name() {
     Entry e;
     e.set_name("20260920-101010");
@@ -259,8 +190,6 @@ static void test_match_any_time_as_name() {
     test(matches(e, ast.get()));
 }
 
-// Checks priority = 5. Unexpected exceptions fail the test.
-// Проверяет равенство приоритетов. Неожиданное исключение проваливает тест.
 static void test_match_priority_eq() {
     Entry e;
     e.set_priority(5);
@@ -268,8 +197,6 @@ static void test_match_priority_eq() {
     test(matches(e, ast.get()));
 }
 
-// Checks priority > 3. Unexpected exceptions fail the test.
-// Проверяет сравнение приоритета по оператору больше. Неожиданное исключение проваливает тест.
 static void test_match_priority_gt() {
     Entry e;
     e.set_priority(5);
@@ -277,8 +204,6 @@ static void test_match_priority_gt() {
     test(matches(e, ast.get()));
 }
 
-// Checks status = opened. Unexpected exceptions fail the test.
-// Проверяет совпадение статуса. Неожиданное исключение проваливает тест.
 static void test_match_status() {
     Entry e;
     e.set_status("opened");
@@ -286,8 +211,6 @@ static void test_match_status() {
     test(matches(e, ast.get()));
 }
 
-// Checks path ~ MADO. Unexpected exceptions fail the test.
-// Проверяет совпадение пути. Неожиданное исключение проваливает тест.
 static void test_match_path() {
     Entry e;
     e.set_path("/home/user/MADO/20260101-120000/MAIN.md");
@@ -295,8 +218,6 @@ static void test_match_path() {
     test(matches(e, ast.get()));
 }
 
-// Checks that a numeric-looking name retains leading zeroes.
-// Проверяет, что имя из цифр сохраняет ведущие нули.
 static void test_match_numeric_name_as_text() {
     Entry matching;
     matching.set_name("007");
@@ -306,8 +227,6 @@ static void test_match_numeric_name_as_text() {
     test(matches(matching, ast.get()) && !matches(other, ast.get()));
 }
 
-// Checks both bounds of a deadline range with time macros.
-// Проверяет обе границы диапазона сроков с макросами времени.
 static void test_match_deadline_macro_range() {
     Entry inside;
     inside.set_deadline("99981231-120000");
@@ -320,8 +239,6 @@ static void test_match_deadline_macro_range() {
          !matches(after, ast.get()));
 }
 
-// Checks deadline > 20260101-000000. Unexpected exceptions fail the test.
-// Проверяет сравнение срока. Неожиданное исключение проваливает тест.
 static void test_match_deadline() {
     Entry e;
     e.set_deadline("20260201-000000");
@@ -329,8 +246,6 @@ static void test_match_deadline() {
     test(matches(e, ast.get()));
 }
 
-// Checks xor both true = false. Unexpected exceptions fail the test.
-// Проверяет ложный XOR при двух истинных операндах. Неожиданное исключение проваливает тест.
 static void test_match_xor_both_true() {
     Entry e;
     e.set_priority(5);
@@ -339,8 +254,6 @@ static void test_match_xor_both_true() {
     test(!matches(e, ast.get()));
 }
 
-// Checks name ~~ fbeer. Unexpected exceptions fail the test.
-// Проверяет нечёткое совпадение имени. Неожиданное исключение проваливает тест.
 static void test_fuzzy() {
     Entry e;
     e.set_name("fix bug in lexer");
@@ -348,10 +261,6 @@ static void test_fuzzy() {
     test(matches(e, ast.get()));
 }
 
-// Checks glob matching, negation and invalid patterns. Unexpected exceptions
-// fail the test.
-// Проверяет glob, его отрицание и некорректный шаблон. Неожиданное исключение проваливает
-// тест.
 static void test_glob() {
     Entry e;
     e.set_name("FIX-42");
@@ -363,8 +272,6 @@ static void test_glob() {
          !matches(e, parse(R"(name !%~ "fix-[")").get()));
 }
 
-// Checks not name = bug on feature. Unexpected exceptions fail the test.
-// Проверяет ложный NOT. Неожиданное исключение проваливает тест.
 static void test_match_not_false() {
     Entry e;
     e.set_name("feature");
@@ -372,8 +279,6 @@ static void test_match_not_false() {
     test(matches(e, ast.get()));
 }
 
-// Checks any = 5 matches priority. Unexpected exceptions fail the test.
-// Проверяет сравнение числа с приоритетом через any. Неожиданное исключение проваливает тест.
 static void test_match_any_number_as_priority() {
     Entry e;
     e.set_priority(5);
@@ -381,8 +286,6 @@ static void test_match_any_number_as_priority() {
     test(matches(e, ast.get()));
 }
 
-// Checks tag ~ crit. Unexpected exceptions fail the test.
-// Проверяет поиск подстроки в теге. Неожиданное исключение проваливает тест.
 static void test_match_tag_substr() {
     Entry e;
     e.set_tags({"critical"});
@@ -391,10 +294,7 @@ static void test_match_tag_substr() {
 }
 
 // utf8 case insensitive
-// Регистронезависимое сравнение UTF-8.
 
-// Checks name = лалала matches ЛАЛАЛА. Unexpected exceptions fail the test.
-// Проверяет равенство имени UTF-8 без учёта регистра. Неожиданное исключение проваливает тест.
 static void test_match_name_unicode_ci_eq() {
     Entry e;
     e.set_name("ЛАЛАЛА");
@@ -402,10 +302,6 @@ static void test_match_name_unicode_ci_eq() {
     test(matches(e, ast.get()));
 }
 
-// Checks name != лалала doesn't match ЛАЛАЛА. Unexpected exceptions fail the
-// test.
-// Проверяет ложное неравенство имени UTF-8 без учёта регистра. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_ne() {
     Entry e;
     e.set_name("ЛАЛАЛА");
@@ -413,9 +309,6 @@ static void test_match_name_unicode_ci_ne() {
     test(!matches(e, ast.get()));
 }
 
-// Checks name != ЛЯЛЯЛЯ matches ЛАЛАЛА. Unexpected exceptions fail the test.
-// Проверяет истинное неравенство имени UTF-8 без учёта регистра. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_ne_true() {
     Entry e;
     e.set_name("ЛАЛАЛА");
@@ -423,9 +316,6 @@ static void test_match_name_unicode_ci_ne_true() {
     test(matches(e, ast.get()));
 }
 
-// Checks name ~ ала matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет подстроку в имени UTF-8 без учёта регистра. Неожиданное исключение проваливает
-// тест.
 static void test_match_name_unicode_ci_substr() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -433,9 +323,6 @@ static void test_match_name_unicode_ci_substr() {
     test(matches(e, ast.get()));
 }
 
-// Checks name !~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет отсутствие подстроки в имени UTF-8 без учёта регистра. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_nsubstr() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -443,8 +330,6 @@ static void test_match_name_unicode_ci_nsubstr() {
     test(matches(e, ast.get()));
 }
 
-// Checks name ^~ лала matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет префикс имени UTF-8 без учёта регистра. Неожиданное исключение проваливает тест.
 static void test_match_name_unicode_ci_starts() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -452,9 +337,6 @@ static void test_match_name_unicode_ci_starts() {
     test(matches(e, ast.get()));
 }
 
-// Checks name !^~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет отсутствие префикса имени UTF-8 без учёта регистра. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_nstarts() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -462,8 +344,6 @@ static void test_match_name_unicode_ci_nstarts() {
     test(matches(e, ast.get()));
 }
 
-// Checks name $~ лала matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет суффикс имени UTF-8 без учёта регистра. Неожиданное исключение проваливает тест.
 static void test_match_name_unicode_ci_ends() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -471,9 +351,6 @@ static void test_match_name_unicode_ci_ends() {
     test(matches(e, ast.get()));
 }
 
-// Checks name !$~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет отсутствие суффикса имени UTF-8 без учёта регистра. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_nends() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -481,9 +358,6 @@ static void test_match_name_unicode_ci_nends() {
     test(matches(e, ast.get()));
 }
 
-// Checks name ~~ ллл matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет нечёткое совпадение имени UTF-8 без учёта регистра. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_fuzzy() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -491,9 +365,6 @@ static void test_match_name_unicode_ci_fuzzy() {
     test(matches(e, ast.get()));
 }
 
-// Checks name !~~ xyz matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет отрицание нечёткого совпадения имени UTF-8. Неожиданное исключение проваливает
-// тест.
 static void test_match_name_unicode_ci_nfuzzy() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -501,9 +372,6 @@ static void test_match_name_unicode_ci_nfuzzy() {
     test(matches(e, ast.get()));
 }
 
-// Checks name > ааа matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет сравнение имени UTF-8 по оператору больше. Неожиданное исключение проваливает
-// тест.
 static void test_match_name_unicode_ci_gt() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -511,9 +379,6 @@ static void test_match_name_unicode_ci_gt() {
     test(matches(e, ast.get()));
 }
 
-// Checks name < яяя matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет сравнение имени UTF-8 по оператору меньше. Неожиданное исключение проваливает
-// тест.
 static void test_match_name_unicode_ci_lt() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -521,9 +386,6 @@ static void test_match_name_unicode_ci_lt() {
     test(matches(e, ast.get()));
 }
 
-// Checks name >= лалала matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет сравнение имени UTF-8 по оператору больше или равно. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_ge() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -531,9 +393,6 @@ static void test_match_name_unicode_ci_ge() {
     test(matches(e, ast.get()));
 }
 
-// Checks name <= лалала matches ЛаЛаЛа. Unexpected exceptions fail the test.
-// Проверяет сравнение имени UTF-8 по оператору меньше или равно. Неожиданное исключение
-// проваливает тест.
 static void test_match_name_unicode_ci_le() {
     Entry e;
     e.set_name("ЛаЛаЛа");
@@ -542,10 +401,7 @@ static void test_match_name_unicode_ci_le() {
 }
 
 // entry point
-// Точка входа.
 
-// Runs this test suite and returns 1 on failure or 0 on success.
-// Запускает набор тестов. Возвращает 1 при провале, 0 при успехе.
 int main() {
     std::vector<Test_Case> tests = {
         {"Null filter", "evaluate(nullptr) = true", test_match_null_filter},

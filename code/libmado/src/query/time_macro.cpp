@@ -12,17 +12,9 @@ namespace {
 
 using namespace std::chrono;
 
-// Selects the reference date and precision of a time macro.
-// Задаёт исходную дату и точность макроса времени.
 enum class Time_Macro { Now, Today, Yesterday, Tomorrow, Week, Month, Year, Never };
 
-// Looks up a macro by exact name first, then by best fuzzy score. Returns
-// nullopt for an unknown name. May throw std::bad_alloc.
-// Ищет макрос сначала по точному имени, затем по лучшей нечёткой оценке.
-// Неизвестное имя даёт nullopt. Возможен std::bad_alloc.
 std::optional<Time_Macro> find_time_macro(const std::string &name) {
-    // Names in legacy order for ties in fuzzy scores.
-    // Имена в исходном порядке для равных нечётких оценок.
     static const std::pair<std::string, Time_Macro> macros[] = {
         {"now", Time_Macro::Now}, {"today", Time_Macro::Today},
         {"yesterday", Time_Macro::Yesterday}, {"tomorrow", Time_Macro::Tomorrow},
@@ -37,10 +29,6 @@ std::optional<Time_Macro> find_time_macro(const std::string &name) {
     return found->second;
 }
 
-// Formats a supported calendar date with optional wall-clock time. Returns
-// nullopt outside the timestamp year range. May throw std::bad_alloc.
-// Форматирует дату с необязательным временем суток. За пределами допустимых
-// лет возвращает nullopt. Возможен std::bad_alloc.
 std::optional<std::string> format_macro_date(sys_days date, const std::tm *clock = nullptr) {
     if (date < sys_days{year{0}/January/1} || date > sys_days{year{9999}/December/31})
         return std::nullopt;
@@ -57,7 +45,7 @@ std::optional<std::string> format_macro_date(sys_days date, const std::tm *clock
     return std::string(text);
 }
 
-} // namespace
+}
 
 std::optional<std::string> resolve_time_macro(const std::string &name,
                                               int offset, std::time_t now) {
@@ -67,8 +55,6 @@ std::optional<std::string> resolve_time_macro(const std::string &name,
     if (!macro)
         return std::nullopt;
 
-    // The deadline sentinel uses UTC and does not depend on the local clock.
-    // Метка отсутствующего срока задана в UTC и не зависит от местного времени.
     if (*macro == Time_Macro::Never) {
         const std::tm midnight{};
         return format_macro_date(sys_days{year{9999}/January/1} + days{offset}, &midnight);
@@ -79,8 +65,6 @@ std::optional<std::string> resolve_time_macro(const std::string &name,
     const sys_days today{year{utc_year}/month{unsigned(clock.tm_mon + 1)}/
                          day{unsigned(clock.tm_mday)}};
 
-    // Apply offsets in the UTC calendar at the precision of each macro.
-    // Применяем смещения по календарю UTC с учётом точности макроса.
     switch (*macro) {
     case Time_Macro::Now:
         return format_macro_date(today + days{offset}, &clock);
@@ -95,8 +79,6 @@ std::optional<std::string> resolve_time_macro(const std::string &name,
                                  weeks{offset});
     case Time_Macro::Month:
     case Time_Macro::Year: {
-        // Bound the result before converting to the narrower calendar types.
-        // Проверяем диапазон до преобразования в календарные типы.
         const bool by_month = *macro == Time_Macro::Month;
         const int total_months = utc_year * 12 + clock.tm_mon +
                                  (by_month ? offset : offset * 12);
@@ -115,4 +97,4 @@ std::optional<std::string> resolve_time_macro(const std::string &name,
     return std::nullopt;
 }
 
-} // namespace mado::query
+}

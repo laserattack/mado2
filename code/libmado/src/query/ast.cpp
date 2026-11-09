@@ -4,9 +4,6 @@
 
 namespace mado::query {
 
-// Creates a binary node and takes ownership of its operands. May throw
-// std::bad_alloc.
-// Создаёт бинарный узел и принимает владение операндами. Возможен std::bad_alloc.
 std::unique_ptr<Ast_Node> ast_make_binary(
     Ast_Binary_Operator op,
     std::unique_ptr<Ast_Node> left,
@@ -14,24 +11,16 @@ std::unique_ptr<Ast_Node> ast_make_binary(
     return std::make_unique<Ast_Binary_Operator_Node>(op, std::move(left), std::move(right));
 }
 
-// Creates a unary node and takes ownership of its operand. May throw
-// std::bad_alloc.
-// Создаёт унарный узел и принимает владение операндом. Возможен std::bad_alloc.
 std::unique_ptr<Ast_Node> ast_make_unary(
     Ast_Unary_Operator op,
     std::unique_ptr<Ast_Node> expr) {
     return std::make_unique<Ast_Unary_Operator_Node>(op, std::move(expr));
 }
 
-// Creates a node for a special keyword. May throw std::bad_alloc.
-// Создаёт узел специального ключевого слова. Возможен std::bad_alloc.
 std::unique_ptr<Ast_Node> ast_make_special(Ast_Node_Type type) {
     return std::make_unique<Ast_Special_Node>(type);
 }
 
-// Creates a comparison node for a numeric or string value. May throw
-// std::bad_alloc.
-// Создаёт узел сравнения с числом или строкой. Возможен std::bad_alloc.
 std::unique_ptr<Ast_Node> ast_make_comparison(
     Ast_Comparison_Field field,
     Ast_Comparison_Operator op,
@@ -39,33 +28,22 @@ std::unique_ptr<Ast_Node> ast_make_comparison(
     return std::make_unique<Ast_Comparison_Operator_Node>(field, op, std::move(value));
 }
 
-// Reports whether the comparison stores a number. No exceptions.
-// Проверяет, хранит ли сравнение число. Исключений нет.
 bool Ast_Comparison_Operator_Node::is_number() const {
     return std::holds_alternative<uint16_t>(value);
 }
 
-// Reports whether the comparison stores a string. No exceptions.
-// Проверяет, хранит ли сравнение строку. Исключений нет.
 bool Ast_Comparison_Operator_Node::is_string() const {
     return std::holds_alternative<std::string>(value);
 }
 
-// Returns the numeric operand. Throws std::bad_variant_access for a string.
-// Возвращает числовой операнд. Для строки выбрасывает std::bad_variant_access.
 uint16_t Ast_Comparison_Operator_Node::as_number() const {
     return std::get<uint16_t>(value);
 }
 
-// Returns the string operand. Throws std::bad_variant_access for a number.
-// Возвращает строковый операнд. Для числа выбрасывает std::bad_variant_access.
 const std::string &Ast_Comparison_Operator_Node::as_string() const {
     return std::get<std::string>(value);
 }
 
-// Maps the enum to its diagnostic label. Unknown values use a fallback label.
-// Возвращает диагностическую метку перечисления, включая запасную метку для неизвестных
-// значений.
 const char *comparison_field_to_string(Ast_Comparison_Field field) {
     switch (field) {
     case Ast_Comparison_Field::Priority:
@@ -90,9 +68,6 @@ const char *comparison_field_to_string(Ast_Comparison_Field field) {
     return "Unknown";
 }
 
-// Maps the enum to its diagnostic label. Unknown values use a fallback label.
-// Возвращает диагностическую метку перечисления, включая запасную метку для неизвестных
-// значений.
 static const char *comparison_operator_to_string(Ast_Comparison_Operator op) {
     switch (op) {
     case Ast_Comparison_Operator::Gt:
@@ -131,9 +106,6 @@ static const char *comparison_operator_to_string(Ast_Comparison_Operator op) {
     return "Unknown";
 }
 
-// Maps the enum to its diagnostic label. Unknown values use a fallback label.
-// Возвращает диагностическую метку перечисления, включая запасную метку для неизвестных
-// значений.
 static const char *binary_operator_to_string(Ast_Binary_Operator op) {
     switch (op) {
     case Ast_Binary_Operator::And:
@@ -146,9 +118,6 @@ static const char *binary_operator_to_string(Ast_Binary_Operator op) {
     return "Unknown";
 }
 
-// Maps the enum to its diagnostic label. Unknown values use a fallback label.
-// Возвращает диагностическую метку перечисления, включая запасную метку для неизвестных
-// значений.
 static const char *unary_operator_to_string(Ast_Unary_Operator op) {
     switch (op) {
     case Ast_Unary_Operator::Not:
@@ -157,9 +126,6 @@ static const char *unary_operator_to_string(Ast_Unary_Operator op) {
     return "Unknown";
 }
 
-// Maps the enum to its diagnostic label. Unknown values use a fallback label.
-// Возвращает диагностическую метку перечисления, включая запасную метку для неизвестных
-// значений.
 static const char *node_type_to_string(Ast_Node_Type type) {
     switch (type) {
     case Ast_Node_Type::Comparison_Operator:
@@ -184,9 +150,6 @@ static const char *node_type_to_string(Ast_Node_Type type) {
     return "Unknown";
 }
 
-// Prints an AST recursively with indentation. A null node prints nothing.
-// Ignores output errors.
-// Рекурсивно печатает AST с отступами. Нулевой узел пропускается, ошибки вывода игнорируются.
 void ast_print(const Ast_Node *node, size_t depth) {
     if (!node)
         return;

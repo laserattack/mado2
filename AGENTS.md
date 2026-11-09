@@ -26,25 +26,13 @@
 # Readability
 
 - Readability is a core requirement. Prefer direct control flow and
-  descriptive names. Keep comments brief and explain intent where the
-  reader would otherwise have to infer it.
+  descriptive names.
 - Separate logical blocks inside functions and methods with blank lines.
   Keep related operations together, and visually separate setup, validation,
   processing, and output or cleanup so code does not form a continuous wall of text.
 
-# Code documentation and naming
+# Naming
 
-- Add a short comment for every function, method, class, struct,
-  global variable, and similar declaration you introduce. Explain why
-  it exists and summarize its behavior on success, edge cases, and
-  failure. Document each returned error and exception that can
-  propagate. State explicitly when there are no returned errors or
-  exceptions.
-- Comment key lexical blocks, including loops, conditionals, switch
-  statements, and standalone scopes. Explain the purpose of the block
-  or why a branch matters.
-- Write every code comment in both English and Russian. Keep the two
-  versions together and update them together.
 - Use `Word_Word_Word` for classes and structs, `WORD_WORD` for
   global variables and constants, and `word_word` for ordinary
   variables, functions, and methods.

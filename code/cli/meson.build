@@ -3,7 +3,6 @@ thirdparty_inc = include_directories('3rdparty')
 cli_exe = executable('mado',
                      [
                        # cli
-                       # Код командной строки.
                        'main.cpp',
                        'command.cpp',
                        'entry_info_format.cpp',

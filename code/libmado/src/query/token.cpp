@@ -4,12 +4,9 @@
 
 namespace mado::query {
 
-// Returns the diagnostic name for a token kind. May throw std::bad_alloc.
-// Возвращает диагностическое имя типа токена. Возможен std::bad_alloc.
 std::string token_type_to_string(Token_Type type) {
     switch (type) {
     // fields
-    // Поля записи.
     case Token_Type::Priority:
         return "Priority";
     case Token_Type::Tag:
@@ -30,7 +27,6 @@ std::string token_type_to_string(Token_Type type) {
         return "Any";
 
     // values
-    // Значения.
     case Token_Type::Number:
         return "Number";
     case Token_Type::String:
@@ -39,7 +35,6 @@ std::string token_type_to_string(Token_Type type) {
         return "Timestamp";
 
     // special expressions
-    // Специальные выражения.
     case Token_Type::All:
         return "All";
     case Token_Type::Untagged:
@@ -54,7 +49,6 @@ std::string token_type_to_string(Token_Type type) {
         return "Undeadlined";
 
     // sugar
-    // Сокращённый синтаксис.
     case Token_Type::Allof:
         return "Allof";
     case Token_Type::Anyof:
@@ -65,7 +59,6 @@ std::string token_type_to_string(Token_Type type) {
         return "Has";
 
     // logical operators
-    // Логические операторы.
     case Token_Type::And:
         return "And";
     case Token_Type::Or:
@@ -76,7 +69,6 @@ std::string token_type_to_string(Token_Type type) {
         return "Not";
 
     // comparison operators
-    // Операторы сравнения.
     case Token_Type::Gt:
         return "Gt";
     case Token_Type::Lt:
@@ -111,7 +103,6 @@ std::string token_type_to_string(Token_Type type) {
         return "Nglob";
 
     // punctuation
-    // Пунктуация.
     case Token_Type::Lparen:
         return "Lparen";
     case Token_Type::Rparen:
@@ -126,7 +117,6 @@ std::string token_type_to_string(Token_Type type) {
         return "Rbracket";
 
     // system
-    // Служебные токены.
     case Token_Type::End:
         return "End";
     case Token_Type::Invalid:
@@ -136,8 +126,6 @@ std::string token_type_to_string(Token_Type type) {
     return "Unknown";
 }
 
-// Tests whether the token kind lies in the keyword range. No exceptions.
-// Проверяет принадлежность типа токена диапазону ключевых слов. Исключений нет.
 bool token_is_keyword(Token_Type type) {
     return static_cast<uint16_t>(type) <= MAX_KEYWORD_VALUE &&
            token_type_to_string(type) != "Unknown";

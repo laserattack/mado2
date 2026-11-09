@@ -9,10 +9,6 @@ namespace mado::interpreter {
 
 namespace {
 
-// Applies a case-insensitive string comparison. An invalid glob returns false
-// for either glob operator. May throw std::bad_alloc.
-// Сравнивает строки без учёта регистра. Некорректный glob даёт false для обоих
-// glob-операторов. Возможен std::bad_alloc.
 bool check_string(const std::string &value,
                   const std::string &pattern,
                   mado::query::Ast_Comparison_Operator op) {
@@ -20,55 +16,50 @@ bool check_string(const std::string &value,
     const std::string value_lower = mado::common::utf8_tolower(value);
     const std::string pattern_lower = mado::common::utf8_tolower(pattern);
 
-    // Dispatch on the operator after applying case folding.
-    // Выбираем оператор после приведения регистра.
     switch (op) {
-    case mado::query::Ast_Comparison_Operator::Eq: // = / Распознаём оператор или разделитель `=`.
+    case mado::query::Ast_Comparison_Operator::Eq: // =
         return value_lower == pattern_lower;
-    case mado::query::Ast_Comparison_Operator::Ne: // != / Распознаём оператор или разделитель `!=`.
+    case mado::query::Ast_Comparison_Operator::Ne: // !=
         return value_lower != pattern_lower;
 
-    case mado::query::Ast_Comparison_Operator::Substr: // ~ / Распознаём оператор или разделитель `~`.
+    case mado::query::Ast_Comparison_Operator::Substr: // ~
         return value_lower.find(pattern_lower) != std::string::npos;
-    case mado::query::Ast_Comparison_Operator::Nsubstr: // !~ / Распознаём оператор или разделитель `!~`.
+    case mado::query::Ast_Comparison_Operator::Nsubstr: // !~
         return value_lower.find(pattern_lower) == std::string::npos;
 
-    case mado::query::Ast_Comparison_Operator::Starts: // ^~ / Распознаём оператор или разделитель `^~`.
+    case mado::query::Ast_Comparison_Operator::Starts: // ^~
         return value_lower.starts_with(pattern_lower);
-    case mado::query::Ast_Comparison_Operator::Nstarts: // !^~ / Распознаём оператор или разделитель `!^~`.
+    case mado::query::Ast_Comparison_Operator::Nstarts: // !^~
         return !value_lower.starts_with(pattern_lower);
 
-    case mado::query::Ast_Comparison_Operator::Ends: // $~ / Распознаём оператор или разделитель `$~`.
+    case mado::query::Ast_Comparison_Operator::Ends: // $~
         return value_lower.ends_with(pattern_lower);
-    case mado::query::Ast_Comparison_Operator::Nends: // !$~ / Распознаём оператор или разделитель `!$~`.
+    case mado::query::Ast_Comparison_Operator::Nends: // !$~
         return !value_lower.ends_with(pattern_lower);
 
-    case mado::query::Ast_Comparison_Operator::Fuzzy: // ~~ / Распознаём оператор или разделитель `~~`.
+    case mado::query::Ast_Comparison_Operator::Fuzzy: // ~~
         return mado::common::fuzzy_match(pattern_lower, value_lower, false).has_value();
-    case mado::query::Ast_Comparison_Operator::Nfuzzy: // !~~ / Распознаём оператор или разделитель `!~~`.
+    case mado::query::Ast_Comparison_Operator::Nfuzzy: // !~~
         return !mado::common::fuzzy_match(pattern_lower, value_lower, false).has_value();
 
-    case mado::query::Ast_Comparison_Operator::Gt: // > / Распознаём оператор или разделитель `>`.
+    case mado::query::Ast_Comparison_Operator::Gt: // >
         return value_lower > pattern_lower;
-    case mado::query::Ast_Comparison_Operator::Lt: // < / Распознаём оператор или разделитель `<`.
+    case mado::query::Ast_Comparison_Operator::Lt: // <
         return value_lower < pattern_lower;
 
-    case mado::query::Ast_Comparison_Operator::Ge: // >= / Распознаём оператор или разделитель `>=`.
+    case mado::query::Ast_Comparison_Operator::Ge: // >=
         return value_lower >= pattern_lower;
-    case mado::query::Ast_Comparison_Operator::Le: // <= / Распознаём оператор или разделитель `<=`.
+    case mado::query::Ast_Comparison_Operator::Le: // <=
         return value_lower <= pattern_lower;
 
-    case mado::query::Ast_Comparison_Operator::Glob: // %~ / Распознаём оператор или разделитель `%~`.
+    case mado::query::Ast_Comparison_Operator::Glob: // %~
         return mado::common::Glob_Pattern(pattern_lower.c_str()).matches(value_lower) == true;
-    case mado::query::Ast_Comparison_Operator::Nglob: // !%~ / Распознаём оператор или разделитель `!%~`.
+    case mado::query::Ast_Comparison_Operator::Nglob: // !%~
         return mado::common::Glob_Pattern(pattern_lower.c_str()).matches(value_lower) == false;
     }
     return false;
 }
 
-// Applies a comparison to numeric operands, using equality for text operators.
-// No exceptions.
-// Сравнивает числа, сводя текстовые операторы к равенству или неравенству. Исключений нет.
 bool check_number(uint16_t value,
                   uint16_t pattern,
                   mado::query::Ast_Comparison_Operator op) {
@@ -101,17 +92,11 @@ bool check_number(uint16_t value,
 
 } // namespace
 
-// Tests the filter against an entry. A null filter matches every entry. String
-// comparison may throw std::bad_alloc.
-// Проверяет запись по фильтру. Нулевой фильтр пропускает всё. Сравнение строк может вызвать
-// std::bad_alloc.
 bool Interpreter::evaluate(const mado::query::Ast_Node *node,
                            const mado::entry::Entry &entry) const {
     if (!node)
         return true;
 
-    // Evaluate the AST node according to its concrete kind.
-    // Вычисляем узел AST по его конкретному типу.
     switch (node->type) {
     case mado::query::Ast_Node_Type::All:
         return true;
@@ -204,8 +189,6 @@ bool Interpreter::evaluate(const mado::query::Ast_Node *node,
                 return false;
             return check_string(entry.mtime(), n->as_string(), n->op);
 
-        // Try every compatible field until one matches.
-        // Проверяем совместимые поля до первого совпадения.
         case mado::query::Ast_Comparison_Field::Any: {
             const std::string path_str = entry.path().string();
 

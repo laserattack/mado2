@@ -3,28 +3,18 @@
 
 namespace mado::entry {
 
-// Stores the supplied entry path. No error result or exceptions.
-// Сохраняет путь записи. Ошибок и исключений нет.
 void Entry::set_path(std::filesystem::path p) {
     path_ = std::move(p);
 }
 
-// Stores the supplied name, including an empty name. No error result or
-// exceptions.
-// Сохраняет имя, в том числе пустое. Ошибок и исключений нет.
 void Entry::set_name(std::string n) {
     name_ = std::move(n);
 }
 
-// Stores the supplied status, including an empty status. No error result or
-// exceptions.
-// Сохраняет статус, в том числе пустой. Ошибок и исключений нет.
 void Entry::set_status(std::string s) {
     status_ = std::move(s);
 }
 
-// Stores a priority from 0 to 999. Throws Entry_Error outside that range.
-// Сохраняет приоритет от 0 до 999. Выход за диапазон вызывает Entry_Error.
 void Entry::set_priority(uint16_t p) {
     if (p > MAX_PRIORITY)
         throw Entry_Error("Priority must be in [0, " + std::to_string(MAX_PRIORITY) + "], got " + std::to_string(p));
@@ -32,31 +22,24 @@ void Entry::set_priority(uint16_t p) {
 }
 
 // {""} represents "no tags"; an empty vector is invalid.
-// Вектор с одной пустой строкой означает отсутствие тегов. Пустой вектор недопустим.
 void Entry::set_tags(std::vector<std::string> t) {
     if (t.empty())
         throw Entry_Error("Tags must not be empty");
     tags_ = std::move(t);
 }
 
-// Stores a timestamp. Throws Entry_Error for invalid input.
-// Сохраняет метку времени. Неверное значение вызывает Entry_Error.
 void Entry::set_time(std::string t) {
     if (!mado::common::is_timestamp(t))
         throw Entry_Error("Invalid timestamp: " + t);
     time_ = std::move(t);
 }
 
-// Stores a modification timestamp. Throws Entry_Error for invalid input.
-// Сохраняет время изменения. Неверное значение вызывает Entry_Error.
 void Entry::set_mtime(std::string t) {
     if (!mado::common::is_timestamp(t))
         throw Entry_Error("Invalid timestamp: " + t);
     mtime_ = std::move(t);
 }
 
-// Stores a deadline timestamp. Throws Entry_Error for invalid input.
-// Сохраняет срок. Неверное значение вызывает Entry_Error.
 void Entry::set_deadline(std::string t) {
     if (!mado::common::is_timestamp(t))
         throw Entry_Error("Invalid timestamp: " + t);

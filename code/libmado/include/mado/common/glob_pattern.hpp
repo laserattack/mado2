@@ -8,31 +8,18 @@
 
 namespace mado::common {
 
-// Owns compiled glob commands and retains syntax errors for matching.
-// Владеет командами glob и сохраняет ошибку синтаксиса для проверки совпадений.
 class Glob_Pattern {
   public:
-    // Owns compiled glob commands and retains syntax errors for matching.
-// Владеет командами glob и сохраняет ошибку синтаксиса для проверки совпадений.
-    // Compiles a non-null pattern. Syntax errors are retained and
-    // allocation failure is handled by the C glob compiler.
     explicit Glob_Pattern(const char *pattern)
         : result_(glob_compile(pattern, &glob_)) {}
 
     Glob_Pattern(const Glob_Pattern &) = delete;
     Glob_Pattern &operator=(const Glob_Pattern &) = delete;
 
-    // Releases compiled commands, including partially compiled patterns.
-    // No exceptions.
-    // Освобождает команды, в том числе после частичной компиляции. Исключений нет.
     ~Glob_Pattern() {
         std::free(glob_.items);
     }
 
-    // Returns the match result or nullopt for a malformed glob. Requires a
-    // valid text view. No exceptions.
-    // Возвращает результат совпадения или nullopt при ошибке шаблона. Требуется корректное
-    // представление текста. Исключений нет.
     std::optional<bool> matches(std::string_view text) const {
         if (result_.error)
             return std::nullopt;
