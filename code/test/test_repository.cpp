@@ -685,13 +685,15 @@ static void test_create_rejects_dotdot_slash_in_suffix() {
     std::filesystem::create_directories(tmp.path() / "MADO");
     auto repo = Repository::open(tmp.path());
 
+    bool rejected = false;
     try {
         repo->create("../");
-    } catch (const std::runtime_error &) { /* expected */
+    } catch (const Repository_Error &) {
+        rejected = true;
     }
 
     auto it = std::filesystem::directory_iterator(tmp.path() / "MADO");
-    test(it == std::filesystem::directory_iterator{});
+    test(rejected && it == std::filesystem::directory_iterator{});
 }
 
 static void test_create_rejects_missing_or_non_file_template() {
@@ -707,7 +709,7 @@ static void test_create_rejects_missing_or_non_file_template() {
         try {
             repo->create("", "missing");
             rejected = false;
-        } catch (const std::runtime_error &error) {
+        } catch (const Repository_Error &error) {
             rejected &= std::string(error.what()).find("not found") != std::string::npos;
         }
         const auto first = std::filesystem::directory_iterator(repo->root());
@@ -877,7 +879,7 @@ static void test_mtimes_invalid_preferred_index() {
     bool rejected = false;
     try {
         repo->restore_mtimes();
-    } catch (const std::runtime_error &error) {
+    } catch (const Repository_Error &error) {
         rejected = std::string(error.what()).starts_with("Invalid mtime index header");
     }
 

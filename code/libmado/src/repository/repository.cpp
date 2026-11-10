@@ -49,12 +49,6 @@ const std::string TASK_TEMPLATE = std::string(NAME_PREFIX) + "\n" +
                                   std::string(STATUS_PREFIX) + "\n" + std::string(DEADLINE_PREFIX) + "\n";
 const std::string NOTE_TEMPLATE = std::string(NAME_PREFIX) + "\n" + std::string(TAGS_PREFIX) + "\n";
 
-class Repository_Error : public std::runtime_error {
-  public:
-    explicit Repository_Error(const std::string &message)
-        : std::runtime_error(message) {}
-};
-
 std::string describe_invalid_chars(std::string_view chars) {
     std::string result;
 

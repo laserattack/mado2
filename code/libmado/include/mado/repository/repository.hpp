@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -21,6 +22,12 @@ inline constexpr const char *MTIMES_FILE_NAMES[] = {"mtimes", ".mtimes", "_mtime
 inline constexpr char MARKDOWN_EXTENSION[] = ".md";
 
 inline const std::string ENTRY_FILE = std::string("MAIN") + MARKDOWN_EXTENSION;
+
+class Repository_Error : public std::runtime_error {
+  public:
+    explicit Repository_Error(const std::string &message)
+        : std::runtime_error(message) {}
+};
 
 struct Remove_Failure {
     mado::entry::Entry entry;
