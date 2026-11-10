@@ -41,34 +41,78 @@ struct Remove_Result {
 
 class Repository {
   public:
-    // Find MADO/ starting from `from`, going up the tree.
+    /// Finds MADO/ starting from `from` and going up the tree.
+    /// Returns std::nullopt if the starting path cannot be resolved
+    /// or the search finds no repository.
     static std::optional<Repository> open(const std::filesystem::path &from);
 
-    // Initializes the nearest repository and restores its default templates.
-    // With force, initializes a repository in `where` even if one exists above.
+    /// Initializes the nearest repository and restores its default templates.
+    /// With force, initializes a repository in `where` even if one exists above.
+    /// @throws std::runtime_error If a filesystem operation fails while
+    /// resolving the path, creating directories, or restoring templates.
     static Repository init(const std::filesystem::path &where, bool force = false);
 
-    // Load entries matching the filter.
-    // Invalid entries are skipped. Only matching entries are kept in memory.
+    /// Loads entries matching the filter. Invalid entries are skipped.
+    /// Returns an empty result if the repository cannot be opened for iteration.
+    /// @throws std::bad_variant_access If an Any comparison has neither
+    /// a numeric nor a string value.
+    /// @throws std::runtime_error If advancing directory iteration, inspecting
+    /// a directory entry, or reading an entry fails, or if an entry's path
+    /// or modification time cannot be converted during loading or matching.
     std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;
 
+    /// Removes matching entries and reports per-entry deletion failures
+    /// in Remove_Result::failed.
+    /// @throws std::bad_variant_access If an Any comparison has neither
+    /// a numeric nor a string value.
+    /// @throws std::runtime_error If advancing directory iteration, inspecting
+    /// a directory entry, or reading an entry fails, or if an entry's path
+    /// or modification time cannot be converted during loading or matching.
     Remove_Result remove(const mado::query::Ast_Node *filter) const;
 
-    // The directory name is the current UTC time in YYYYMMDD-HHMMSS,
-    // optionally followed by <suffix>.
-    // Returns the created Entry.
+    /// Creates and returns an entry with a directory name based on the current
+    /// UTC time in YYYYMMDD-HHMMSS, optionally followed by `suffix`.
+    /// @throws Repository_Error If the suffix or template name is invalid,
+    /// the requested template is unavailable, the entry path already exists,
+    /// or the entry file is missing or non-regular when loaded.
+    /// @throws mado::entry::Entry_Error If the entry's creation or modification
+    /// timestamp is invalid when loaded.
+    /// @throws std::runtime_error If reading or converting the current time fails,
+    /// or if a filesystem, I/O, path conversion, or UTC conversion error occurs
+    /// while reading the template or creating or loading the entry.
     mado::entry::Entry create(
         const std::string &suffix = "",
         const std::optional<std::string> &template_name = std::nullopt) const;
 
-    // Iterates over entries matching the filter and calls `action` for
-    // each. The action receives the entry by value, so it can move it
-    // out. If the action returns false, iteration stops early.
+    /// Calls `action` with each matching entry by value, stopping if it returns
+    /// false. Invalid entries are skipped. If `action` throws Repository_Error
+    /// or mado::entry::Entry_Error, iteration continues with the next entry.
+    /// Returns without calling `action` if the repository cannot be opened
+    /// for iteration.
+    /// @throws std::bad_function_call If `action` is empty and an entry matches.
+    /// @throws std::bad_variant_access If an Any comparison has neither
+    /// a numeric nor a string value.
+    /// @throws std::runtime_error If advancing directory iteration, inspecting
+    /// a directory entry, or reading an entry fails, or if an entry's path
+    /// or modification time cannot be converted during loading or matching.
+    /// @throws ... Any other exception thrown by `action`.
     void for_each_matching(const mado::query::Ast_Node *filter,
                            std::function<bool(mado::entry::Entry)> action) const;
 
+    /// @throws Repository_Error If the destination would overwrite an entry file,
+    /// an entry identifier is invalid, or a modification time is outside the
+    /// index format's range.
+    /// @throws std::runtime_error If resolving the destination, inspecting
+    /// entries, converting an entry path, or writing the index fails.
     std::filesystem::path dump_mtimes(const std::filesystem::path &file = {}) const;
 
+    /// Skips missing entry files and symlinked entries or entry files by default.
+    /// @throws Repository_Error If the index header is unreadable or invalid,
+    /// a record is invalid, a timestamp is outside the filesystem clock's range,
+    /// or an entry file is non-regular. In strict mode, also throws for entries
+    /// that would otherwise be skipped.
+    /// @throws std::runtime_error If resolving or opening the index, reading
+    /// its records, inspecting entry paths, or accessing modification times fails.
     std::filesystem::path restore_mtimes(const std::filesystem::path &file = {}, bool strict = false,
                         bool keep_newer = false) const;
 

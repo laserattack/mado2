@@ -13,6 +13,8 @@ namespace mado::common {
 // sequentially within str. Returns std::nullopt otherwise
 std::optional<int32_t> fuzzy_match(const std::string &pattern, const std::string &str, bool ignore_case);
 
+/// @throws ... Any exception from accessing or iterating over the range
+/// or invoking `get_name`.
 template <class Range, class Name>
 auto find_fuzzy_match(const std::string &pattern, const Range &candidates, Name get_name) {
     const auto end = std::end(candidates);

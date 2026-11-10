@@ -64,6 +64,16 @@
 - Use domain-specific exceptions such as `Repository_Error`,
   `Entry_Error`, and `Parse_Error` for invalid input, malformed data,
   and violations of application rules.
+- Declare domain-specific exceptions that can escape the public API in
+  public headers so callers can catch them by type.
+- At each public C++ declaration, document escaping exceptions with
+  `/// @throws Type If ...`. Include exceptions from nested calls.
+  Describe errors handled internally through their observable result.
+  Use `@throws ...` for exceptions propagated from caller-provided code
+  and describe any exceptions the API handles itself.
+- Document generic allocation and container capacity failures once in
+  the libmado API overview. Use `noexcept` when the function guarantees
+  that no exceptions escape.
 
 # Workspace files
 

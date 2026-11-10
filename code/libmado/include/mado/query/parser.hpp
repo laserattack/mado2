@@ -29,7 +29,13 @@ class Parser {
     // The vector always contains at least one End token; the lexer guarantees this
     explicit Parser(std::vector<Token> tokens) : tokens_(std::move(tokens)) {}
 
-    std::unique_ptr<Ast_Node> parse(); // parse AST
+    /// Parses the token stream into an AST.
+    /// @throws Parse_Error If the query is empty or syntactically invalid.
+    /// @throws std::invalid_argument If a Number token used in a comparison
+    /// contains no convertible integer.
+    /// @throws std::out_of_range If a Number token used in a comparison
+    /// contains an integer outside the range of int.
+    std::unique_ptr<Ast_Node> parse();
 
     const Ast_Node *partial_ast() const { return partial_ast_.get(); }
 

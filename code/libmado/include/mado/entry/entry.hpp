@@ -35,10 +35,20 @@ class Entry {
     void set_path(std::filesystem::path p);
     void set_name(std::string n);
     void set_status(std::string s);
+
+    /// @throws Entry_Error If `p` exceeds MAX_PRIORITY.
     void set_priority(uint16_t p);
+
+    /// @throws Entry_Error If the tag list is empty.
     void set_tags(std::vector<std::string> t);
+
+    /// @throws Entry_Error If `t` is not a valid timestamp.
     void set_time(std::string t);
+
+    /// @throws Entry_Error If `t` is not a valid timestamp.
     void set_mtime(std::string t);
+
+    /// @throws Entry_Error If `t` is not a valid timestamp.
     void set_deadline(std::string t);
 
   private:

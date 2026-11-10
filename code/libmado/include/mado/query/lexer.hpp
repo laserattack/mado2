@@ -13,8 +13,9 @@ class Lexer {
     // Creates a lexer for the given query string
     explicit Lexer(std::string query) : query_(std::move(query)) {}
 
-    // Tokenizes the query string
-    // Always appends a Token_Type::End token at the end
+    /// Tokenizes the query string and appends a Token_Type::End token.
+    /// @throws std::runtime_error If a time macro needs the current time
+    /// and that time cannot be converted to UTC.
     std::vector<Token> tokenize();
 
   private:

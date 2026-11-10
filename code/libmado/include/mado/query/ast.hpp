@@ -87,8 +87,10 @@ struct Ast_Comparison_Operator_Node : Ast_Node {
 
     bool is_string() const;
 
+    /// @throws std::bad_variant_access If the value does not hold a number.
     uint16_t as_number() const;
 
+    /// @throws std::bad_variant_access If the value does not hold a string.
     const std::string &as_string() const;
 };
 
