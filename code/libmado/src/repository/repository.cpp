@@ -216,7 +216,7 @@ Repository Repository::init(const std::filesystem::path &where, bool force) {
         if (ec)
             throw std::filesystem::filesystem_error("Cannot inspect repository directory", mado_dir, ec);
         throw Repository_Error("Cannot initialize " + mado_dir.string() +
-                               ": repository directory must be named exactly " + ENTRY_DIR);
+                               ": directory exists with different casing (case-insensitive FS?)");
     }
 
     const auto templates = find_templates(mado_dir).value_or(mado_dir / TEMPLATE_DIR_NAMES[0]);
