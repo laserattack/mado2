@@ -145,6 +145,22 @@ std::optional<uint16_t> parse_priority(const std::string &s) {
     return static_cast<uint16_t>(std::stoi(s));
 }
 
+bool is_repository_directory(const std::filesystem::path &path, std::error_code &error) {
+    if (!std::filesystem::is_directory(path, error))
+        return false;
+
+    // Inspect the stored name since a path lookup can ignore case.
+    const auto name = path.filename();
+    const std::filesystem::directory_iterator end;
+    for (std::filesystem::directory_iterator entry(path.parent_path(), error);
+         !error && entry != end; entry.increment(error)) {
+        if (entry->path().filename() == name)
+            return true;
+    }
+
+    return false;
+}
+
 } // namespace
 
 std::optional<Repository> Repository::open(const std::filesystem::path &from) {
@@ -158,9 +174,8 @@ std::optional<Repository> Repository::open(const std::filesystem::path &from) {
         dir = dir.parent_path();
 
     while (!dir.empty()) {
-        auto candidate = dir / ENTRY_DIR;
-        if (std::filesystem::is_directory(candidate, ec))
-            return Repository(candidate);
+        if (auto repository = open_at(dir))
+            return repository;
 
         auto parent = dir.parent_path();
         if (parent == dir)
@@ -169,6 +184,19 @@ std::optional<Repository> Repository::open(const std::filesystem::path &from) {
     }
 
     return std::nullopt;
+}
+
+std::optional<Repository> Repository::open_at(const std::filesystem::path &parent) {
+    std::error_code error;
+    const auto absolute_parent = std::filesystem::absolute(parent, error);
+    if (error)
+        return std::nullopt;
+
+    auto candidate = absolute_parent / ENTRY_DIR;
+    if (!is_repository_directory(candidate, error))
+        return std::nullopt;
+
+    return Repository(std::move(candidate));
 }
 
 Repository Repository::init(const std::filesystem::path &where, bool force) {
@@ -183,7 +211,13 @@ Repository Repository::init(const std::filesystem::path &where, bool force) {
         if (auto repo = open(abs_where))
             mado_dir = repo->root();
     }
-    std::filesystem::create_directory(mado_dir);
+
+    if (!std::filesystem::create_directory(mado_dir) && !is_repository_directory(mado_dir, ec)) {
+        if (ec)
+            throw std::filesystem::filesystem_error("Cannot inspect repository directory", mado_dir, ec);
+        throw Repository_Error("Cannot initialize " + mado_dir.string() +
+                               ": repository directory must be named exactly " + ENTRY_DIR);
+    }
 
     const auto templates = find_templates(mado_dir).value_or(mado_dir / TEMPLATE_DIR_NAMES[0]);
     std::filesystem::create_directory(templates);

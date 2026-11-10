@@ -1,5 +1,6 @@
 #include "test_utils.hpp"
 
+#include <mado/common/text_utils.hpp>
 #include <mado/query/ast.hpp>
 #include <mado/query/lexer.hpp>
 #include <mado/query/parser.hpp>
@@ -11,6 +12,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <string_view>
 
 using namespace mado::query;
 using namespace mado::repository;
@@ -88,10 +90,12 @@ std::unique_ptr<Ast_Node> parse(const std::string &query) {
 
 static void test_open_finds_mado() {
     Temp_Dir tmp;
-    std::filesystem::create_directories(tmp.path() / "MADO");
+    const auto root = tmp.path() / ENTRY_DIR;
+    std::filesystem::create_directory(root);
 
-    auto repo = Repository::open(tmp.path());
-    test(repo.has_value());
+    const auto repo = Repository::open(tmp.path());
+    const auto local_repo = Repository::open_at(tmp.path());
+    test(repo && local_repo && repo->root() == root && local_repo->root() == root);
 }
 
 static void test_open_finds_mado_above() {
@@ -113,6 +117,17 @@ static void test_open_returns_nullopt_when_missing() {
     test(std::filesystem::is_directory(mado_dir)
              ? repo && repo->root() == mado_dir
              : !repo);
+}
+
+static void test_open_skips_lowercase_directory() {
+    Temp_Dir tmp;
+    const auto root = tmp.path() / ENTRY_DIR;
+    const auto nested = tmp.path() / "nested";
+    std::filesystem::create_directory(root);
+    std::filesystem::create_directories(nested / mado::common::utf8_tolower(ENTRY_DIR));
+
+    const auto repo = Repository::open(nested);
+    test(repo && repo->root() == root && !Repository::open_at(nested));
 }
 
 static void test_for_each_matching_filters_entries() {
@@ -558,6 +573,25 @@ static void test_init_creates_mado() {
          repo.root() == tmp.path() / "MADO" &&
          std::filesystem::is_regular_file(repo.root() / "templates" / "note.md") &&
          std::filesystem::is_regular_file(repo.root() / "templates" / "task.md"));
+}
+
+static void test_init_distinguishes_directory_case() {
+    Temp_Dir tmp;
+    const auto root = tmp.path() / ENTRY_DIR;
+    const auto lowercase = tmp.path() / mado::common::utf8_tolower(ENTRY_DIR);
+    std::filesystem::create_directory(lowercase);
+
+    const bool names_alias = std::filesystem::exists(root);
+    bool handled_case = false;
+    try {
+        const auto repo = Repository::init(tmp.path(), true);
+        handled_case = !names_alias && repo.root() == root && Repository::open_at(tmp.path()).has_value();
+    } catch (const Repository_Error &error) {
+        handled_case = names_alias && std::string_view(error.what()).find(ENTRY_DIR) != std::string_view::npos
+            && !Repository::open_at(tmp.path());
+    }
+
+    test(handled_case && std::filesystem::is_empty(lowercase));
 }
 
 static void test_init_restores_templates_here() {
@@ -1096,6 +1130,7 @@ int main() {
         {"Open finds MADO", "Repository::open finds MADO in cwd", test_open_finds_mado},
         {"Open finds MADO above", "Repository::open walks up the tree", test_open_finds_mado_above},
         {"Open returns nullopt", "no MADO anywhere", test_open_returns_nullopt_when_missing},
+        {"Open skips lowercase directory", "only the exact repository directory name matches", test_open_skips_lowercase_directory},
         {"For each matching", "visit matching entries through the public API", test_for_each_matching_filters_entries},
         {"Stop matching iteration", "stop after the callback returns false", test_for_each_matching_stops_on_false},
         {"Find empty repo", "no entries", test_find_empty_repo},
@@ -1129,6 +1164,7 @@ int main() {
         {"Remove all failed", "return failed entries and OS errors", test_remove_all_failed},
         {"Remove no match", "nothing removed", test_remove_no_match},
         {"Init creates MADO", "init creates MADO/ and returns repo", test_init_creates_mado},
+        {"Init distinguishes directory case", "init leaves a lowercase directory untouched", test_init_distinguishes_directory_case},
         {"Init restores templates here", "init restores templates in existing MADO/", test_init_restores_templates_here},
         {"Init restores templates above", "init restores templates in ancestor MADO/", test_init_restores_templates_above},
         {"Init force allows nested", "init -force creates nested MADO/", test_init_force_allows_nested},

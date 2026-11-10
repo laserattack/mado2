@@ -41,15 +41,22 @@ struct Remove_Result {
 
 class Repository {
   public:
-    /// Finds MADO/ starting from `from` and going up the tree.
+    /// Finds a directory named exactly MADO/ starting from `from` and going up the tree.
     /// Returns std::nullopt if the starting path cannot be resolved
     /// or the search finds no repository.
     static std::optional<Repository> open(const std::filesystem::path &from);
 
+    /// Opens a directory named exactly MADO/ directly inside `parent`.
+    /// Returns std::nullopt if the path cannot be resolved or inspected,
+    /// or if `parent` has no repository.
+    static std::optional<Repository> open_at(const std::filesystem::path &parent);
+
     /// Initializes the nearest repository and restores its default templates.
     /// With force, initializes a repository in `where` even if one exists above.
+    /// @throws Repository_Error If a directory with different casing prevents
+    /// creating a directory named exactly MADO/.
     /// @throws std::runtime_error If a filesystem operation fails while
-    /// resolving the path, creating directories, or restoring templates.
+    /// resolving or inspecting the path, creating directories, or restoring templates.
     static Repository init(const std::filesystem::path &where, bool force = false);
 
     /// Loads entries matching the filter. Invalid entries are skipped.
