@@ -72,8 +72,7 @@
   Use `@throws ...` for exceptions propagated from caller-provided code
   and describe any exceptions the API handles itself.
 - Document generic allocation and container capacity failures once in
-  the libmado API overview. Use `noexcept` when the function guarantees
-  that no exceptions escape.
+  the libmado API overview.
 
 # Workspace files
 
