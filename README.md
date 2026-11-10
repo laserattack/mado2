@@ -1,41 +1,36 @@
-> AI-generated README. I don't speak English.
-
 # mado
 
-A command-line organizer for tasks, notes, and other Markdown entries. Each
-entry lives in its own directory, so it can include attachments alongside
-`MAIN.md`. Use queries to filter entries by metadata, then sort and format
-the results for your editor or scripts.
+> AI-generated README. I don't speak English.
+
+A personal CLI tool for managing tasks and notes stored as Markdown files. I made it primarily to manage entries from the Emacs compilation buffer.
+
+For a more convenient Emacs interface, see [emado](https://github.com/laserattack/emado), which uses `transient`.
 
 <p align="center">
   <img src="assets/mado-ghost-crt-512.png" width="512" alt="">
 </p>
 
+Each entry has its own directory containing `MAIN.md` and optional attachments. Entries can be searched, sorted, and formatted using metadata.
+
 ## Build
 
-Requirements are a C compiler, a C++20 compiler, Meson, Ninja.
+Requires a C compiler, a C++20 compiler, Meson, and Ninja.
 
 ```sh
 meson setup build
 meson compile -C build
 ```
 
-On Linux and macOS, the executable is `build/code/cli/mado`. If the build
-succeeds on Windows, the executable should be at `build\code\cli\mado.exe`.
-I haven't tested the Windows build. The examples below assume the
-executable is on your `PATH`.
+The executable is at `build/code/cli/mado` on Linux/macOS, or `build\code\cli\mado.exe` on Windows (untested).
 
 ## Quick start
-
-Run these commands in the directory where you want to keep your entries.
 
 ```sh
 mado init
 mado new -format path
 ```
 
-Open the returned `MAIN.md` path and fill in the metadata. Add the body
-below the header.
+Open the returned `MAIN.md` and edit it:
 
 ```markdown
 - NAME: Fix login redirect
@@ -47,184 +42,108 @@ below the header.
 The login page should redirect back to the original URL.
 ```
 
+Then query your entries:
+
 ```sh
 mado ls 'tag = bug and status = open'
-mado ls -sort -priority,+deadline -format jsonl 'status = open'
+mado ls -sort -priority,+deadline 'status = open'
+mado ls -format jsonl 'priority >= 5'
 mado info
 ```
 
-Commands find the nearest `MADO/` in the current directory or an ancestor.
-Use `mado -C <directory> <command>` to start from a different directory.
+Commands find the nearest `MADO/` directory in the current directory or its ancestors. Use `mado -C <directory>` to start elsewhere.
 
 ## Commands
 
-| Command | What it does |
+| Command | Description |
 | --- | --- |
-| `mado init [-force]` | Initializes the nearest repository and restores standard templates. Use `-force` to initialize here even when a repository exists above. |
-| `mado new [-template NAME] [-suffix TEXT]` | Creates an entry. Use `-format path` to print its Markdown file path. |
-| `mado ls [QUERY]` | Lists matching entries. An omitted query selects all entries. |
-| `mado rm QUERY` | Deletes the directories of matching entries, including their attachments. |
-| `mado dump-mtimes [FILE]` | Saves entry modification times; defaults to `MADO/mtimes`. |
-| `mado restore-mtimes [-strict] [-keep-newer] [FILE]` | Restores entry modification times from the index. |
-| `mado info` | Shows the repository path, entry count, and counts by status, tag, and priority. |
-| `mado debug-ast QUERY` | Prints the query AST, including completed nodes on a parse error. |
-| `mado help [COMMAND]` | Shows general or command-specific usage. |
-| `mado version` | Prints the executable version. |
+| `init [-force]` | Initialize a repository and restore standard templates |
+| `new [-template NAME] [-suffix TEXT]` | Create an entry |
+| `ls [QUERY]` | List matching entries |
+| `rm QUERY` | Delete matching entries and their attachments |
+| `info` | Show repository statistics |
+| `dump-mtimes [FILE]` | Save entry modification times |
+| `restore-mtimes [OPTIONS] [FILE]` | Restore saved modification times |
+| `debug-ast QUERY` | Print the parsed query AST |
+| `help [COMMAND]` | Show help |
+| `version` | Show version |
 
-Pass a query as one shell argument and put command flags before it. To
-preview a deletion, run `ls` with the same query before running `rm`.
+Run `mado help <command>` for details.
 
-`rm` attempts every matching deletion and prints successfully removed entries in
-the selected format. Each deletion failure is reported with its directory and OS
-error on stderr; any failure produces exit code 1. A failed directory may have
-been partially deleted. Errors while loading entries occur before deletion begins.
+**Warning:** `rm` deletes entire entry directories. Preview matches with `ls` first.
 
-### Sorting and output
+## Queries
 
-- `ls -sort +status,-priority` sorts by status ascending, then priority
-  descending. Omitting a sign means ascending. Sort keys include `time`,
-  `mtime`, `path`, `name`, `priority`, `deadline`, `status`, and `tags`.
-- `ls`, `new`, and `rm` accept `-format default|path|jsonl`. The default
-  format starts each entry with a `path:1:` location for editors. The other
-  formats print paths or one JSON object per entry.
-- `ls -hide-mtime -hide-path` omits those fields from entry output. The
-  default format retains the location prefix. With `-only-hidden`, the
-  `-hide-*` flags select the fields to include.
-- `info -format jsonl` prints a single JSON object. `info -only-dir` prints
-  the repository path, as a JSON string when combined with `-format jsonl`.
+Queries operate on metadata fields such as `name`, `tag`, `status`, `priority`, `deadline`, `time`, `mtime`, and `path`.
 
-### Preserving modification times
+Supported operators:
 
-`mtime` is the modification time of each entry's `MAIN.md`. Save it before
-copying a repository between systems, then restore it after copying:
+- Comparison: `=`, `!=`, `<`, `<=`, `>`, `>=`
+- String matching: `~`, `!~`, `^~`, `$~`
+- Fuzzy matching: `~~`, `!~~`
+- Glob matching: `%~`, `!%~`
+- Logic: `not`, `and`, `xor`, `or`
+
+Other features include `in`, `has`, `anyof`, `allof`, ranges, and predicates such as `untagged` and `undeadlined`.
 
 ```sh
-mado dump-mtimes
-mado restore-mtimes
-
-# Optional paths are relative to the current working directory.
-mado dump-mtimes backup.mtimes
-mado restore-mtimes backup.mtimes
-
-# Require every indexed entry to exist before restoring anything.
-mado restore-mtimes -strict
-
-# Preserve entry modification times that are newer than the saved times.
-mado restore-mtimes -keep-newer
+mado ls 'status in (open, reopened) and tag has (bug, auth)'
+mado ls 'name %~ "fix *" and priority in [3..9]'
+mado ls 'name ~ anyof("login", "redirect")'
+mado ls 'tag ~ allof(bug, auth)'
+mado ls 'deadline >= @today and deadline < @today+7'
 ```
 
-Without an explicit path, `dump-mtimes` writes `MADO/mtimes`.
-`restore-mtimes` searches for the first regular file in this order:
-`MADO/mtimes`, `MADO/.mtimes`, `MADO/_mtimes`.
-Both commands find `MADO` in the current directory or its ancestors.
-An explicit path bypasses the search. On success, both commands print the absolute
-path of the index they wrote or read. Failed operations do not print a success
-path. Copy the index together with your entries.
-The versioned text file stores the full entry directory name (including its
-suffix) and Unix timestamps in nanoseconds, independent of the time zone.
-The destination filesystem may have lower timestamp precision.
-
-Restoration validates the entire index before changing times. Malformed or
-duplicate records are errors. Missing entries and entries whose directory or
-`MAIN.md` is a symbolic link are skipped by default. With `-strict`, either
-case aborts restoration before any times are changed.
-With `-keep-newer`, an existing entry whose current modification time is greater
-than its indexed time is left unchanged. Older or equal times are restored.
-Without this flag, indexed times overwrite current times. It can be combined
-with `-strict` and a custom index path.
-
-Entries absent from the index remain unchanged. Filesystem write failures
-stop restoration and may leave earlier entries restored; rerun after fixing
-the failure. Neither command changes entry contents.
-
-### Templates
-
-`mado init` creates `templates/` inside `MADO/` if no supported template
-directory exists. It checks `templates`, `.templates`, and `_templates`
-in that order. It creates missing `note.md` and `task.md` and **restores
-their standard contents if they were edited**. Put custom templates in
-separate files such as `bug.md` in the selected directory.
+Keywords, sort fields, output formats, and time macros support fuzzy abbreviations:
 
 ```sh
-mado new -template note -format path
-mado new -template bug -suffix=-login -format path
+mado ls -sort -prio -format js 'name ~~ "fl uncd"'
+```
+
+Available time macros include `@now`, `@today`, `@tomorrow`, `@yesterday`, `@week`, `@month`, `@year`, and `@never`. Offsets such as `@today+7` are supported.
+
+Times and deadlines use UTC. Deadline format: `YYYYMMDD-HHMMSS` or `YYYYMMDD`.
+
+## Output
+
+`ls`, `new`, and `rm` support `-format default|path|jsonl`.
+
+The default format includes `path:1:` locations for Emacs compilation mode. Use `path` for file paths or `jsonl` for scripting.
+
+Sorting uses `-sort`, with `+` for ascending and `-` for descending:
+
+```sh
+mado ls -sort +status,-priority
+```
+
+Use `-hide-mtime`, `-hide-path`, and `-only-hidden` to control displayed fields.
+
+## Templates
+
+Templates live in `MADO/templates/` (also supports `.templates` and `_templates`).
+
+```sh
+mado new -template note
+mado new -template bug -suffix=-login
 ```
 
 Without `-template`, `new` uses the built-in task header.
 
-## Query language
+`mado init` restores the standard `note.md` and `task.md` templates, overwriting edits to them. Use separate files for custom templates.
 
-Queries match entry metadata. Use fields such as `name`, `tag`, `status`,
-`priority`, `path`, `time`, `mtime`, and `deadline`. Use `any` to search
-across fields and `all` to match every entry. Other standalone predicates
-include `untagged`, `unstatused`, `unnamed`, `unprioritized`, and
-`undeadlined`.
+## Modification times
 
-| Operators | Match |
-| --- | --- |
-| `=`, `!=` | Equality or inequality |
-| `<`, `<=`, `>`, `>=` | Ordered comparison |
-| `~`, `!~` | Substring or its negation |
-| `^~`, `!^~` | Prefix or its negation |
-| `$~`, `!$~` | Suffix or its negation |
-| `~~`, `!~~` | Fuzzy match or its negation |
-| `%~`, `!%~` | Glob match or its negation |
-
-String comparisons ignore case. Quote values containing
-spaces. Combine conditions using `not`, `and`, `xor`, `or`, and
-parentheses.
+To preserve `MAIN.md` modification times when copying a repository:
 
 ```sh
-mado ls 'name %~ "fix *" and priority in [3..9]'
-mado ls 'status in (open, reopened) and tag has (bug, auth)'
-mado ls 'name ~ anyof("login", "redirect")'
-mado ls 'tag ~ allof(bug, auth)'
-mado debug-ast 'not (status = closed or untagged)'
+mado dump-mtimes
+# Copy MADO/ to the destination
+mado restore-mtimes
 ```
 
-`in [low..high]` includes both bounds. Either bound can be omitted.
+The default index is `MADO/mtimes`. Custom paths are supported.
 
-### Fuzzy matching
-
-Fuzzy matching is available throughout the query and output workflow:
-
-| Where | Example | Meaning |
-| --- | --- | --- |
-| Query keywords | `prio >= 5` | `priority >= 5` |
-| Time macro names | `@tday` | `@today` |
-| Sort fields | `-sort -prio` | Sort by priority descending |
-| Output formats | `-format js` | Use JSON Lines |
-| Entry values | `name ~~ "fl uncd"` | Matches a name such as “full unicode support” |
-
-For keywords, macros, sort fields, and formats, exact names take priority
-over fuzzy matches. For entry values, use `~~` to match a pattern or
-`!~~` to exclude matches. The characters in the pattern must appear in
-order, with gaps allowed.
-
-```sh
-mado ls -sort -prio -format js 'name ~~ "fl uncd" and deadline >= @tday'
-```
-
-### Time and dates
-
-New entry directory names, `time`, `mtime`, and time macros use UTC.
-Write deadlines in UTC using `YYYYMMDD-HHMMSS` or a shorter date such as
-`YYYYMMDD`. Use `^~` to match a date prefix. In ordered comparisons, a
-date-only value sorts before full timestamps on the same date.
-
-| Macro | Value | Offset unit |
-| --- | --- | --- |
-| `@now` | Current UTC timestamp | Days |
-| `@today`, `@yesterday`, `@tomorrow` | UTC calendar date | Days |
-| `@week` | Monday of the current UTC week | Weeks |
-| `@month` | Current UTC year and month | Months |
-| `@year` | Current UTC year | Years |
-| `@never` | `99990101-000000` | Days |
-
-```sh
-mado ls 'time >= @today and time < @tomorrow'
-mado ls 'deadline >= @today and deadline < @today+7 and not undeadlined'
-```
+`restore-mtimes` also accepts `-strict` (fail if indexed entries are missing or symlinked) and `-keep-newer` (preserve newer modification times).
 
 ## License
 
