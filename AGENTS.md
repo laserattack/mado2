@@ -23,6 +23,21 @@
   (`#ifdef` or `#if`). Provide an implementation for each required
   platform or a portable fallback that preserves the expected behavior.
 
+# Consistency
+
+- Code consistency is a core requirement. Before making changes, first
+  find and read analogous implementations in the project, especially in
+  the same component. Use them as the starting point for the change.
+- Follow established patterns for structure, control flow, naming,
+  abstractions, data placement, diagnostics, help text, and tests. Do not
+  introduce a different convention for one implementation without a
+  concrete reason required by the task or these instructions.
+- When existing patterns differ, prefer the pattern used by the closest
+  analogous code that complies with these instructions. Keep unrelated
+  code unchanged, and explain any necessary departure from that pattern.
+- Before finishing, compare the changed code with its analogues and
+  resolve unintended inconsistencies.
+
 # Readability
 
 - Readability is a core requirement. Prefer direct control flow and
