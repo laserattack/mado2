@@ -84,6 +84,22 @@ class Repository {
     /// or modification time cannot be converted during loading or matching.
     Remove_Result remove(const mado::query::Ast_Node *filter) const;
 
+    /// Removes each matching entry directory recursively when `should_remove`
+    /// returns true. The callback is called once for each matching entry before
+    /// deletion; entries declined by the callback are omitted from the result.
+    /// Successful removals are listed in `removed`; per-entry deletion failures
+    /// are listed in `failed` with their OS error. Matching entries are loaded
+    /// before any deletion occurs.
+    /// @throws Any exception thrown by `should_remove`.
+    /// @throws std::bad_variant_access If an Any comparison has neither
+    /// a numeric nor a string value.
+    /// @throws std::runtime_error If advancing directory iteration, inspecting
+    /// a directory entry, or reading an entry fails, or if an entry's path
+    /// or modification time cannot be converted during loading or matching.
+    Remove_Result remove(
+        const mado::query::Ast_Node *filter,
+        const std::function<bool(const mado::entry::Entry &)> &should_remove) const;
+
     /// Creates and returns an entry with a directory name based on the current
     /// UTC time in YYYYMMDD-HHMMSS, optionally followed by `suffix`. Uses the
     /// built-in task template unless `template_name` selects a file from the

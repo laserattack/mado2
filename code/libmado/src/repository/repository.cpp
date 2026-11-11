@@ -238,12 +238,21 @@ std::vector<mado::entry::Entry> Repository::find(
 }
 
 Remove_Result Repository::remove(const mado::query::Ast_Node *filter) const {
+    return remove(filter, [](const mado::entry::Entry &) { return true; });
+}
+
+Remove_Result Repository::remove(
+    const mado::query::Ast_Node *filter,
+    const std::function<bool(const mado::entry::Entry &)> &should_remove) const {
     auto entries = find(filter);
     Remove_Result result;
     result.removed.reserve(entries.size());
     result.failed.reserve(entries.size());
 
     for (auto &entry : entries) {
+        if (!should_remove(entry))
+            continue;
+
         std::error_code error;
         std::filesystem::remove_all(entry.path().parent_path(), error);
 

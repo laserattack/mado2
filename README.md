@@ -60,7 +60,7 @@ Commands find the nearest `MADO/` directory in the current directory or its ance
 | `init [-force]` | Initialize a repository and restore standard templates |
 | `new [-template NAME] [-suffix TEXT]` | Create an entry |
 | `ls [QUERY]` | List matching entries |
-| `rm QUERY` | Delete matching entries and their attachments |
+| `rm [-interactive] QUERY` | Delete matching entries and their attachments; `-interactive` asks before each deletion |
 | `info` | Show repository statistics |
 | `dump-mtimes [FILE]` | Save entry modification times |
 | `restore-mtimes [OPTIONS] [FILE]` | Restore saved modification times |
@@ -70,7 +70,7 @@ Commands find the nearest `MADO/` directory in the current directory or its ance
 
 Run `mado help <command>` for details.
 
-**Warning:** `rm` deletes entire entry directories. Preview matches with `ls` first.
+**Warning:** `rm` deletes entire entry directories. Preview matches with `ls` first. With `-interactive`, each entry is shown in the selected output format; only `y` or `Y` confirms deletion.
 
 ## Queries
 

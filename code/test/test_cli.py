@@ -24,10 +24,11 @@ class Cli_Tests(unittest.TestCase):
         self.work.mkdir()
         self.repo = self.work / "MADO"
 
-    def run_mado(self, *args, cwd=None):
+    def run_mado(self, *args, cwd=None, input=None):
         return subprocess.run(
             [str(MADO), *args],
             cwd=self.work if cwd is None else cwd,
+            input=input,
             capture_output=True,
             text=True,
             encoding=locale.getpreferredencoding(False),
@@ -456,6 +457,24 @@ class Cli_Tests(unittest.TestCase):
         result = self.run_mado("rm", "-format", "path", "name = remove")
         self.test(self.check_output(result, str(removed) + "\n") and
                   not removed.parent.exists() and kept.is_file())
+
+    def test_rm_interactive_confirms_each_entry(self):
+        first = self.entry("20260101-000000", "- NAME: First\n")
+        second = self.entry("20260102-000000", "- NAME: Second\n")
+        result = self.run_mado("rm", "-interactive", "-format", "path", "all",
+                               input="y\ny\n")
+        self.test(result.returncode == 0 and sorted(result.stdout.splitlines()) ==
+                  sorted((str(first), str(second))) and
+                  result.stderr.count("Remove ") == 2 and str(first.parent) in result.stderr and
+                  str(second.parent) in result.stderr and not first.parent.exists() and
+                  not second.parent.exists())
+
+    def test_rm_interactive_declines_removal(self):
+        kept = self.entry("20260101-000000", "- NAME: Keep\n")
+        result = self.run_mado("rm", "-interactive", "all", input="n\n")
+        self.test(result.returncode == 0 and result.stdout == "" and
+                  result.stderr.count("Remove ") == 1 and str(kept.parent) in result.stderr and
+                  kept.is_file())
 
     def check_rm_failure(self, mixed):
         blocked = self.entry("20260101-000000", "- NAME: blocked\n")

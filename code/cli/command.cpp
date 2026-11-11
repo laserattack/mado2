@@ -195,7 +195,7 @@ class Rm_Command : public Command {
     Rm_Command() {
         name = "rm";
         aliases = {"remove", "delete", "clear", "trash"};
-        signature = "[-format <default|path|jsonl>] <QUERY>";
+        signature = "[-interactive] [-format <default|path|jsonl>] <QUERY>";
         description = "Remove entries";
     }
 
@@ -205,6 +205,14 @@ class Rm_Command : public Command {
         Flag_Context c(name.c_str());
 
         // Declare flags
+        bool interactive = false;
+        c.add_bool(&interactive, {"interactive", "-interactive"},
+                   "Ask before removing each entry");
+
+        constexpr char confirmation_yes[] = "y";
+        constexpr char confirmation_yes_upper[] = "Y";
+        constexpr char confirmation_no_default[] = "N";
+
         char *format_name = nullptr;
         c.add_string(&format_name, {"format", "f", "-format"}, "default", "Output format");
         //
@@ -260,8 +268,28 @@ class Rm_Command : public Command {
             return false;
         }
 
-        const auto result = repo->remove(ast.get());
         auto formatter = make_entry_info_formatter(fmt);
+        const auto result = repo->remove(ast.get(), [&](const mado::entry::Entry &entry) {
+            if (!interactive)
+                return true;
+
+            std::cerr << "Remove entry:\n";
+            formatter->write(entry, std::cerr);
+            std::cerr << "[" << confirmation_yes << "/"
+                      << confirmation_no_default << "] ";
+            std::cerr.flush();
+
+            std::string response;
+            if (!std::getline(std::cin, response))
+                return false;
+
+            return response == confirmation_yes ||
+                   response == confirmation_yes_upper;
+        });
+
+        if (interactive) {
+            std::cerr << "Removed entries:\n";
+        }
 
         for (const auto &entry : result.removed)
             formatter->write(entry, std::cout);
