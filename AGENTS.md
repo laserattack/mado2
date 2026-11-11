@@ -71,6 +71,10 @@
   Describe errors handled internally through their observable result.
   Use `@throws ...` for exceptions propagated from caller-provided code
   and describe any exceptions the API handles itself.
+- At each public API declaration, document what the operation does,
+  including its return value, state changes, and relevant edge-case behavior.
+  For C APIs, describe errors returned through result values, error codes,
+  or output parameters because they cannot use C++ `@throws` documentation.
 - Document generic allocation and container capacity failures once in
   the libmado API overview.
 

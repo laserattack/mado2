@@ -10,10 +10,11 @@ namespace mado::query {
 
 class Lexer {
   public:
-    // Creates a lexer for the given query string
+    /// Creates a lexer that reads tokens from `query`.
     explicit Lexer(std::string query) : query_(std::move(query)) {}
 
-    /// Tokenizes the query string and appends a Token_Type::End token.
+    /// Converts the query into tokens and appends a Token_Type::End token.
+    /// Invalid syntax is represented by Invalid tokens for the parser to report.
     /// @throws std::runtime_error If a time macro needs the current time
     /// and that time cannot be converted to UTC.
     std::vector<Token> tokenize();

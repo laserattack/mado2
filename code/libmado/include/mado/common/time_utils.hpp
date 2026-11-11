@@ -8,6 +8,7 @@ namespace mado::common {
 inline constexpr char NEVER_TIMESTAMP[] = "99990101-000000";
 
 
+/// Converts `time` to a UTC broken-down time.
 /// @throws std::runtime_error If the given time cannot be converted to UTC.
 std::tm utc_time(std::time_t time);
 

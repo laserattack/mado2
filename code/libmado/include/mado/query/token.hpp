@@ -102,14 +102,19 @@ struct Token {
     size_t position{0}; // character offset from the start of the query string
     size_t length{0};
 
+    /// Creates an Invalid token with empty value and zero source position.
     Token() = default;
 
+    /// Creates a token with its type, decoded value, source position, and
+    /// optional source span length.
     Token(Token_Type t, std::string v, size_t pos, size_t source_length = 0)
         : type(t), value(std::move(v)), position(pos), length(source_length) {}
 };
 
+/// Returns the enum name for `type`, or "Unknown" for an unrecognized value.
 std::string token_type_to_string(Token_Type type);
 
+/// Returns whether `type` is a recognized keyword token.
 bool token_is_keyword(Token_Type type);
 
 } // namespace mado::query

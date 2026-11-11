@@ -9,10 +9,14 @@
 
 namespace mado::common {
 
-// Returns a match score if each character in pattern is found
-// sequentially within str. Returns std::nullopt otherwise
+/// Returns a score when every character in `pattern` occurs in order in `str`;
+/// comparisons honor `ignore_case`. Otherwise returns `std::nullopt`. An empty
+/// pattern matches with score 100.
 std::optional<int32_t> fuzzy_match(const std::string &pattern, const std::string &str, bool ignore_case);
 
+/// Returns the candidate iterator with the highest fuzzy score, preferring an
+/// exact case-insensitive match immediately. Returns `std::end(candidates)` if
+/// the pattern is empty or no candidate matches.
 /// @throws ... Any exception from accessing or iterating over the range
 /// or invoking `get_name`.
 template <class Range, class Name>

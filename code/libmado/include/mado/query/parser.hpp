@@ -12,12 +12,14 @@ namespace mado::query {
 
 class Parse_Error : public std::runtime_error {
   public:
+    /// Creates a parse error associated with the offending token.
     Parse_Error(const std::string &message, const Token &token)
         : std::runtime_error(message), token_(token) {}
 
+    /// Returns the token associated with this error.
     const Token &token() const { return token_; }
 
-    // Formats the error with the query and a caret at the error position
+    /// Formats the diagnostic with the query and a caret at the token position.
     std::string format(const std::string &query) const;
 
   private:
@@ -26,10 +28,12 @@ class Parse_Error : public std::runtime_error {
 
 class Parser {
   public:
-    // The vector always contains at least one End token; the lexer guarantees this
+    /// Creates a parser for a token stream. Reads past the supplied tokens as
+    /// the End token.
     explicit Parser(std::vector<Token> tokens) : tokens_(std::move(tokens)) {}
 
-    /// Parses the token stream into an AST.
+    /// Parses the token stream into an AST. On a Parse_Error after partial
+    /// parsing, `partial_ast()` exposes the successfully parsed prefix.
     /// @throws Parse_Error If the query is empty or syntactically invalid.
     /// @throws std::invalid_argument If a Number token used in a comparison
     /// contains no convertible integer.
@@ -37,6 +41,8 @@ class Parser {
     /// contains an integer outside the range of int.
     std::unique_ptr<Ast_Node> parse();
 
+    /// Returns the partial AST from the most recent failed parse, or null if
+    /// parsing has not failed after producing a partial tree.
     const Ast_Node *partial_ast() const { return partial_ast_.get(); }
 
   private:

@@ -17,29 +17,32 @@ namespace cli {
 
 class Flag_Context {
   public:
-    // Creates a new flag context. The name is used by flag.h so it
-    // doesn't try to consume the first argv element as the program
-    // name.
+    /// Creates an owning flag context. `name` prevents flag.h from consuming
+    /// the first argv element as the program name.
     explicit Flag_Context(const char *name)
         : ctx_(flag_c_new(name)) {}
 
+    /// Copying is disabled because this object owns the flag context.
     Flag_Context(const Flag_Context &) = delete;
+    /// Copy assignment is disabled because this object owns the flag context.
     Flag_Context &operator=(const Flag_Context &) = delete;
 
+    /// Frees the owned flag context.
     ~Flag_Context() {
         flag_c_free(ctx_);
     }
 
-    // Implicit conversion to `void *` so it can be passed to `flag_c_*`
-    // functions directly.
+    /// Returns the underlying context for flag_c_* calls.
     operator void *() const { return ctx_; }
 
+    /// Registers a string flag for each name, initialized with the default.
     void add_string(char **value, std::initializer_list<const char *> names,
                     const char *default_value, const char *description) {
         for (const auto *name : names)
             flag_c_str_var(ctx_, value, name, default_value, description);
     }
 
+    /// Registers a false-by-default boolean flag for each name.
     void add_bool(bool *value, std::initializer_list<const char *> names,
                   const char *description) {
         for (const auto *name : names)

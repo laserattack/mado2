@@ -25,15 +25,18 @@ inline const std::string ENTRY_FILE = std::string("MAIN") + MARKDOWN_EXTENSION;
 
 class Repository_Error : public std::runtime_error {
   public:
+    /// Creates a repository error with the supplied diagnostic message.
     explicit Repository_Error(const std::string &message)
         : std::runtime_error(message) {}
 };
 
+/// Describes an entry whose removal failed and preserves the OS error.
 struct Remove_Failure {
     mado::entry::Entry entry;
     std::error_code error;
 };
 
+/// Contains entries removed successfully and entries whose removal failed.
 struct Remove_Result {
     std::vector<mado::entry::Entry> removed;
     std::vector<Remove_Failure> failed;
@@ -52,7 +55,9 @@ class Repository {
     static std::optional<Repository> open_at(const std::filesystem::path &parent);
 
     /// Initializes the nearest repository and restores its default templates.
-    /// With force, initializes a repository in `where` even if one exists above.
+    /// With `force`, creates a repository directly in `where` even if one
+    /// exists above. Existing default template files are replaced when their
+    /// contents differ from the built-in defaults.
     /// @throws Repository_Error If a directory with different casing prevents
     /// creating a directory named exactly MADO/.
     /// @throws std::runtime_error If a filesystem operation fails while
@@ -68,8 +73,10 @@ class Repository {
     /// or modification time cannot be converted during loading or matching.
     std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;
 
-    /// Removes matching entries and reports per-entry deletion failures
-    /// in Remove_Result::failed.
+    /// Removes each matching entry directory recursively. Successful removals
+    /// are listed in `removed`; per-entry deletion failures are listed in
+    /// `failed` with their OS error. Matching entries are loaded before any
+    /// deletion occurs.
     /// @throws std::bad_variant_access If an Any comparison has neither
     /// a numeric nor a string value.
     /// @throws std::runtime_error If advancing directory iteration, inspecting
@@ -78,7 +85,9 @@ class Repository {
     Remove_Result remove(const mado::query::Ast_Node *filter) const;
 
     /// Creates and returns an entry with a directory name based on the current
-    /// UTC time in YYYYMMDD-HHMMSS, optionally followed by `suffix`.
+    /// UTC time in YYYYMMDD-HHMMSS, optionally followed by `suffix`. Uses the
+    /// built-in task template unless `template_name` selects a file from the
+    /// repository's templates directory.
     /// @throws Repository_Error If the suffix or template name is invalid,
     /// the requested template is unavailable, the entry path already exists,
     /// or the entry file is missing or non-regular when loaded.
@@ -106,6 +115,9 @@ class Repository {
     void for_each_matching(const mado::query::Ast_Node *filter,
                            std::function<bool(mado::entry::Entry)> action) const;
 
+    /// Writes a sorted modification-time index for regular, non-symlink entry
+    /// files and returns the destination path. An empty `file` selects the
+    /// default index path in the repository root.
     /// @throws Repository_Error If the destination would overwrite an entry file,
     /// an entry identifier is invalid, or a modification time is outside the
     /// index format's range.
@@ -113,7 +125,11 @@ class Repository {
     /// entries, converting an entry path, or writing the index fails.
     std::filesystem::path dump_mtimes(const std::filesystem::path &file = {}) const;
 
-    /// Skips missing entry files and symlinked entries or entry files by default.
+    /// Restores entry file modification times from the index and returns its
+    /// path. If `file` is empty, searches the supported index filenames in
+    /// order. Missing entry files and symlinked entries or files are skipped
+    /// unless `strict` is true. With `keep_newer`, existing mtimes later than
+    /// the indexed time are preserved.
     /// @throws Repository_Error If the index header is unreadable or invalid,
     /// a record is invalid, a timestamp is outside the filesystem clock's range,
     /// or an entry file is non-regular. In strict mode, also throws for entries
@@ -123,6 +139,7 @@ class Repository {
     std::filesystem::path restore_mtimes(const std::filesystem::path &file = {}, bool strict = false,
                         bool keep_newer = false) const;
 
+    /// Returns the absolute path of this repository's MADO directory.
     const std::filesystem::path &root() const { return root_; }
 
   private:
