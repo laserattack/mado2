@@ -79,12 +79,14 @@ Queries operate on metadata fields such as `name`, `tag`, `status`, `priority`, 
 Supported operators:
 
 - Comparison: `=`, `!=`, `<`, `<=`, `>`, `>=`
-- String matching: `~`, `!~`, `^~`, `$~`
+- String matching: `~`, `!~`, `^~`, `!^~`, `$~`, `!$~`
 - Fuzzy matching: `~~`, `!~~`
 - Glob matching: `%~`, `!%~`
 - Logic: `not`, `and`, `xor`, `or`
 
 Other features include `in`, `has`, `anyof`, `allof`, ranges, and predicates such as `untagged` and `undeadlined`.
+
+String values support Unicode, including unquoted values such as `name ~~ что` or `tag = 漢字`. Use single or double quotes around values containing spaces or ASCII query punctuation, such as `name = "что угодно 🙂"`. Unicode whitespace separates unquoted values. Field names, keywords, and time macro names use ASCII identifier syntax.
 
 ```sh
 mado ls 'status in (open, reopened) and tag has (bug, auth)'
@@ -102,7 +104,7 @@ mado ls -sort -prio -format js 'name ~~ "fl uncd"'
 
 Available time macros include `@now`, `@today`, `@tomorrow`, `@yesterday`, `@week`, `@month`, `@year`, and `@never`. Offsets such as `@today+7` are supported.
 
-Times and deadlines use UTC. Deadline format: `YYYYMMDD-HHMMSS` or `YYYYMMDD`.
+Times and deadlines use UTC. Supported timestamp and deadline formats are `YYYY`, `YYYYMM`, `YYYYMMDD`, `YYYYMMDD-`, `YYYYMMDD-HH`, `YYYYMMDD-HHMM`, and `YYYYMMDD-HHMMSS`.
 
 ## Output
 
