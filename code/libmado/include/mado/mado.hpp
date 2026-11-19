@@ -7,6 +7,6 @@
 /// values and do not throw C++ exceptions.
 namespace mado {
 
-constexpr const char *VERSION = "0.1.0";
+constexpr const char *VERSION = "0.2.0";
 
 } // namespace mado

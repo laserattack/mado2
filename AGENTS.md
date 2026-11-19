@@ -129,6 +129,21 @@
 - Use exactly one `test()` call per test function. Combine multiple
   conditions in that call with `&&`.
 
+# Versioning
+
+- Follow Semantic Versioning (`MAJOR.MINOR.PATCH`).
+- Increment `MAJOR` for backward-incompatible changes to public behavior.
+  Reset `MINOR` and `PATCH` to zero.
+- Increment `MINOR` for backward-compatible functionality or public API
+  deprecations. Reset `PATCH` to zero.
+- Increment `PATCH` for backward-compatible bug fixes.
+- Assess compatibility across the public libmado API, CLI commands and
+  output formats, query syntax and semantics, and repository data formats.
+- Documentation, tests, and internal refactoring alone do not require
+  a version change. Update the version for a release, not for each commit.
+- Keep the shared CLI and library version in
+  `code/libmado/include/mado/mado.hpp` as the single source of truth.
+
 # Git commits
 
 - Agents must never create Git commits.
