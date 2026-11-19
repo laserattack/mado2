@@ -50,6 +50,17 @@ class Cli_Tests(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
+    def test_ls_unicode_query(self):
+        self.entry("20260101-000000",
+                   "- NAME: Что такое Unicode 🙂\n- TAGS: 漢字, é\n- STATUS: открыто\n")
+        self.entry("20260102-000000", "- NAME: Other\n- TAGS: other\n- STATUS: closed\n")
+        result = self.run_mado("ls", "-format", "jsonl",
+                               "name ~~ что and tag has (漢字,é) and status = открыто")
+        rows = [json.loads(line) for line in result.stdout.splitlines()]
+        self.test(result.returncode == 0 and result.stderr == "" and len(rows) == 1 and
+                  rows[0]["name"] == "Что такое Unicode 🙂" and
+                  rows[0]["tags"] == ["漢字", "é"] and rows[0]["status"] == "открыто")
+
     def test_legacy_command_aliases(self):
         aliases = {
             "help": ("usage",),

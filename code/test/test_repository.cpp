@@ -393,6 +393,23 @@ static void test_load_unicode_name() {
     test(entries.size() == 1);
 }
 
+static void test_find_unicode_metadata() {
+    Temp_Dir tmp;
+    make_entry(tmp.path(), "20260101-120000",
+               "- NAME: Что такое Unicode 🙂\n"
+               "- TAGS: 漢字, é\n"
+               "- STATUS: открыто\n");
+    make_entry(tmp.path(), "20260102-120000", "- NAME: Other\n");
+
+    auto repo = Repository::open(tmp.path());
+    auto ast = parse("name ~~ что and tag has (漢字,é) and status = открыто");
+    const auto entries = repo->find(ast.get());
+
+    test(entries.size() == 1 && entries[0].name() == "Что такое Unicode 🙂" &&
+         entries[0].tags() == std::vector<std::string>({"漢字", "é"}) &&
+         entries[0].status() == "открыто");
+}
+
 static void test_load_duplicate_tags_ignored() {
     Temp_Dir tmp;
     make_entry(tmp.path(), "20260101-120000",
@@ -1152,6 +1169,7 @@ int main() {
         {"Load empty tags", "TAGS: -> ['']", test_load_empty_tags},
         {"Load tags with spaces", "TAGS:  bug ,  crit , feature", test_load_tags_with_spaces},
         {"Load unicode name", "name = лалала matches ЛАЛАЛА", test_load_unicode_name},
+        {"Find Unicode metadata", "filter loaded Unicode names, tags, and statuses", test_find_unicode_metadata},
         {"Load duplicate tags", "TAGS: bug, bug, crit, bug -> [bug, crit]", test_load_duplicate_tags_ignored},
         {"Load tags empty token", "TAGS: tag1,,tag2 -> [tag1, '', tag2]", test_load_tags_with_empty_token},
         {"Load tags empty token at end", "TAGS: tag1, -> [tag1, '']", test_load_tags_with_empty_token_at_end},

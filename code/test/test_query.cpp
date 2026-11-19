@@ -52,6 +52,64 @@ static void test_lexer_empty_query() {
          tokens[0].type == Token_Type::End);
 }
 
+static void test_lexer_unicode_values() {
+    bool correct = true;
+    for (const std::string value : {"что", "漢字", "🙂", "é", "abc_что-漢字",
+                                    "42что", "１２", "𐐀", "👩‍💻"}) {
+        Lexer lexer("name~~" + value + ",tag");
+        const auto tokens = lexer.tokenize();
+        correct &= tokens.size() == 6 && tokens[2].type == Token_Type::String &&
+                   tokens[2].value == value && tokens[2].position == 6 &&
+                   tokens[2].length == value.size() &&
+                   tokens[3].type == Token_Type::Comma &&
+                   tokens[3].position == 6 + value.size();
+    }
+    test(correct);
+}
+
+static void test_lexer_ascii_identifiers() {
+    bool correct = true;
+    for (const std::string value : {"nameчто", "náme", "ｎａｍｅ", "and🙂", "anyof漢字"}) {
+        Lexer lexer(value);
+        const auto tokens = lexer.tokenize();
+        correct &= tokens.size() == 2 && tokens[0].type == Token_Type::String &&
+                   tokens[0].value == value;
+    }
+    test(correct);
+}
+
+static void test_lexer_unicode_whitespace() {
+    Lexer lexer("name\u00a0~~\u2003что\u2028and\u0085tag = 漢字");
+    const auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 8 && tokens[0].type == Token_Type::Name &&
+         tokens[1].type == Token_Type::Fuzzy && tokens[2].value == "что" &&
+         tokens[3].type == Token_Type::And && tokens[4].type == Token_Type::Tag &&
+         tokens[6].value == "漢字");
+}
+
+static void test_lexer_invalid_utf8() {
+    bool correct = true;
+    for (const std::string &value : {std::string("\xc0\xaf"), std::string("\xed\xa0\x80"),
+                                    std::string("\xf4\x90\x80\x80"), std::string("\xe2\x82")}) {
+        Lexer lexer(value);
+        const auto tokens = lexer.tokenize();
+        correct &= tokens.size() == value.size() + 1;
+        for (size_t i = 0; i < value.size(); ++i)
+            correct &= tokens[i].type == Token_Type::Invalid &&
+                       tokens[i].position == i && tokens[i].length == 1;
+    }
+    test(correct);
+}
+
+static void test_lexer_unicode_macro_name() {
+    Lexer lexer("@todayчто");
+    const auto tokens = lexer.tokenize();
+
+    test(tokens.size() == 2 && tokens[0].type == Token_Type::Invalid &&
+         tokens[0].value == "@todayчто");
+}
+
 static void test_lexer_numbers() {
     Lexer lexer("42 999 0");
     auto tokens = lexer.tokenize();
@@ -1272,6 +1330,189 @@ static void test_parser_invalid_time_macro_syntax() {
     test(rejected);
 }
 
+static void test_parser_unicode_string_fields() {
+    bool correct = true;
+    for (const std::string field : {"name", "tag", "status", "path", "any"}) {
+        for (const std::string value : {"что", "漢字", "🙂", "é", "42что", "20260101漢字",
+                                        "name🙂", "anyof漢字", "１２", "👩‍💻", "что-漢字", "что，漢字", "а‥я", "（что）"}) {
+            const auto unquoted = parse_query(field + "=" + value);
+            const auto quoted = parse_query(field + "=\"" + value + "\"");
+            correct &= same_ast(unquoted.get(), quoted.get());
+        }
+    }
+    test(correct);
+}
+
+static void test_parser_unicode_collections() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"name = anyof(что,漢字,🙂)", "name = что or name = 漢字 or name = 🙂"},
+        {"tag = allof(что,漢字,🙂)", "tag = что and tag = 漢字 and tag = 🙂"},
+        {"status in (что,漢字,🙂)", "status = что or status = 漢字 or status = 🙂"},
+        {"path has (что,漢字)", "path = что and path = 漢字"},
+        {"any in [а..я]", "any >= а and any <= я"},
+        {"name in [а..]", "name >= а"},
+        {"name in [..я]", "name <= я"},
+        {"(name=что)and(tag=漢字)", "name = что and tag = 漢字"},
+    };
+    bool correct = true;
+    for (const auto &[query, expanded] : cases)
+        correct &= same_ast(parse_query(query).get(), parse_query(expanded).get());
+    test(correct);
+}
+
+static void test_parser_unicode_syntax_rejected() {
+    bool rejected = true;
+    for (const auto *query : {"имя = что", "name🙂 = что", "nаme = что", "ｎａｍｅ = что",
+                              "аll", "not🙂 all", "all аnd all", "all or🙂 all",
+                              "name іn (что)", "tag hаs (что)", "name = anyof🙂(что)",
+                              "name ＝ что", "name ≠ что", "name ∼ что",
+                              "name in （что）", "name in [а‥я]",
+                              "name = что and имя = 漢字", "not (name🙂 = что)",
+                              "name = что xor🙂 name = 漢字", "name = что and not🙂 all"}) {
+        try {
+            parse_query(query);
+            rejected = false;
+        } catch (const Parse_Error &) {
+        }
+    }
+    test(rejected);
+}
+
+static void test_parser_unicode_typed_values_rejected() {
+    bool rejected = true;
+    for (const std::string field : {"priority", "time", "deadline", "mtime"}) {
+        for (const std::string value : {"что", "１２", "١٢", "2026０101", "20260101🙂"}) {
+            for (const std::string &operand : {value, "\"" + value + "\"",
+                                              "anyof(" + value + ")", "allof(" + value + ")",
+                                              "(" + value + ")", "[" + value + "..]",
+                                              "[.." + value + "]"}) {
+                const bool collection = operand.front() == '(' || operand.front() == '[';
+                try {
+                    parse_query(field + (collection ? " in " : " = ") + operand);
+                    rejected = false;
+                } catch (const Parse_Error &error) {
+                    rejected &= error.token().type == Token_Type::String;
+                }
+            }
+        }
+    }
+    test(rejected);
+}
+
+static void test_parser_unicode_macros_rejected() {
+    bool rejected = true;
+    for (const auto *value : {"@сегодня", "@tоday", "@today🙂", "@ｔｏｄａｙ",
+                              "@today+１", "@today-١", "@today＋1", "@today−1",
+                              "@today+1🙂", "@today+1１", "@today\u00a0+1"}) {
+        try {
+            parse_query(std::string("deadline = ") + value);
+            rejected = false;
+        } catch (const Parse_Error &) {
+        }
+    }
+    test(rejected);
+}
+
+static void test_parser_unicode_quoted_values() {
+    bool correct = true;
+    for (const std::string value : {"что 漢字 🙂", "что\u00a0漢字", "что\u2028漢字",
+                                    "что,漢字[🙂]..", "что = 漢字 and 🙂", "@сегодня",
+                                    "что\u0080漢字", "что\t漢字\n🙂"}) {
+        const auto expected = ast_make_comparison(Ast_Comparison_Field::Name,
+                                                 Ast_Comparison_Operator::Eq, value);
+        for (const char quote : {'\'', '"'}) {
+            const auto ast = parse_query("name=" + std::string(1, quote) + value + quote);
+            correct &= same_ast(ast.get(), expected.get());
+        }
+    }
+    const auto escaped = parse_query(R"(name="что\"漢字\'🙂")");
+    const auto expected = ast_make_comparison(Ast_Comparison_Field::Name,
+                                             Ast_Comparison_Operator::Eq,
+                                             std::string("что\"漢字'🙂"));
+    test(correct && same_ast(escaped.get(), expected.get()));
+}
+
+static void test_lexer_unicode_whitespace_boundaries() {
+    bool correct = true;
+    for (const std::string space : {"\u0085", "\u00a0", "\u1680", "\u2000", "\u2001",
+                                    "\u2002", "\u2003", "\u2004", "\u2005", "\u2006",
+                                    "\u2007", "\u2008", "\u2009", "\u200a", "\u2028",
+                                    "\u2029", "\u202f", "\u205f", "\u3000"}) {
+        const auto tokens = Lexer(space + "что" + space + "漢字" + space).tokenize();
+        correct &= tokens.size() == 3 && tokens[0].value == "что" &&
+                   tokens[0].position == space.size() && tokens[1].value == "漢字" &&
+                   tokens[1].position == 2 * space.size() + std::string("что").size() &&
+                   tokens[2].type == Token_Type::End &&
+                   tokens[2].position == 3 * space.size() + std::string("что漢字").size();
+    }
+    test(correct);
+}
+
+static void test_parser_unicode_unterminated_quotes() {
+    bool rejected = true;
+    for (const char quote : {'\'', '"'}) {
+        const std::string query = "name = " + std::string(1, quote) + "что 漢字🙂";
+        try {
+            parse_query(query);
+            rejected = false;
+        } catch (const Parse_Error &error) {
+            rejected &= error.token().type == Token_Type::Invalid &&
+                        error.token().value == "что 漢字🙂" &&
+                        error.token().position == std::string("name = ").size() &&
+                        error.token().length == std::string(1, quote).size() +
+                                                std::string("что 漢字🙂").size();
+        }
+    }
+    test(rejected);
+}
+
+static void test_lexer_unicode_scalar_boundaries() {
+    bool correct = true;
+    for (const std::string value : {"\u00a1", "\u07ff", "\u0800", "\ud7ff", "\ue000",
+                                    "\uffff", "\U00010000", "\U0010ffff", "\u0301",
+                                    "\u200b", "\u200d", "\ufeff"}) {
+        const auto tokens = Lexer(value).tokenize();
+        correct &= tokens.size() == 2 && tokens[0].type == Token_Type::String &&
+                   tokens[0].value == value && tokens[0].position == 0 &&
+                   tokens[0].length == value.size() && tokens[1].position == value.size();
+    }
+    test(correct);
+}
+
+static void test_parser_unicode_unquoted_controls_rejected() {
+    bool rejected = true;
+    for (const std::string &control : {std::string(1, '\0'), std::string("\x7f"),
+                                       std::string("\u0080"), std::string("\u009f")}) {
+        try {
+            parse_query("name = что" + control + "漢字");
+            rejected = false;
+        } catch (const Parse_Error &error) {
+            rejected &= error.token().type == Token_Type::Invalid &&
+                        error.token().position == std::string("name = что").size();
+        }
+    }
+    test(rejected);
+}
+
+static void test_parser_invalid_utf8_in_values() {
+    bool rejected = true;
+    for (const std::string bytes : {"\x80", "\xbf", "\xc0\xaf", "\xc1\xbf", "\xe0\x80\xaf",
+                                    "\xed\xa0\x80", "\xf0\x80\x80\xaf", "\xf4\x90\x80\x80",
+                                    "\xf5\x80\x80\x80", "\xfe", "\xff", "\xc2", "\xe2\x82",
+                                    "\xf0\x9f\x99", "\xe2" "a"}) {
+        for (const std::string prefix : {"name = ", "name = что", "name = 42"}) {
+            try {
+                parse_query(prefix + bytes);
+                rejected = false;
+            } catch (const Parse_Error &error) {
+                rejected &= error.token().type == Token_Type::Invalid &&
+                            error.token().position == prefix.size();
+            }
+        }
+    }
+    test(rejected);
+}
+
 static void test_parser_hyphenated_value() {
     test(same_ast(parse_query("tag = foo-bar").get(),
                   parse_query("tag = \"foo-bar\"").get()) &&
@@ -1462,23 +1703,12 @@ static void test_unicode_before_error() {
 }
 
 static void test_unquoted_unicode_errors() {
-    const std::pair<const char *, const char *> cases[] = {
-        {"флоывлфоывофыв",
-         "1 | флоывлфоывофыв\n"
-         "  | ^\n"
-         "  | Expected a field name or a special keyword, got an invalid token (recognized as Invalid)\n"},
-        {"漢字",
-         "1 | 漢字\n"
-         "  | ^\n"
-         "  | Expected a field name or a special keyword, got an invalid token (recognized as Invalid)\n"},
-        {"🙂",
-         "1 | 🙂\n"
-         "  | ^\n"
-         "  | Expected a field name or a special keyword, got an invalid token (recognized as Invalid)\n"},
-    };
     bool correct = true;
-    for (const auto &[query, output] : cases)
-        correct &= query_error_output(query) == output;
+    for (const std::string value : {"флоывлфоывофыв", "漢字", "🙂"}) {
+        const auto output = query_error_output(value);
+        correct &= output.find("Expected a field name or a special keyword, got '" +
+                               value + "' (recognized as String)") != std::string::npos;
+    }
     test(correct);
 }
 
@@ -1812,6 +2042,17 @@ int main(int argc, char **argv) {
     }
 
     std::vector<Test_Case> tests = {
+        {"Unicode unterminated quotes", "retain Unicode error value and byte span", test_parser_unicode_unterminated_quotes},
+        {"parser_unicode_string_fields", "Unicode edge cases", test_parser_unicode_string_fields},
+        {"parser_unicode_collections", "Unicode edge cases", test_parser_unicode_collections},
+        {"parser_unicode_syntax_rejected", "Unicode edge cases", test_parser_unicode_syntax_rejected},
+        {"parser_unicode_typed_values_rejected", "Unicode edge cases", test_parser_unicode_typed_values_rejected},
+        {"parser_unicode_macros_rejected", "Unicode edge cases", test_parser_unicode_macros_rejected},
+        {"parser_unicode_quoted_values", "Unicode edge cases", test_parser_unicode_quoted_values},
+        {"lexer_unicode_whitespace_boundaries", "Unicode edge cases", test_lexer_unicode_whitespace_boundaries},
+        {"lexer_unicode_scalar_boundaries", "Unicode edge cases", test_lexer_unicode_scalar_boundaries},
+        {"parser_unicode_unquoted_controls_rejected", "Unicode edge cases", test_parser_unicode_unquoted_controls_rejected},
+        {"parser_invalid_utf8_in_values", "Unicode edge cases", test_parser_invalid_utf8_in_values},
         // token
         {"Token creation", "create token with values", test_token_creation},
         {"parser_field_operator_matrix", "query edge cases", test_parser_field_operator_matrix},
@@ -1830,6 +2071,11 @@ int main(int argc, char **argv) {
         {"Token default", "create default token", test_token_creation_default},
         {"Token to_string", "convert type to string", test_token_type_to_string},
         // lexer
+        {"Lexer Unicode", "Unicode values and byte offsets", test_lexer_unicode_values},
+        {"Lexer ASCII identifiers", "Unicode never resolves to a keyword", test_lexer_ascii_identifiers},
+        {"Lexer Unicode whitespace", "Unicode separators", test_lexer_unicode_whitespace},
+        {"Lexer invalid UTF-8", "reject malformed encoding", test_lexer_invalid_utf8},
+        {"Lexer Unicode macro", "consume the entire macro name", test_lexer_unicode_macro_name},
         {"Lexer empty", "tokenize empty query", test_lexer_empty_query},
         {"Lexer numbers", "tokenize numbers", test_lexer_numbers},
         {"Lexer keywords", "tokenize keywords", test_lexer_keywords},

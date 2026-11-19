@@ -14,7 +14,13 @@ class Lexer {
     explicit Lexer(std::string query) : query_(std::move(query)) {}
 
     /// Converts the query into tokens and appends a Token_Type::End token.
-    /// Invalid syntax is represented by Invalid tokens for the parser to report.
+    /// Recognizes field names, keywords, and time macro names using ASCII
+    /// identifier syntax. Unquoted literal values also accept non-ASCII UTF-8
+    /// characters other than whitespace and controls. Use quotes for values
+    /// containing spaces or query punctuation.
+    /// Unicode whitespace separates tokens; positions and lengths are byte offsets.
+    /// Invalid syntax (including malformed UTF-8 outside quoted strings) is
+    /// represented by Invalid tokens for the parser to report.
     /// @throws std::runtime_error If a time macro needs the current time
     /// and that time cannot be converted to UTC.
     std::vector<Token> tokenize();
@@ -22,6 +28,10 @@ class Lexer {
   private:
     std::string query_; // the source query string
     size_t pos_{0};     // current position in the string
+
+    // Returns the current unquoted value character's UTF-8 byte length, or zero
+    // if it is disallowed, malformed, or absent. Hyphens are handled by callers.
+    size_t unquoted_value_character_byte_length() const;
 
     // Skips whitespace characters
     void skip_whitespace();
@@ -51,7 +61,7 @@ class Lexer {
 
     Token parse_time_macro(std::time_t now);
     Token parse_quoted_string();            // Parses a quoted string (single or double quotes)
-    Token parse_identifier_and_keyword();   // Parses identifiers and a keywords
+    Token parse_unquoted_value();          // Parses literal values and ASCII keywords
     Token parse_operator_and_punctuation(); // Parses operators and punctuation
 };
 

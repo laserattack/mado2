@@ -25,6 +25,68 @@ static bool matches(const Entry &e, const Ast_Node *filter) {
 
 // test
 
+static void test_match_unquoted_unicode() {
+    Entry entry;
+    entry.set_name("что такое Unicode");
+    entry.set_tags({"漢字"});
+    entry.set_status("открыто");
+    const auto ast = parse("name ~~ что and tag = 漢字 and status = открыто");
+
+    test(matches(entry, ast.get()));
+}
+
+static void test_match_unicode_field_operators() {
+    const std::pair<const char *, bool> cases[] = {
+        {"= лала🙂", true}, {"= 漢字", false},
+        {"!= лала🙂", false}, {"!= 漢字", true},
+        {"~ ла🙂", true}, {"!~ ла🙂", false},
+        {"~~ лл🙂", true}, {"!~~ лл🙂", false},
+        {"^~ лала", true}, {"!^~ лала", false},
+        {"$~ ла🙂", true}, {"!$~ ла🙂", false},
+        {"%~ лала🙂", true}, {"!%~ лала🙂", false},
+        {"%~ 'ла*🙂'", true}, {"!%~ '漢*'", true},
+        {"> а", true}, {"< я", true},
+        {">= лала🙂", true}, {"<= лала🙂", true},
+        {"in (漢字,лала🙂)", true}, {"has (лала🙂)", true},
+        {"in [а..я]", true}, {"in [..а]", false},
+    };
+    bool correct = true;
+    for (const std::string field : {"name", "tag", "status", "path"}) {
+        Entry entry;
+        if (field == "name")
+            entry.set_name("ЛаЛа🙂");
+        else if (field == "tag")
+            entry.set_tags({"ЛаЛа🙂"});
+        else if (field == "status")
+            entry.set_status("ЛаЛа🙂");
+        else
+            entry.set_path(std::filesystem::path(u8"ЛаЛа🙂"));
+
+        for (const auto &[suffix, expected] : cases) {
+            const auto ast = parse(field + " " + suffix);
+            correct &= matches(entry, ast.get()) == expected;
+        }
+        const auto any = parse("any = лала🙂");
+        const auto missing = parse("any = 漢字");
+        correct &= matches(entry, any.get()) && !matches(entry, missing.get());
+    }
+    test(correct);
+}
+
+static void test_match_unicode_values_preserved() {
+    bool correct = true;
+    for (const std::string value : {"漢字", "🙂", "é", "👩‍💻", "42что", "что，漢字"}) {
+        Entry entry;
+        entry.set_name(value);
+        const auto unquoted = parse("name = " + value);
+        const auto quoted = parse("name = '" + value + "'");
+        const auto different = parse("name = другое");
+        correct &= matches(entry, unquoted.get()) && matches(entry, quoted.get()) &&
+                   !matches(entry, different.get());
+    }
+    test(correct);
+}
+
 static void test_match_null_filter() {
     Entry e;
     test(matches(e, nullptr));
@@ -404,6 +466,8 @@ static void test_match_name_unicode_ci_le() {
 
 int main() {
     std::vector<Test_Case> tests = {
+        {"Unicode field operators", "Unicode matching in each string field and any", test_match_unicode_field_operators},
+        {"Unicode values preserved", "match complete Unicode literals", test_match_unicode_values_preserved},
         {"Null filter", "evaluate(nullptr) = true", test_match_null_filter},
         {"All", "all node", test_match_all},
         {"Untagged default", "untagged on default", test_match_untagged_default},
@@ -441,6 +505,7 @@ int main() {
         {"Not false", "not name = bug on feature", test_match_not_false},
         {"Any number as priority", "any = 5 matches priority", test_match_any_number_as_priority},
         {"Tag substr", "tag ~ crit", test_match_tag_substr},
+        {"Unquoted Unicode", "Unicode values across fields", test_match_unquoted_unicode},
         {"Name unicode CI eq", "name = лалала matches ЛАЛАЛА", test_match_name_unicode_ci_eq},
         {"Name unicode CI ne", "name != лалала doesn't match ЛАЛАЛА", test_match_name_unicode_ci_ne},
         {"Name unicode CI ne true", "name != ЛЯЛЯЛЯ matches ЛАЛАЛА", test_match_name_unicode_ci_ne_true},

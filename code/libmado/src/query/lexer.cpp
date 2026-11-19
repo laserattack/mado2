@@ -5,10 +5,62 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cctype>
 #include <optional>
 
+#include <utf8proc/utf8proc.h>
+
 namespace mado::query {
+
+namespace {
+
+constexpr utf8proc_int32_t ASCII_LIMIT = 0x80;
+constexpr utf8proc_int32_t NEXT_LINE = 0x85;
+
+struct Unicode_Character {
+    utf8proc_int32_t value;
+    size_t size;
+};
+
+Unicode_Character read_character(const std::string &text, size_t position) {
+    if (position >= text.size())
+        return {0, 0};
+
+    utf8proc_int32_t value = 0;
+    const auto size = utf8proc_iterate(
+        reinterpret_cast<const utf8proc_uint8_t *>(text.data() + position),
+        static_cast<utf8proc_ssize_t>(text.size() - position), &value);
+    if (size <= 0)
+        return {0, 0};
+
+    return {value, static_cast<size_t>(size)};
+}
+
+bool is_whitespace(utf8proc_int32_t value) {
+    const auto category = utf8proc_category(value);
+    return (value >= '\t' && value <= '\r') || value == NEXT_LINE ||
+           category == UTF8PROC_CATEGORY_ZS || category == UTF8PROC_CATEGORY_ZL ||
+           category == UTF8PROC_CATEGORY_ZP;
+}
+
+} // namespace
+
+size_t Lexer::unquoted_value_character_byte_length() const {
+    const auto character = read_character(query_, pos_);
+    if (character.size == 0)
+        return 0;
+
+    if (character.value < ASCII_LIMIT) {
+        const char value = static_cast<char>(character.value);
+        return mado::common::is_identifier_char(value) ? character.size : 0;
+    }
+
+    // Unicode belongs to literal values, not to field or keyword identifiers.
+    if (is_whitespace(character.value) ||
+        utf8proc_category(character.value) == UTF8PROC_CATEGORY_CC)
+        return 0;
+
+    return character.size;
+}
 
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
@@ -30,8 +82,8 @@ std::vector<Token> Lexer::tokenize() {
             tokens.push_back(parse_time_macro(*now));
         } else if (c == '"' || c == '\'') {
             tokens.push_back(parse_quoted_string());
-        } else if (mado::common::is_letter_or_underscore(c)) {
-            tokens.push_back(parse_identifier_and_keyword());
+        } else if (unquoted_value_character_byte_length() != 0) {
+            tokens.push_back(parse_unquoted_value());
         } else {
             tokens.push_back(parse_operator_and_punctuation());
         }
@@ -48,9 +100,11 @@ Token Lexer::parse_time_macro(std::time_t now) {
     const size_t name_start = pos_;
     if (!mado::common::is_letter_or_underscore(get_it()))
         return make_token(Token_Type::Invalid, start);
-    while (mado::common::is_identifier_char(get_it()))
-        eat_it();
+    while (const size_t size = unquoted_value_character_byte_length())
+        eat_it(size);
     const auto name = query_.substr(name_start, pos_ - name_start);
+    if (!std::all_of(name.begin(), name.end(), mado::common::is_identifier_char))
+        return make_token(Token_Type::Invalid, start);
 
     size_t sign_pos = 0;
     while (get_it(sign_pos) == ' ' || get_it(sign_pos) == '\t' || get_it(sign_pos) == '\r')
@@ -82,8 +136,11 @@ Token Lexer::parse_time_macro(std::time_t now) {
 }
 
 void Lexer::skip_whitespace() {
-    while (!is_at_end() && std::isspace(get_it())) {
-        eat_it();
+    while (!is_at_end()) {
+        const auto character = read_character(query_, pos_);
+        if (character.size == 0 || !is_whitespace(character.value))
+            break;
+        eat_it(character.size);
     }
 }
 
@@ -121,8 +178,8 @@ Token Lexer::parse_number_and_timestamp() {
     assert(mado::common::is_digit(get_it()) &&
            "parse_number_and_timestamp called without digit");
 
-    while (mado::common::is_identifier_char(get_it()) || get_it() == '-') {
-        eat_it();
+    while (unquoted_value_character_byte_length() != 0 || get_it() == '-') {
+        eat_it(get_it() == '-' ? 1 : unquoted_value_character_byte_length());
     }
 
     size_t length = pos_ - start;
@@ -170,17 +227,25 @@ Token Lexer::parse_quoted_string() {
     return make_token(Token_Type::String, std::move(result), start);
 }
 
-Token Lexer::parse_identifier_and_keyword() {
+Token Lexer::parse_unquoted_value() {
     size_t start = pos_;
 
-    assert(mado::common::is_letter_or_underscore(get_it()) &&
-           "parse_identifier_and_keyword called without letter or underscore");
+    assert(unquoted_value_character_byte_length() != 0 &&
+           "parse_unquoted_value called without value character");
 
-    while (mado::common::is_identifier_char(get_it()) || get_it() == '-') {
-        eat_it();
+    while (unquoted_value_character_byte_length() != 0 || get_it() == '-') {
+        eat_it(get_it() == '-' ? 1 : unquoted_value_character_byte_length());
     }
 
     std::string result = query_.substr(start, pos_ - start);
+
+    // Only the original ASCII identifier syntax participates in keyword matching.
+    const bool identifier = mado::common::is_letter_or_underscore(result.front()) &&
+        std::all_of(result.begin(), result.end(), [](char value) {
+            return mado::common::is_identifier_char(value) || value == '-';
+        });
+    if (!identifier)
+        return make_token(Token_Type::String, std::move(result), start);
 
     static const auto KEYWORDS = [] {
         std::vector<std::pair<std::string, Token_Type>> keywords;
