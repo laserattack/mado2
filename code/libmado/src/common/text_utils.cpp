@@ -105,7 +105,6 @@ bool is_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
-// TODO: maybe utf8 support here
 bool is_letter_or_underscore(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
