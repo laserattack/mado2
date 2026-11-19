@@ -5,6 +5,9 @@
 #include <mado/query/lexer.hpp>
 #include <mado/query/parser.hpp>
 
+#include <array>
+#include <cstdio>
+
 using namespace mado::entry;
 using namespace mado::interpreter;
 using namespace mado::query;
@@ -23,7 +26,176 @@ static bool matches(const Entry &e, const Ast_Node *filter) {
     return interp.evaluate(filter, e);
 }
 
+struct Comparison_Case {
+    const char *op;
+    std::array<bool, 3> expected; // Entry value below, equal to, or above the operand.
+};
+
+static constexpr Comparison_Case COMPARISON_CASES[] = {
+    {"=", {false, true, false}}, {"!=", {true, false, true}},
+    {">", {false, false, true}}, {"<", {true, false, false}},
+    {">=", {false, true, true}}, {"<=", {true, true, false}},
+    {"~", {false, true, false}}, {"!~", {true, false, true}},
+    {"^~", {false, true, false}}, {"!^~", {true, false, true}},
+    {"$~", {false, true, false}}, {"!$~", {true, false, true}},
+    {"~~", {false, true, false}}, {"!~~", {true, false, true}},
+    {"%~", {false, true, false}}, {"!%~", {true, false, true}},
+};
+
+static constexpr const char *TIMESTAMP_VALUES[] = {
+    "20260201-121212", "20260202-121212", "20260203-121212",
+};
+
+static void set_string_field(Entry &entry, const std::string &field,
+                            const std::string &value) {
+    if (field == "name")
+        entry.set_name(value);
+    else if (field == "tag")
+        entry.set_tags({value});
+    else if (field == "status")
+        entry.set_status(value);
+    else if (field == "path")
+        entry.set_path(value);
+    else if (field == "time")
+        entry.set_time(value);
+    else if (field == "mtime")
+        entry.set_mtime(value);
+    else if (field == "deadline")
+        entry.set_deadline(value);
+}
+
+static Entry entry_with_string_values(const std::string &value) {
+    Entry entry;
+    for (const auto *field : {"name", "tag", "status", "path", "time", "mtime", "deadline"})
+        set_string_field(entry, field, value);
+    return entry;
+}
+
+static bool query_matches_expected(const Entry &entry, const std::string &query,
+                                   bool expected) {
+    const auto ast = parse(query);
+    const bool actual = matches(entry, ast.get());
+    if (actual != expected)
+        std::fprintf(stderr, "Query '%s': expected %d, got %d\n",
+                     query.c_str(), expected, actual);
+    return actual == expected;
+}
+
 // test
+
+static void test_match_field_operator_matrix() {
+    bool correct = true;
+    for (const std::string field : {"priority", "name", "tag", "status", "path",
+                                    "time", "mtime", "deadline", "any"}) {
+        for (const auto &comparison : COMPARISON_CASES) {
+            const std::string operand = field == "priority" ? "5" : TIMESTAMP_VALUES[1];
+            const std::string query = field + " " + comparison.op + " " + operand;
+            for (size_t i = 0; i < comparison.expected.size(); ++i) {
+                Entry entry = entry_with_string_values(TIMESTAMP_VALUES[i]);
+                entry.set_priority(static_cast<uint16_t>(4 + i));
+                correct &= query_matches_expected(entry, query, comparison.expected[i]);
+            }
+        }
+    }
+    test(correct);
+}
+
+static void test_match_any_string_field_routes() {
+    bool correct = true;
+    for (const std::string field : {"name", "tag", "status", "path", "time", "mtime", "deadline"}) {
+        for (const auto &comparison : COMPARISON_CASES) {
+            size_t matching_index = 0;
+            while (!comparison.expected[matching_index])
+                ++matching_index;
+            size_t missing_index = 0;
+            while (comparison.expected[missing_index])
+                ++missing_index;
+
+            Entry entry = entry_with_string_values(TIMESTAMP_VALUES[missing_index]);
+            const std::string query = std::string("any ") + comparison.op + " " + TIMESTAMP_VALUES[1];
+            correct &= query_matches_expected(entry, query, false);
+
+            set_string_field(entry, field, TIMESTAMP_VALUES[matching_index]);
+            correct &= query_matches_expected(entry, query, true);
+        }
+    }
+    test(correct);
+}
+
+static void test_match_any_numeric_operators() {
+    const std::pair<const char *, std::array<bool, 3>> cases[] = {
+        {"=", {false, true, false}}, {"!=", {true, true, true}},
+        {">", {false, false, true}}, {"<", {true, true, true}},
+        {">=", {false, true, true}}, {"<=", {true, true, true}},
+        {"~", {false, true, false}}, {"!~", {true, true, true}},
+        {"^~", {false, true, false}}, {"!^~", {true, true, true}},
+        {"$~", {false, true, false}}, {"!$~", {true, true, true}},
+        {"~~", {false, true, false}}, {"!~~", {true, true, true}},
+        {"%~", {false, true, false}}, {"!%~", {true, true, true}},
+    };
+    bool correct = true;
+    for (const auto &[op, expected] : cases) {
+        for (size_t i = 0; i < expected.size(); ++i) {
+            Entry entry = entry_with_string_values("20000101");
+            entry.set_priority(static_cast<uint16_t>(4 + i));
+            correct &= query_matches_expected(entry, std::string("any ") + op + " 5", expected[i]);
+        }
+    }
+
+    for (const auto *field : {"name", "tag", "status", "path"}) {
+        Entry entry = entry_with_string_values("20000101");
+        set_string_field(entry, field, "5");
+        correct &= query_matches_expected(entry, "any = 005", true) &&
+                   query_matches_expected(entry, "any = '005'", false);
+    }
+
+    Entry priority_only = entry_with_string_values("20000101");
+    priority_only.set_priority(5);
+    correct &= query_matches_expected(priority_only, "any = 5", true) &&
+               query_matches_expected(priority_only, "any = '5'", false);
+    test(correct);
+}
+
+static void test_match_any_numeric_text_patterns() {
+    const std::pair<const char *, const char *> cases[] = {
+        {"~", "abc5def"}, {"^~", "5abc"}, {"$~", "abc5"},
+        {"~~", "abc5def"}, {"%~", "5"}, {">", "6"}, {">=", "5"},
+    };
+    bool correct = true;
+    for (const auto *field : {"name", "tag", "status", "path"}) {
+        for (const auto &[op, value] : cases) {
+            Entry entry = entry_with_string_values("20000101");
+            const std::string query = std::string("any ") + op + " 005";
+            correct &= query_matches_expected(entry, query, false);
+
+            set_string_field(entry, field, value);
+            correct &= query_matches_expected(entry, query, true);
+        }
+    }
+    test(correct);
+}
+
+static void test_match_timestamp_partial_patterns() {
+    const std::pair<const char *, bool> cases[] = {
+        {"= 2026", false}, {"!= 2026", true},
+        {"> 2026", true}, {"< 2027", true},
+        {"~ 202602", true}, {"!~ 202602", false},
+        {"~ 202603", false}, {"!~ 202603", true},
+        {"^~ 2026", true}, {"!^~ 2026", false},
+        {"^~ 2027", false}, {"!^~ 2027", true},
+        {"$~ 121212", true}, {"!$~ 121212", false},
+        {"$~ 121211", false}, {"!$~ 121211", true},
+        {"~~ 202212", true}, {"!~~ 202212", false},
+        {"~~ 9999", false}, {"!~~ 9999", true},
+    };
+    const Entry entry = entry_with_string_values(TIMESTAMP_VALUES[1]);
+    bool correct = true;
+    for (const std::string field : {"time", "mtime", "deadline"}) {
+        for (const auto &[suffix, expected] : cases)
+            correct &= query_matches_expected(entry, field + " " + suffix, expected);
+    }
+    test(correct);
+}
 
 static void test_match_unquoted_unicode() {
     Entry entry;
@@ -35,18 +207,149 @@ static void test_match_unquoted_unicode() {
     test(matches(entry, ast.get()));
 }
 
+static void test_match_collections_by_field() {
+    bool correct = true;
+    for (const std::string field : {"priority", "name", "tag", "status", "path",
+                                    "time", "mtime", "deadline", "any"}) {
+        const bool numeric = field == "priority";
+        const std::string low = numeric ? "4" : TIMESTAMP_VALUES[0];
+        const std::string equal = numeric ? "5" : TIMESTAMP_VALUES[1];
+        const std::string high = numeric ? "6" : TIMESTAMP_VALUES[2];
+        const std::pair<std::string, bool> cases[] = {
+            {"= anyof(" + low + "," + equal + ")", true},
+            {"= anyof(" + low + "," + high + ")", false},
+            {"= allof(" + equal + "," + equal + ")", true},
+            {"= allof(" + low + "," + equal + ")", false},
+            {"> anyof(" + low + "," + high + ")", true},
+            {"> allof(" + low + "," + equal + ")", false},
+            {"!= allof(" + low + "," + high + ")", true},
+            {"!= anyof(" + equal + "," + equal + ")", false},
+            {"in (" + low + "," + equal + ")", true},
+            {"in (" + low + "," + high + ")", false},
+            {"has (" + equal + "," + equal + ")", true},
+            {"has (" + low + "," + equal + ")", false},
+            {"in [" + low + ".." + high + "]", true},
+            {"in [" + equal + ".." + equal + "]", true},
+            {"in [" + low + ".." + equal + "]", true},
+            {"in [" + equal + ".." + high + "]", true},
+            {"in [" + high + ".." + low + "]", false},
+            {"in [" + equal + "..]", true},
+            {"in [.." + equal + "]", true},
+            {"in [" + high + "..]", false},
+            {"in [.." + low + "]", false},
+        };
+        Entry entry = entry_with_string_values(TIMESTAMP_VALUES[1]);
+        entry.set_priority(5);
+        for (const auto &[suffix, expected] : cases)
+            correct &= query_matches_expected(entry, field + " " + suffix, expected);
+    }
+    test(correct);
+}
+
+static void test_match_multiple_tag_operators() {
+    const std::pair<const char *, bool> cases[] = {
+        {"tag = 漢字", true}, {"tag != 漢字", true},
+        {"tag ~ 漢", true}, {"tag !~ 漢", true},
+        {"tag ~~ 漢字", true}, {"tag !~~ 漢字", true},
+        {"tag ^~ 漢", true}, {"tag !^~ 漢", true},
+        {"tag $~ 字", true}, {"tag !$~ 字", true},
+        {"tag %~ '漢*'", true}, {"tag !%~ '漢*'", true},
+        {"tag > 漢字", false}, {"tag < 漢字", true},
+        {"tag >= 漢字", true}, {"tag <= 漢字", true},
+        {"not (tag = 漢字)", false}, {"not (tag ~ 漢)", false},
+        {"tag has (漢字,🙂)", false},
+        {"tag has (漢字,ЛАЛА)", true},
+        {"tag = allof(漢字,ЛАЛА)", true},
+        {"tag = anyof(🙂,漢字)", true},
+        {"tag in [🙂..]", false},
+    };
+    bool correct = true;
+    for (const auto &tags : {std::vector<std::string>{"ЛаЛа", "漢字"},
+                             std::vector<std::string>{"漢字", "ЛаЛа"}}) {
+        Entry entry;
+        entry.set_tags(tags);
+        for (const auto &[query, expected] : cases)
+            correct &= query_matches_expected(entry, query, expected);
+    }
+    test(correct);
+}
+
+static void test_match_numeric_any_boundaries() {
+    Entry lower = entry_with_string_values("9999");
+    lower.set_priority(4);
+    Entry equal = lower;
+    equal.set_priority(5);
+    Entry higher = lower;
+    higher.set_priority(6);
+
+    test(query_matches_expected(lower, "any < 5", true) &&
+         query_matches_expected(equal, "any < 5", false) &&
+         query_matches_expected(higher, "any < 5", false) &&
+         query_matches_expected(lower, "any <= 5", true) &&
+         query_matches_expected(equal, "any <= 5", true) &&
+         query_matches_expected(higher, "any <= 5", false) &&
+         query_matches_expected(equal, "any != 5", true) &&
+         query_matches_expected(equal, "not (any = 5)", false));
+}
+
+static void test_match_priority_limits() {
+    Entry minimum;
+    Entry maximum;
+    maximum.set_priority(MAX_PRIORITY);
+    const auto limit = std::to_string(MAX_PRIORITY);
+
+    test(query_matches_expected(minimum, "priority = 0", true) &&
+         query_matches_expected(minimum, "priority < 0", false) &&
+         query_matches_expected(minimum, "priority >= 0", true) &&
+         query_matches_expected(maximum, "priority = " + limit, true) &&
+         query_matches_expected(maximum, "priority > " + limit, false) &&
+         query_matches_expected(maximum, "priority <= " + limit, true));
+}
+
+static void test_match_logic_truth_tables() {
+    const std::pair<const char *, std::array<bool, 4>> cases[] = {
+        {"name = 漢字 and status = открыто", {false, false, false, true}},
+        {"name = 漢字 or status = открыто", {false, true, true, true}},
+        {"name = 漢字 xor status = открыто", {false, true, true, false}},
+        {"not name = 漢字", {true, true, false, false}},
+        {"not not name = 漢字", {false, false, true, true}},
+        {"not (name = 漢字 and status = открыто)", {true, true, true, false}},
+        {"name = 漢字 or status = открыто and priority = 5", {false, false, true, true}},
+        {"(name = 漢字 or status = открыто) and priority = 5", {false, false, false, false}},
+        {"name = 漢字 xor status = открыто and priority = 5", {false, false, true, true}},
+        {"all or name = 漢字 xor status = открыто", {true, true, true, true}},
+        {"all xor name = 漢字 xor status = открыто", {true, false, false, true}},
+    };
+    bool correct = true;
+    for (size_t i = 0; i < 4; ++i) {
+        Entry entry;
+        entry.set_name(i >= 2 ? "漢字" : "🙂");
+        entry.set_status(i % 2 != 0 ? "открыто" : "закрыто");
+        for (const auto &[query, expected] : cases)
+            correct &= query_matches_expected(entry, query, expected[i]);
+    }
+    test(correct);
+}
+
 static void test_match_unicode_field_operators() {
     const std::pair<const char *, bool> cases[] = {
         {"= лала🙂", true}, {"= 漢字", false},
         {"!= лала🙂", false}, {"!= 漢字", true},
         {"~ ла🙂", true}, {"!~ ла🙂", false},
+        {"~ 漢字", false}, {"!~ 漢字", true},
         {"~~ лл🙂", true}, {"!~~ лл🙂", false},
+        {"~~ 漢字", false}, {"!~~ 漢字", true},
         {"^~ лала", true}, {"!^~ лала", false},
+        {"^~ ла🙂", false}, {"!^~ ла🙂", true},
         {"$~ ла🙂", true}, {"!$~ ла🙂", false},
+        {"$~ лала", false}, {"!$~ лала", true},
         {"%~ лала🙂", true}, {"!%~ лала🙂", false},
-        {"%~ 'ла*🙂'", true}, {"!%~ '漢*'", true},
-        {"> а", true}, {"< я", true},
-        {">= лала🙂", true}, {"<= лала🙂", true},
+        {"%~ 'ла*🙂'", true}, {"!%~ 'ла*🙂'", false},
+        {"%~ '漢*'", false}, {"!%~ '漢*'", true},
+        {"> а", true}, {"> я", false}, {"> лала🙂", false},
+        {"< я", true}, {"< а", false}, {"< лала🙂", false},
+        {">= а", true}, {">= лала🙂", true}, {">= я", false},
+        {"<= я", true}, {"<= лала🙂", true}, {"<= а", false},
         {"in (漢字,лала🙂)", true}, {"has (лала🙂)", true},
         {"in [а..я]", true}, {"in [..а]", false},
     };
@@ -466,6 +769,16 @@ static void test_match_name_unicode_ci_le() {
 
 int main() {
     std::vector<Test_Case> tests = {
+        {"All fields and comparison operators", "check lower, equal, and higher operands", test_match_field_operator_matrix},
+        {"Any field routes", "isolate each string field for every operator", test_match_any_string_field_routes},
+        {"Any numeric operators", "check priority and numeric text fallback", test_match_any_numeric_operators},
+        {"Any numeric text patterns", "apply numeric operands to text with each matching operator", test_match_any_numeric_text_patterns},
+        {"Timestamp patterns", "compare full timestamps with partial operands", test_match_timestamp_partial_patterns},
+        {"Collections by field", "lists, quantifiers and inclusive range boundaries", test_match_collections_by_field},
+        {"Multiple tag operators", "existential matching and distributed tag requirements", test_match_multiple_tag_operators},
+        {"Any numeric boundaries", "isolate priority inequalities and negative matching", test_match_numeric_any_boundaries},
+        {"Priority limits", "compare minimum and maximum priorities", test_match_priority_limits},
+        {"Logical truth tables", "all boolean inputs, precedence and grouping", test_match_logic_truth_tables},
         {"Unicode field operators", "Unicode matching in each string field and any", test_match_unicode_field_operators},
         {"Unicode values preserved", "match complete Unicode literals", test_match_unicode_values_preserved},
         {"Null filter", "evaluate(nullptr) = true", test_match_null_filter},
