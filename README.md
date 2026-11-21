@@ -7,7 +7,7 @@ A personal CLI tool for managing tasks and notes stored as Markdown files. I mad
 For a more convenient Emacs interface, see [emado](https://github.com/laserattack/emado), which uses `transient`.
 
 <p align="center">
-  <img src="assets/mado-ghost-crt-512.png" width="512" alt="">
+  <img src="assets/mado-devil-crt-512.png" width="512" alt="">
 </p>
 
 Each entry has its own directory containing `MAIN.md` and optional attachments. Entries can be searched, sorted, and formatted using metadata.
