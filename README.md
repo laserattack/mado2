@@ -86,7 +86,7 @@ Supported operators:
 
 Other features include `in`, `has`, `anyof`, `allof`, ranges, and predicates such as `untagged` and `undeadlined`.
 
-String values support Unicode, including unquoted values such as `name ~~ что` or `tag = 漢字`. Use single or double quotes around values containing spaces or ASCII query punctuation, such as `name = "что угодно 🙂"`. Unicode whitespace separates unquoted values. Field names, keywords, and time macro names use ASCII identifier syntax.
+String values support Unicode, including unquoted values such as `name ~~ что` or `tag = 漢字`. Use single or double quotes around values containing spaces or ASCII query punctuation, such as `name = "что угодно 🙂"`. Unicode whitespace separates unquoted values. Malformed UTF-8 bytes are preserved in string values, with or without quotes. Field names, keywords, and time macro names use ASCII identifier syntax.
 
 ```sh
 mado ls 'status in (open, reopened) and tag has (bug, auth)'

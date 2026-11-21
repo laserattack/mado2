@@ -69,7 +69,7 @@ static void test_lexer_unicode_values() {
 
 static void test_lexer_ascii_identifiers() {
     bool correct = true;
-    for (const std::string value : {"nameчто", "náme", "ｎａｍｅ", "and🙂", "anyof漢字"}) {
+    for (const std::string value : {"nameчто", "náme", "ｎａｍｅ", "and🙂", "anyof漢字", "name\xff", "and\xff"}) {
         Lexer lexer(value);
         const auto tokens = lexer.tokenize();
         correct &= tokens.size() == 2 && tokens[0].type == Token_Type::String &&
@@ -94,10 +94,10 @@ static void test_lexer_invalid_utf8() {
                                     std::string("\xf4\x90\x80\x80"), std::string("\xe2\x82")}) {
         Lexer lexer(value);
         const auto tokens = lexer.tokenize();
-        correct &= tokens.size() == value.size() + 1;
-        for (size_t i = 0; i < value.size(); ++i)
-            correct &= tokens[i].type == Token_Type::Invalid &&
-                       tokens[i].position == i && tokens[i].length == 1;
+        correct &= tokens.size() == 2 && tokens[0].type == Token_Type::String &&
+                   tokens[0].value == value && tokens[0].position == 0 &&
+                   tokens[0].length == value.size() &&
+                   tokens[1].type == Token_Type::End && tokens[1].position == value.size();
     }
     test(correct);
 }
@@ -1381,7 +1381,7 @@ static void test_parser_unicode_syntax_rejected() {
 static void test_parser_unicode_typed_values_rejected() {
     bool rejected = true;
     for (const std::string field : {"priority", "time", "deadline", "mtime"}) {
-        for (const std::string value : {"что", "１２", "١٢", "2026０101", "20260101🙂"}) {
+        for (const std::string value : {"что", "１２", "١٢", "2026０101", "20260101🙂", "\xff", "42\xff"}) {
             for (const std::string &operand : {value, "\"" + value + "\"",
                                               "anyof(" + value + ")", "allof(" + value + ")",
                                               "(" + value + ")", "[" + value + "..]",
@@ -1403,7 +1403,7 @@ static void test_parser_unicode_macros_rejected() {
     bool rejected = true;
     for (const auto *value : {"@сегодня", "@tоday", "@today🙂", "@ｔｏｄａｙ",
                               "@today+１", "@today-١", "@today＋1", "@today−1",
-                              "@today+1🙂", "@today+1１", "@today\u00a0+1"}) {
+                              "@today+1🙂", "@today+1１", "@today\u00a0+1", "@today\xff"}) {
         try {
             parse_query(std::string("deadline = ") + value);
             rejected = false;
@@ -1495,22 +1495,26 @@ static void test_parser_unicode_unquoted_controls_rejected() {
 }
 
 static void test_parser_invalid_utf8_in_values() {
-    bool rejected = true;
+    bool correct = true;
     for (const std::string bytes : {"\x80", "\xbf", "\xc0\xaf", "\xc1\xbf", "\xe0\x80\xaf",
                                     "\xed\xa0\x80", "\xf0\x80\x80\xaf", "\xf4\x90\x80\x80",
                                     "\xf5\x80\x80\x80", "\xfe", "\xff", "\xc2", "\xe2\x82",
                                     "\xf0\x9f\x99", "\xe2" "a"}) {
-        for (const std::string prefix : {"name = ", "name = что", "name = 42"}) {
-            try {
-                parse_query(prefix + bytes);
-                rejected = false;
-            } catch (const Parse_Error &error) {
-                rejected &= error.token().type == Token_Type::Invalid &&
-                            error.token().position == prefix.size();
+        for (const std::string prefix : {"", "что", "42"}) {
+            const std::string value = prefix + bytes;
+            const auto expected = ast_make_comparison(Ast_Comparison_Field::Name,
+                                                     Ast_Comparison_Operator::Eq, value);
+            for (const std::string &operand : {value, "\"" + value + "\"", "'" + value + "'"}) {
+                const auto ast = parse_query("name = " + operand);
+                correct &= same_ast(ast.get(), expected.get());
             }
+
+            const auto separated = parse_query("name = " + value + " and all");
+            const auto quoted = parse_query("name = \"" + value + "\" and all");
+            correct &= same_ast(separated.get(), quoted.get());
         }
     }
-    test(rejected);
+    test(correct);
 }
 
 static void test_parser_hyphenated_value() {
@@ -2074,7 +2078,7 @@ int main(int argc, char **argv) {
         {"Lexer Unicode", "Unicode values and byte offsets", test_lexer_unicode_values},
         {"Lexer ASCII identifiers", "Unicode never resolves to a keyword", test_lexer_ascii_identifiers},
         {"Lexer Unicode whitespace", "Unicode separators", test_lexer_unicode_whitespace},
-        {"Lexer invalid UTF-8", "reject malformed encoding", test_lexer_invalid_utf8},
+        {"Lexer invalid UTF-8", "preserve malformed encoding", test_lexer_invalid_utf8},
         {"Lexer Unicode macro", "consume the entire macro name", test_lexer_unicode_macro_name},
         {"Lexer empty", "tokenize empty query", test_lexer_empty_query},
         {"Lexer numbers", "tokenize numbers", test_lexer_numbers},

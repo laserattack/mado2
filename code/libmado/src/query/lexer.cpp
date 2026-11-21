@@ -45,9 +45,12 @@ bool is_whitespace(utf8proc_int32_t value) {
 } // namespace
 
 size_t Lexer::unquoted_value_character_byte_length() const {
+    if (is_at_end())
+        return 0;
+
     const auto character = read_character(query_, pos_);
     if (character.size == 0)
-        return 0;
+        return 1;
 
     if (character.value < ASCII_LIMIT) {
         const char value = static_cast<char>(character.value);

@@ -18,9 +18,9 @@ class Lexer {
     /// identifier syntax. Unquoted literal values also accept non-ASCII UTF-8
     /// characters other than whitespace and controls. Use quotes for values
     /// containing spaces or query punctuation.
+    /// Malformed UTF-8 bytes are preserved in literal values, with or without quotes.
     /// Unicode whitespace separates tokens; positions and lengths are byte offsets.
-    /// Invalid syntax (including malformed UTF-8 outside quoted strings) is
-    /// represented by Invalid tokens for the parser to report.
+    /// Invalid syntax is represented by Invalid tokens for the parser to report.
     /// @throws std::runtime_error If a time macro needs the current time
     /// and that time cannot be converted to UTC.
     std::vector<Token> tokenize();
@@ -30,7 +30,8 @@ class Lexer {
     size_t pos_{0};     // current position in the string
 
     // Returns the current unquoted value character's UTF-8 byte length, or zero
-    // if it is disallowed, malformed, or absent. Hyphens are handled by callers.
+    // if it is disallowed or absent. Malformed bytes have length one.
+    // Hyphens are handled by callers.
     size_t unquoted_value_character_byte_length() const;
 
     // Skips whitespace characters
