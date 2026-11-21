@@ -139,8 +139,10 @@
 - Increment `PATCH` for backward-compatible bug fixes.
 - Assess compatibility across the public libmado API, CLI commands and
   output formats, query syntax and semantics, and repository data formats.
+- Update the version after each logically complete change that affects
+  public behavior or the public API.
 - Documentation, tests, and internal refactoring alone do not require
-  a version change. Update the version for a release, not for each commit.
+  a version change.
 - Keep the shared CLI and library version in
   `code/libmado/include/mado/mado.hpp` as the single source of truth.
 
