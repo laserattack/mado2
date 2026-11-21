@@ -107,8 +107,81 @@ static void test_sort_uses_field() {
          !cli::sort_uses_field(criteria, cli::Sort_Field::Time));
 }
 
+static void test_sort_field_matrix() {
+    using String_Setter = void (mado::entry::Entry::*)(std::string);
+    struct Sort_Case {
+        cli::Sort_Field field;
+        String_Setter set;
+        const char *low;
+        const char *high;
+    };
+    const Sort_Case cases[] = {
+        {cli::Sort_Field::Time, &mado::entry::Entry::set_time, "20260101", "20261231"},
+        {cli::Sort_Field::Mtime, &mado::entry::Entry::set_mtime, "20260101", "20261231"},
+        {cli::Sort_Field::Deadline, &mado::entry::Entry::set_deadline, "20260101", "20261231"},
+        {cli::Sort_Field::Name, &mado::entry::Entry::set_name, "alpha", "zulu"},
+        {cli::Sort_Field::Status, &mado::entry::Entry::set_status, "closed", "open"},
+        {cli::Sort_Field::Body, &mado::entry::Entry::set_body, "alpha body", "zulu body"},
+        {cli::Sort_Field::Priority, nullptr, nullptr, nullptr},
+        {cli::Sort_Field::Path, nullptr, nullptr, nullptr},
+        {cli::Sort_Field::Tags, nullptr, nullptr, nullptr},
+    };
+
+    bool correct = true;
+    for (const auto &item : cases) {
+        mado::entry::Entry low;
+        mado::entry::Entry high;
+        // Reverse path order so accidentally comparing paths cannot satisfy other fields.
+        low.set_path("z-low");
+        high.set_path("a-high");
+        if (item.set) {
+            (low.*item.set)(item.low);
+            (high.*item.set)(item.high);
+        } else if (item.field == cli::Sort_Field::Priority) {
+            low.set_priority(0);
+            high.set_priority(mado::entry::MAX_PRIORITY);
+        } else if (item.field == cli::Sort_Field::Path) {
+            low.set_path("a");
+            high.set_path("z");
+        } else {
+            low.set_tags({"a", "b"});
+            high.set_tags({"z"});
+        }
+
+        for (const bool descending : {false, true}) {
+            std::vector<mado::entry::Entry> entries = {high, low, high, low};
+            cli::sort_entries(entries, {{item.field, descending}});
+            correct &= entries[0].path() == (descending ? high.path() : low.path()) &&
+                       entries[1].path() == entries[0].path() &&
+                       entries[2].path() == (descending ? low.path() : high.path()) &&
+                       entries[3].path() == entries[2].path();
+        }
+    }
+    test(correct);
+}
+
+static void test_sort_ties_and_empty_criteria() {
+    std::vector<mado::entry::Entry> entries(3);
+    entries[0].set_path("third");
+    entries[1].set_path("first");
+    entries[2].set_path("second");
+
+    cli::sort_entries(entries, {});
+    const bool unchanged = entries[0].path() == "third" &&
+        entries[1].path() == "first" && entries[2].path() == "second";
+    cli::sort_entries(entries, {{cli::Sort_Field::Name, false}});
+    const bool stable = entries[0].path() == "third" &&
+        entries[1].path() == "first" && entries[2].path() == "second";
+
+    cli::sort_entries(entries, {{cli::Sort_Field::Name, false}, {cli::Sort_Field::Path, false}});
+    test(unchanged && stable && entries[0].path() == "first" &&
+         entries[1].path() == "second" && entries[2].path() == "third");
+}
+
 int main() {
     const std::vector<Test_Case> tests = {
+        {"Sort field matrix", "all fields in both directions, including equal values", test_sort_field_matrix},
+        {"Sort ties", "empty criteria, stable ties and secondary criteria", test_sort_ties_and_empty_criteria},
         {"No body", "metadata filter and sort leave body empty", test_no_body_in_filter_or_sort},
         {"Filter body", "body filter loads full text without body sorting", test_body_in_filter_only},
         {"Sort body", "body sorting loads full text without body filtering", test_body_in_sort_only},

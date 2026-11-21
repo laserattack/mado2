@@ -515,6 +515,20 @@ class Cli_Tests(unittest.TestCase):
                   str(second.parent) in result.stderr and not first.parent.exists() and
                   not second.parent.exists())
 
+    def test_rm_interactive_accepts_uppercase(self):
+        removed = self.entry("20260101-000000", "- NAME: Remove\n")
+        result = self.run_mado("rm", "-interactive", "-format", "path", "all", input="Y\n")
+
+        self.test(result.returncode == 0 and result.stdout.strip() == str(removed) and
+                  result.stderr.count("Remove ") == 1 and not removed.parent.exists())
+
+    def test_rm_interactive_eof_preserves_entries(self):
+        kept = self.entry("20260101-000000", "- NAME: Keep\n")
+        result = self.run_mado("rm", "-interactive", "all", input="")
+
+        self.test(result.returncode == 0 and result.stdout == "" and
+                  result.stderr.count("Remove ") == 1 and kept.is_file())
+
     def test_rm_interactive_declines_removal(self):
         kept = self.entry("20260101-000000", "- NAME: Keep\n")
         result = self.run_mado("rm", "-interactive", "all", input="n\n")

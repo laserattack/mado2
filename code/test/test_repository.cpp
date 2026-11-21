@@ -7,6 +7,7 @@
 #include <mado/repository/repository.hpp>
 
 #include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -1214,10 +1215,114 @@ static void test_mtimes_io_errors() {
     test(missing && unwritable && protected_entry && contents == "original");
 }
 
+static void test_create_timestamp_collision() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+
+    // Reserve a bounded clock window so crossing a second cannot make the test flaky.
+    constexpr std::time_t COLLISION_WINDOW_SECONDS = 120;
+    const auto now = std::time(nullptr);
+    const std::string suffix = "-collision";
+    for (std::time_t offset = -COLLISION_WINDOW_SECONDS; offset <= COLLISION_WINDOW_SECONDS; ++offset)
+        make_entry(tmp.path(), mado::common::format_timestamp_utc(now + offset) + suffix, "original");
+
+    bool rejected = false;
+    try {
+        repo.create(suffix);
+    } catch (const Repository_Error &error) {
+        rejected = std::string(error.what()).find("already exists") != std::string::npos;
+    }
+
+    bool preserved = true;
+    size_t count = 0;
+    for (const auto &dir : std::filesystem::directory_iterator(repo.root())) {
+        if (!dir.path().filename().string().ends_with(suffix))
+            continue;
+        ++count;
+        std::ifstream in(dir.path() / ENTRY_FILE);
+        const std::string content(std::istreambuf_iterator<char>(in), {});
+        preserved &= content == "original";
+    }
+    test(rejected && preserved && count == 2 * COLLISION_WINDOW_SECONDS + 1);
+}
+
+static void test_create_after_repository_replaced_with_file() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    std::filesystem::remove_all(repo.root());
+    std::ofstream(repo.root()) << "replacement";
+
+    bool rejected = false;
+    try {
+        repo.create();
+    } catch (const Repository_Error &) {
+        // An OS failure must not be reported as invalid repository input.
+    } catch (const std::runtime_error &error) {
+        rejected = std::string(error.what()).find(repo.root().string()) != std::string::npos;
+    }
+    std::ifstream in(repo.root());
+    const std::string content(std::istreambuf_iterator<char>(in), {});
+    test(rejected && content == "replacement");
+}
+
+static void test_create_after_repository_removed() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    std::filesystem::remove_all(repo.root());
+
+    bool rejected = false;
+    try {
+        repo.create();
+    } catch (const Repository_Error &) {
+    } catch (const std::runtime_error &error) {
+        rejected = std::string(error.what()).find("Cannot create") != std::string::npos &&
+                   std::string(error.what()).find(repo.root().string()) != std::string::npos;
+    }
+    test(rejected && !std::filesystem::exists(repo.root()));
+}
+
+static void test_find_after_repository_removed() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    std::filesystem::remove_all(repo.root());
+
+    test(repo.find(nullptr).empty());
+}
+
+static void test_find_skips_regular_files() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    std::ofstream(repo.root() / "20260101-000000") << "not an entry directory";
+    const auto dir = make_entry(tmp.path(), "20260102-000000", "- NAME: valid\n");
+    const auto entries = repo.find(nullptr);
+
+    test(entries.size() == 1 && entries[0].path() == dir / ENTRY_FILE && entries[0].name() == "valid");
+}
+
+static void test_create_rejects_nul_template_name() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    bool rejected = false;
+    try {
+        const std::string template_name = std::string("note") + '\0' + "other";
+        repo.create("", template_name);
+    } catch (const Repository_Error &) {
+        rejected = true;
+    }
+
+    test(rejected && repo.find(nullptr).empty());
+}
+
 // entry point
 
 int main() {
     std::vector<Test_Case> tests = {
+        {"Create collision", "preserve existing entries on timestamp collision", test_create_timestamp_collision},
+        {"Create replaced repository", "report OS failure without changing the replacement file", test_create_after_repository_replaced_with_file},
+        {"Create removed repository", "report missing parent without leaving artifacts", test_create_after_repository_removed},
+        {"Find removed repository", "return no entries after removal", test_find_after_repository_removed},
+        {"Find skips files", "ignore timestamp-named regular files", test_find_skips_regular_files},
+        {"Create NUL template", "reject embedded NUL before creating an entry", test_create_rejects_nul_template_name},
         {"Explicit body loading", "load text with or without a body filter", test_explicit_body_loading},
         {"Conditional body loading", "detect body inside logical expressions and lists", test_body_loading_follows_query},
         {"Metadata-only loading", "leave body empty for metadata queries and create", test_metadata_queries_do_not_load_body},

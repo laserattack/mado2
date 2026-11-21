@@ -767,10 +767,48 @@ static void test_match_name_unicode_ci_le() {
     test(matches(e, ast.get()));
 }
 
+static void test_mismatched_comparison_values() {
+    const Entry entry;
+    bool correct = true;
+    const auto text_priority = ast_make_comparison(Ast_Comparison_Field::Priority,
+        Ast_Comparison_Operator::Eq, std::string("0"));
+    correct &= !matches(entry, text_priority.get());
+
+    for (const auto field : {Ast_Comparison_Field::Priority, Ast_Comparison_Field::Tag,
+                             Ast_Comparison_Field::Status, Ast_Comparison_Field::Body,
+                             Ast_Comparison_Field::Name, Ast_Comparison_Field::Path,
+                             Ast_Comparison_Field::Time, Ast_Comparison_Field::Mtime,
+                             Ast_Comparison_Field::Deadline}) {
+        const auto empty_value = ast_make_comparison(field, Ast_Comparison_Operator::Eq, std::monostate{});
+        correct &= !matches(entry, empty_value.get());
+        if (field != Ast_Comparison_Field::Priority) {
+            const auto numeric_value = ast_make_comparison(field, Ast_Comparison_Operator::Eq, uint16_t(0));
+            correct &= !matches(entry, numeric_value.get());
+        }
+    }
+    test(correct);
+}
+
+static void test_any_missing_value_throws() {
+    const Entry entry;
+    const auto ast = ast_make_comparison(Ast_Comparison_Field::Any,
+        Ast_Comparison_Operator::Eq, std::monostate{});
+    bool rejected = false;
+    try {
+        matches(entry, ast.get());
+    } catch (const std::bad_variant_access &) {
+        rejected = true;
+    }
+
+    test(rejected);
+}
+
 // entry point
 
 int main() {
     std::vector<Test_Case> tests = {
+        {"Mismatched values", "manually constructed comparisons reject incompatible variants", test_mismatched_comparison_values},
+        {"Missing Any value", "propagate the documented variant error", test_any_missing_value_throws},
         {"All fields and comparison operators", "check lower, equal, and higher operands", test_match_field_operator_matrix},
         {"Any field routes", "isolate each string field for every operator", test_match_any_string_field_routes},
         {"Any numeric operators", "check priority and numeric text fallback", test_match_any_numeric_operators},
