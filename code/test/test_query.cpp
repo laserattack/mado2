@@ -362,6 +362,35 @@ static void test_lexer_timestamp_numbers_still_work() {
 
 // ast
 
+static void test_ast_uses_field() {
+    const auto node = ast_make_binary(
+        Ast_Binary_Operator::Or,
+        ast_make_comparison(Ast_Comparison_Field::Name,
+                            Ast_Comparison_Operator::Eq, std::string("Example")),
+        ast_make_unary(Ast_Unary_Operator::Not,
+            ast_make_comparison(Ast_Comparison_Field::Body,
+                                Ast_Comparison_Operator::Substr, std::string("needle"))));
+    const auto priority = ast_make_comparison(Ast_Comparison_Field::Priority,
+                                              Ast_Comparison_Operator::Eq, uint16_t{3});
+
+    test(ast_uses_field(node.get(), Ast_Comparison_Field::Name) &&
+         ast_uses_field(node.get(), Ast_Comparison_Field::Body) &&
+         !ast_uses_field(node.get(), Ast_Comparison_Field::Tag) &&
+         ast_uses_field(priority.get(), Ast_Comparison_Field::Priority) &&
+         !ast_uses_field(priority.get(), Ast_Comparison_Field::Body));
+}
+
+static void test_ast_uses_field_empty_nodes() {
+    const auto special = ast_make_special(Ast_Node_Type::Untagged);
+    const auto binary = ast_make_binary(Ast_Binary_Operator::And, nullptr, nullptr);
+    const auto unary = ast_make_unary(Ast_Unary_Operator::Not, nullptr);
+
+    test(!ast_uses_field(nullptr, Ast_Comparison_Field::Body) &&
+         !ast_uses_field(special.get(), Ast_Comparison_Field::Tag) &&
+         !ast_uses_field(binary.get(), Ast_Comparison_Field::Body) &&
+         !ast_uses_field(unary.get(), Ast_Comparison_Field::Body));
+}
+
 static void test_ast_comparison_node() {
     auto node = ast_make_comparison(
         Ast_Comparison_Field::Priority,
@@ -1853,6 +1882,7 @@ static void test_parser_field_operator_matrix() {
         {"priority", Ast_Comparison_Field::Priority},
         {"tag", Ast_Comparison_Field::Tag}, {"status", Ast_Comparison_Field::Status},
         {"path", Ast_Comparison_Field::Path}, {"name", Ast_Comparison_Field::Name},
+        {"body", Ast_Comparison_Field::Body},
         {"time", Ast_Comparison_Field::Time}, {"mtime", Ast_Comparison_Field::Mtime},
         {"deadline", Ast_Comparison_Field::Deadline}, {"any", Ast_Comparison_Field::Any},
     };
@@ -2112,6 +2142,8 @@ int main(int argc, char **argv) {
         {"Invalid time macros", "reject unknown names and malformed offsets", test_invalid_time_macro_tokens},
         {"Time macro year bounds", "reject years outside 0000–9999", test_time_macro_out_of_range},
         // ast
+        {"AST uses field", "find arbitrary comparison fields in nested nodes", test_ast_uses_field},
+        {"AST uses field empty nodes", "null operands and special predicates", test_ast_uses_field_empty_nodes},
         {"AST comparison", "create comparison node", test_ast_comparison_node},
         {"AST comparison string", "create comparison node with string", test_ast_comparison_node_string},
         {"AST binary", "create binary node", test_ast_binary_node},

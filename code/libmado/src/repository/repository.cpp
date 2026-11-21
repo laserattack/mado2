@@ -227,13 +227,13 @@ Repository Repository::init(const std::filesystem::path &where, bool force) {
 }
 
 std::vector<mado::entry::Entry> Repository::find(
-    const mado::query::Ast_Node *filter) const {
+    const mado::query::Ast_Node *filter, bool load_body) const {
 
     std::vector<mado::entry::Entry> result;
     for_each_matching(filter, [&](mado::entry::Entry e) {
         result.push_back(std::move(e));
         return true;
-    });
+    }, load_body);
     return result;
 }
 
@@ -266,12 +266,14 @@ Remove_Result Repository::remove(
 }
 
 void Repository::for_each_matching(const mado::query::Ast_Node *filter,
-                                   std::function<bool(mado::entry::Entry)> action) const {
+                                   std::function<bool(mado::entry::Entry)> action,
+                                   bool load_body) const {
 
     std::error_code ec;
     if (!std::filesystem::is_directory(root_, ec))
         return;
 
+    load_body = load_body || mado::query::ast_uses_field(filter, mado::query::Ast_Comparison_Field::Body);
     mado::interpreter::Interpreter interp;
 
     for (const auto &dir_entry : std::filesystem::directory_iterator(root_, ec)) {
@@ -282,7 +284,7 @@ void Repository::for_each_matching(const mado::query::Ast_Node *filter,
             continue;
 
         try {
-            mado::entry::Entry e = load_one(dir_entry.path());
+            mado::entry::Entry e = load_one(dir_entry.path(), load_body);
             if (interp.evaluate(filter, e)) {
                 if (!action(std::move(e)))
                     return;
@@ -358,7 +360,7 @@ mado::entry::Entry Repository::create(
         throw std::runtime_error("Cannot write " + main_md.string());
     }
 
-    return load_one(entry_dir);
+    return load_one(entry_dir, false);
 }
 
 // Loads one entry from MADO/<timestamp>/.
@@ -381,7 +383,8 @@ mado::entry::Entry Repository::create(
 //   - Repository_Error: MAIN.md is missing or is not a regular file.
 //   - std::runtime_error: an I/O operation on MAIN.md failed.
 //   - Entry_Error: the directory name is not a valid timestamp.
-mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) const {
+mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir,
+                                               bool load_body) const {
     mado::entry::Entry e;
 
     auto main_md = entry_dir / ENTRY_FILE;
@@ -419,6 +422,7 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
 
     e.set_path(std::move(main_md));
 
+    std::string body;
     std::string line;
     int line_number = 0;
 
@@ -428,11 +432,23 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
     bool has_priority = false;
     bool has_deadline = false;
 
-    while (line_number < MAX_HEADER_LINES && std::getline(in, line)) {
+    while ((load_body || line_number < MAX_HEADER_LINES) && std::getline(in, line)) {
+        if (load_body) {
+            body += line;
+            if (!in.eof())
+                body += '\n';
+        }
+
+        if (line_number >= MAX_HEADER_LINES)
+            continue;
+
         ++line_number;
 
-        if (has_name && has_tags && has_status && has_priority && has_deadline)
+        if (has_name && has_tags && has_status && has_priority && has_deadline) {
+            if (load_body)
+                continue;
             break;
+        }
 
         mado::common::trim_inplace(line);
         if (line.empty())
@@ -473,6 +489,9 @@ mado::entry::Entry Repository::load_one(const std::filesystem::path &entry_dir) 
             throw Repository_Error("Missing regular file " + e.path().string());
         throw std::runtime_error("Cannot read " + e.path().string());
     }
+
+    if (load_body)
+        e.set_body(std::move(body));
 
     return e;
 }

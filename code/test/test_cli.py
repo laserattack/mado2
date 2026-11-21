@@ -50,6 +50,22 @@ class Cli_Tests(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
+    def test_ls_body_keeps_output_formats(self):
+        entry = self.entry("20260101-000000", "- NAME: Example\n\nbody-only needle\n")
+        self.entry("20260102-000000", "- NAME: Other\n")
+        query = 'body ~ "BODY-ONLY needle"'
+        baseline = self.run_mado("ls", "name = Example")
+        default = self.run_mado("ls", query)
+        paths = self.run_mado("ls", "-format", "path", query)
+        jsonl = self.run_mado("ls", "-format", "jsonl", query)
+        rows = [json.loads(line) for line in jsonl.stdout.splitlines()]
+        self.test(self.check_output(default, baseline.stdout) and
+                  self.check_output(paths, str(entry) + "\n") and
+                  jsonl.returncode == 0 and jsonl.stderr == "" and
+                  len(rows) == 1 and set(rows[0]) == set(FIELDS) and
+                  rows[0]["name"] == "Example" and
+                  "body-only" not in default.stdout and "body-only" not in jsonl.stdout)
+
     def test_ls_unicode_query(self):
         self.entry("20260101-000000",
                    "- NAME: Что такое Unicode 🙂\n- TAGS: 漢字, é\n- STATUS: открыто\n")
@@ -401,6 +417,25 @@ class Cli_Tests(unittest.TestCase):
             with self.subTest(flag=flag, value=value):
                 self.test(self.check_error(self.run_mado("new", flag, value), message) and
                           not list(self.repo.iterdir()))
+
+    def test_ls_sorts_body(self):
+        later = self.entry("20260101-000000", "- NAME: Same\n\nzulu needle\n")
+        first = self.entry("20260102-000000", "- NAME: Same\n\nalpha needle\n")
+        tied = self.entry("20260103-000000", "- NAME: Same\n\nalpha needle\n")
+        ascending = self.run_mado("ls", "-sort", "+body,+time", "-format", "path")
+        descending = self.run_mado("ls", "-sort", "-body,+time", "-format", "path",
+                                   "name = Same")
+        both = self.run_mado("ls", "-sort", "+name,+bod,-time", "-format", "path",
+                             "body ~ needle")
+        jsonl = self.run_mado("ls", "-sort", "+body,+time", "-format", "jsonl")
+        rows = [json.loads(line) for line in jsonl.stdout.splitlines()]
+        self.test(self.check_output(ascending, f"{first}\n{tied}\n{later}\n") and
+                  self.check_output(descending, f"{later}\n{first}\n{tied}\n") and
+                  self.check_output(both, f"{tied}\n{first}\n{later}\n") and
+                  jsonl.returncode == 0 and jsonl.stderr == "" and
+                  [row["path"] for row in rows] == [str(first), str(tied), str(later)] and
+                  all(set(row) == set(FIELDS) for row in rows) and
+                  "needle" not in jsonl.stdout)
 
     def test_ls_filters_sorts_and_formats_paths(self):
         older = self.entry("20260101-000000", "- NAME: Fix one\n- PRIORITY: 1\n")

@@ -164,6 +164,11 @@ bool Interpreter::evaluate(const mado::query::Ast_Node *node,
                 return false;
             return check_string(entry.status(), n->as_string(), n->op);
 
+        case mado::query::Ast_Comparison_Field::Body:
+            if (!n->is_string())
+                return false;
+            return check_string(entry.body(), n->as_string(), n->op);
+
         case mado::query::Ast_Comparison_Field::Name:
             if (!n->is_string())
                 return false;

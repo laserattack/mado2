@@ -64,14 +64,18 @@ class Repository {
     /// resolving or inspecting the path, creating directories, or restoring templates.
     static Repository init(const std::filesystem::path &where, bool force = false);
 
-    /// Loads entries matching the filter. Invalid entries are skipped.
+    /// Loads entries matching the filter. Full MAIN.md text is read into
+    /// Entry::body() when `load_body` is true or the filter contains a Body
+    /// comparison, including nested comparisons; otherwise body() is empty.
+    /// Invalid entries are skipped.
     /// Returns an empty result if the repository cannot be opened for iteration.
     /// @throws std::bad_variant_access If an Any comparison has neither
     /// a numeric nor a string value.
     /// @throws std::runtime_error If advancing directory iteration, inspecting
     /// a directory entry, or reading an entry fails, or if an entry's path
     /// or modification time cannot be converted during loading or matching.
-    std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter) const;
+    std::vector<mado::entry::Entry> find(const mado::query::Ast_Node *filter,
+                                         bool load_body = false) const;
 
     /// Removes each matching entry directory recursively. Successful removals
     /// are listed in `removed`; per-entry deletion failures are listed in
@@ -103,7 +107,7 @@ class Repository {
     /// Creates and returns an entry with a directory name based on the current
     /// UTC time in YYYYMMDD-HHMMSS, optionally followed by `suffix`. Uses the
     /// built-in task template unless `template_name` selects a file from the
-    /// repository's templates directory.
+    /// repository's templates directory. The returned entry has an empty body().
     /// @throws Repository_Error If the suffix or template name is invalid,
     /// the requested template is unavailable, the entry path already exists,
     /// or the entry file is missing or non-regular when loaded.
@@ -117,7 +121,10 @@ class Repository {
         const std::optional<std::string> &template_name = std::nullopt) const;
 
     /// Calls `action` with each matching entry by value, stopping if it returns
-    /// false. Invalid entries are skipped. If `action` throws Repository_Error
+    /// false. Full MAIN.md text is loaded when `load_body` is true or the filter
+    /// contains a Body comparison; otherwise body() is empty.
+    /// Invalid entries are skipped.
+    /// If `action` throws Repository_Error
     /// or mado::entry::Entry_Error, iteration continues with the next entry.
     /// Returns without calling `action` if the repository cannot be opened
     /// for iteration.
@@ -129,7 +136,8 @@ class Repository {
     /// or modification time cannot be converted during loading or matching.
     /// @throws ... Any other exception thrown by `action`.
     void for_each_matching(const mado::query::Ast_Node *filter,
-                           std::function<bool(mado::entry::Entry)> action) const;
+                           std::function<bool(mado::entry::Entry)> action,
+                           bool load_body = false) const;
 
     /// Writes a sorted modification-time index for regular, non-symlink entry
     /// files and returns the destination path. An empty `file` selects the
@@ -162,7 +170,7 @@ class Repository {
     explicit Repository(std::filesystem::path root) : root_(std::move(root)) {}
 
     // Load one entry from MADO/<timestamp>/MAIN.md.
-    mado::entry::Entry load_one(const std::filesystem::path &entry_dir) const;
+    mado::entry::Entry load_one(const std::filesystem::path &entry_dir, bool load_body) const;
 
     std::filesystem::path root_;
 };

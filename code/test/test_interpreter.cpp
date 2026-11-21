@@ -48,7 +48,9 @@ static constexpr const char *TIMESTAMP_VALUES[] = {
 
 static void set_string_field(Entry &entry, const std::string &field,
                             const std::string &value) {
-    if (field == "name")
+    if (field == "body")
+        entry.set_body(value);
+    else if (field == "name")
         entry.set_name(value);
     else if (field == "tag")
         entry.set_tags({value});
@@ -66,7 +68,7 @@ static void set_string_field(Entry &entry, const std::string &field,
 
 static Entry entry_with_string_values(const std::string &value) {
     Entry entry;
-    for (const auto *field : {"name", "tag", "status", "path", "time", "mtime", "deadline"})
+    for (const auto *field : {"body", "name", "tag", "status", "path", "time", "mtime", "deadline"})
         set_string_field(entry, field, value);
     return entry;
 }
@@ -85,7 +87,7 @@ static bool query_matches_expected(const Entry &entry, const std::string &query,
 
 static void test_match_field_operator_matrix() {
     bool correct = true;
-    for (const std::string field : {"priority", "name", "tag", "status", "path",
+    for (const std::string field : {"priority", "body", "name", "tag", "status", "path",
                                     "time", "mtime", "deadline", "any"}) {
         for (const auto &comparison : COMPARISON_CASES) {
             const std::string operand = field == "priority" ? "5" : TIMESTAMP_VALUES[1];
@@ -209,7 +211,7 @@ static void test_match_unquoted_unicode() {
 
 static void test_match_collections_by_field() {
     bool correct = true;
-    for (const std::string field : {"priority", "name", "tag", "status", "path",
+    for (const std::string field : {"priority", "body", "name", "tag", "status", "path",
                                     "time", "mtime", "deadline", "any"}) {
         const bool numeric = field == "priority";
         const std::string low = numeric ? "4" : TIMESTAMP_VALUES[0];

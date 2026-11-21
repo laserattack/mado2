@@ -141,6 +141,9 @@
   output formats, query syntax and semantics, and repository data formats.
 - Update the version after each logically complete change that affects
   public behavior or the public API.
+- Determine the version from the combined staged changes relative to `HEAD`,
+  using the version in `HEAD` as the baseline. Do not accumulate version
+  increments for intermediate edits within the same staged change set.
 - Documentation, tests, and internal refactoring alone do not require
   a version change.
 - Keep the shared CLI and library version in
@@ -152,6 +155,9 @@
 - After each complete, self-contained change, include a suggested
   commit message in the final response using the Conventional Commits
   format.
+- Base the suggested commit message on the full staged diff relative to
+  `HEAD`, not just the latest edit or request. When no changes are staged,
+  base it on the complete intended change set.
 - Use `type(scope): description` when a change has a clear primary
   component. Choose a scope that names that component, such as `cli`,
   `repository`, `interpreter`, or `build`. For example,

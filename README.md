@@ -74,7 +74,17 @@ Run `mado help <command>` for details.
 
 ## Queries
 
-Queries operate on metadata fields such as `name`, `tag`, `status`, `priority`, `deadline`, `time`, `mtime`, and `path`.
+Queries operate on the `body` field and metadata fields such as `name`, `tag`, `status`, `priority`, `deadline`, `time`, `mtime`, and `path`.
+
+`body` searches the full text of `MAIN.md`, including metadata, but not attachments.
+It supports all string operators, with case-insensitive comparisons.
+Use care when searching long notes. For example, fuzzy and glob matching use
+recursive calls and can be very slow; deeply nested calls can overflow the stack.
+Prefer substring operators (`~`, `!~`) when searching for a phrase.
+
+`any` continues to search metadata only. Entry output never includes the body.
+The full file text is loaded only when the query contains a `body` comparison
+(including inside logical expressions) or `body` is used in sorting.
 
 Supported operators:
 

@@ -11,6 +11,10 @@ void Entry::set_name(std::string n) {
     name_ = std::move(n);
 }
 
+void Entry::set_body(std::string body) {
+    body_ = std::move(body);
+}
+
 void Entry::set_status(std::string s) {
     status_ = std::move(s);
 }

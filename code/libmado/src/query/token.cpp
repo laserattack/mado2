@@ -13,6 +13,8 @@ std::string token_type_to_string(Token_Type type) {
         return "Tag";
     case Token_Type::Status:
         return "Status";
+    case Token_Type::Body:
+        return "Body";
     case Token_Type::Name:
         return "Name";
     case Token_Type::Path:

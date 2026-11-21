@@ -12,7 +12,6 @@ namespace mado::entry {
 
 inline constexpr uint16_t MAX_PRIORITY = 999;
 
-
 /// Reports invalid entry values or entry data.
 class Entry_Error : public std::runtime_error {
   public:
@@ -31,6 +30,10 @@ class Entry {
     const std::filesystem::path &path() const { return path_; }
     /// Returns the entry's display name.
     const std::string &name() const { return name_; }
+    /// Returns the full MAIN.md text, including metadata, when loaded or set.
+    /// Empty by default; repositories load it only when requested explicitly
+    /// or needed for a Body comparison.
+    const std::string &body() const { return body_; }
     /// Returns the entry's status text.
     const std::string &status() const { return status_; }
     /// Returns the entry's priority in the range [0, MAX_PRIORITY].
@@ -49,6 +52,8 @@ class Entry {
     void set_path(std::filesystem::path p);
     /// Replaces the entry's display name without validation.
     void set_name(std::string n);
+    /// Replaces the searchable MAIN.md text without validation or writing files.
+    void set_body(std::string body);
     /// Replaces the entry's status text without validation.
     void set_status(std::string s);
 
@@ -75,6 +80,7 @@ class Entry {
   private:
     std::filesystem::path path_ = "";
     std::string name_ = "";
+    std::string body_ = "";
     std::string status_ = "";
     uint16_t priority_ = 0;
     std::vector<std::string> tags_ = {""};

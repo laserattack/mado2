@@ -173,7 +173,7 @@ class Ls_Command : public Command {
         }
 
         // Empty query = all entries
-        auto entries = repo->find(ast.get());
+        auto entries = repo->find(ast.get(), sort_uses_field(sort_criteria, Sort_Field::Body));
 
         sort_entries(entries, sort_criteria);
 

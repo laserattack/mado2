@@ -28,6 +28,29 @@ std::unique_ptr<Ast_Node> ast_make_comparison(
     return std::make_unique<Ast_Comparison_Operator_Node>(field, op, std::move(value));
 }
 
+bool ast_uses_field(const Ast_Node *node, Ast_Comparison_Field field) {
+    if (!node)
+        return false;
+
+    switch (node->type) {
+    case Ast_Node_Type::Comparison_Operator:
+        return static_cast<const Ast_Comparison_Operator_Node *>(node)->field ==
+               field;
+
+    case Ast_Node_Type::Binary_Operator: {
+        const auto *binary = static_cast<const Ast_Binary_Operator_Node *>(node);
+        return ast_uses_field(binary->left.get(), field) || ast_uses_field(binary->right.get(), field);
+    }
+
+    case Ast_Node_Type::Unary_Operator:
+        return ast_uses_field(
+            static_cast<const Ast_Unary_Operator_Node *>(node)->expr.get(), field);
+
+    default:
+        return false;
+    }
+}
+
 bool Ast_Comparison_Operator_Node::is_number() const {
     return std::holds_alternative<uint16_t>(value);
 }
@@ -54,6 +77,8 @@ const char *comparison_field_to_string(Ast_Comparison_Field field) {
         return "Status";
     case Ast_Comparison_Field::Path:
         return "Path";
+    case Ast_Comparison_Field::Body:
+        return "Body";
     case Ast_Comparison_Field::Name:
         return "Name";
     case Ast_Comparison_Field::Time:

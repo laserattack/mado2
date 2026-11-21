@@ -28,6 +28,7 @@ enum class Ast_Comparison_Field {
     Deadline,
     Mtime,
     Any,
+    Body,
 };
 
 /// Returns the enum name for `field`, or "Unknown" for an unrecognized value.
@@ -147,6 +148,12 @@ std::unique_ptr<Ast_Node> ast_make_comparison(
     Ast_Comparison_Field field,
     Ast_Comparison_Operator op,
     Ast_Value value);
+
+/// Returns whether the node or any descendant compares the supplied field.
+/// Traverses binary and unary operands. Null nodes and special expressions
+/// (including field-related predicates such as untagged) return false.
+/// Does not modify the AST.
+bool ast_uses_field(const Ast_Node *node, Ast_Comparison_Field field);
 
 /// Prints the AST to standard output, indenting descendants by `depth` levels.
 /// Does nothing when `node` is null.

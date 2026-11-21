@@ -15,7 +15,8 @@ enum class Sort_Field { Time,
                         Priority,
                         Deadline,
                         Status,
-                        Tags };
+                        Tags,
+                        Body };
 
 struct Sort_Criterion {
     Sort_Field field;
@@ -26,6 +27,10 @@ struct Sort_Criterion {
 /// prefixes. Returns nullopt if the specification is empty or contains an
 /// unknown/empty field.
 std::optional<std::vector<Sort_Criterion>> parse_sort(const std::string &spec);
+
+/// Returns whether any criterion sorts by `field`; false for empty criteria.
+/// Does not modify the criteria.
+bool sort_uses_field(const std::vector<Sort_Criterion> &criteria, Sort_Field field);
 
 /// Stable-sorts entries by the given criteria in order; leaves them unchanged
 /// when `criteria` is empty.

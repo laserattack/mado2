@@ -88,6 +88,96 @@ std::unique_ptr<Ast_Node> parse(const std::string &query) {
 
 } // namespace
 
+static void test_find_body() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    const std::string content = "- NAME: Example\n- TAGS: bodytag\n\n" +
+        std::string(100, '\n') + "Скрытый текст\nlast line";
+    make_entry(tmp.path(), "20260101-000000", content);
+    const auto empty_dir = make_entry(tmp.path(), "20260102-000000", "");
+    std::ofstream(empty_dir / "attachment.txt") << "attachment-only";
+
+    const auto found = repo.find(parse("body ~ 'скрытый текст'").get());
+    const auto empty = repo.find(parse("body = ''").get());
+    test(found.size() == 1 && found[0].body() == content &&
+         found[0].name() == "Example" && empty.size() == 1 &&
+         empty[0].body().empty() &&
+         repo.find(parse("body ~ bodytag").get()).size() == 1 &&
+         repo.find(parse("body ~ 'attachment-only'").get()).empty() &&
+         repo.find(parse("any ~ 'скрытый текст'").get()).empty());
+}
+
+static void test_body_loading_follows_query() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    const std::string content = "- NAME: Example\n- PRIORITY: 3\n- TAGS: test\n"
+                                "- STATUS: open\n- DEADLINE: 20260101\n\nneedle\n";
+    make_entry(tmp.path(), "20260101-000000", content);
+
+    bool correct = true;
+    for (const char *query : {"body ~ needle and name = Example",
+                             "name = Example and body ~ needle",
+                             "body ~ missing or name = Example",
+                             "name = Example or body ~ missing",
+                             "name = Other xor body ~ needle",
+                             "not (body ~ missing)",
+                             "body ~ allof(needle,Example)"}) {
+        const auto entries = repo.find(parse(query).get());
+        correct &= entries.size() == 1 && entries[0].body() == content &&
+                   entries[0].name() == "Example";
+    }
+
+    test(correct);
+}
+
+static void test_explicit_body_loading() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    const std::string content = "- NAME: Example\n\nneedle\n";
+    make_entry(tmp.path(), "20260101-000000", content);
+
+    bool correct = true;
+    for (const char *query : {"all", "name = Example", "body ~ needle"}) {
+        const auto entries = repo.find(parse(query).get(), true);
+        correct &= entries.size() == 1 && entries[0].body() == content;
+    }
+    const auto all = repo.find(nullptr, true);
+    size_t visited = 0;
+    repo.for_each_matching(nullptr, [&](mado::entry::Entry entry) {
+        ++visited;
+        correct &= entry.body() == content;
+        return true;
+    }, true);
+
+    test(correct && all.size() == 1 && all[0].body() == content && visited == 1 &&
+         repo.find(parse("name = Other").get(), true).empty());
+}
+
+static void test_metadata_queries_do_not_load_body() {
+    Temp_Dir tmp;
+    const auto repo = Repository::init(tmp.path(), true);
+    make_entry(tmp.path(), "20260101-000000", "- NAME: Example\n\nneedle\n");
+
+    bool correct = true;
+    const auto all = repo.find(nullptr);
+    correct &= all.size() == 1 && all[0].body().empty();
+    for (const char *query : {"all", "name = Example", "any ~ Example",
+                             "not (name = Other) or status = open"}) {
+        const auto entries = repo.find(parse(query).get());
+        correct &= entries.size() == 1 && entries[0].body().empty();
+    }
+
+    size_t visited = 0;
+    repo.for_each_matching(nullptr, [&](mado::entry::Entry entry) {
+        ++visited;
+        correct &= entry.body().empty();
+        return true;
+    });
+    const auto created = repo.create("metadata-only");
+
+    test(correct && visited == 1 && created.body().empty());
+}
+
 static void test_open_finds_mado() {
     Temp_Dir tmp;
     const auto root = tmp.path() / ENTRY_DIR;
@@ -1128,6 +1218,10 @@ static void test_mtimes_io_errors() {
 
 int main() {
     std::vector<Test_Case> tests = {
+        {"Explicit body loading", "load text with or without a body filter", test_explicit_body_loading},
+        {"Conditional body loading", "detect body inside logical expressions and lists", test_body_loading_follows_query},
+        {"Metadata-only loading", "leave body empty for metadata queries and create", test_metadata_queries_do_not_load_body},
+        {"Body search", "full text without attachments or changes to any", test_find_body},
         {"Suffix error characters", "describe the validation set without hidden control characters", test_suffix_error_characters},
         {"Create rejects line breaks", "reject CR and LF before creating files", test_create_rejects_line_breaks},
         {"Create dotted template", "retain dots in template names", test_create_dotted_template_name},

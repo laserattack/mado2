@@ -133,6 +133,7 @@ bool Parser::value_matches_field(Ast_Comparison_Field field, const Token &val) c
     case Ast_Comparison_Field::Tag:
     case Ast_Comparison_Field::Status:
     case Ast_Comparison_Field::Path:
+    case Ast_Comparison_Field::Body:
     case Ast_Comparison_Field::Name:
     case Ast_Comparison_Field::Any:
         return val.type == Token_Type::Number ||
@@ -150,6 +151,7 @@ std::string Parser::value_type_desc(Ast_Comparison_Field field) const {
     case Ast_Comparison_Field::Tag:
     case Ast_Comparison_Field::Status:
     case Ast_Comparison_Field::Path:
+    case Ast_Comparison_Field::Body:
     case Ast_Comparison_Field::Name:
         return "a string";
     case Ast_Comparison_Field::Time:
@@ -331,6 +333,8 @@ std::unique_ptr<Ast_Node> Parser::parse_field_and_special() {
         return comparison(Ast_Comparison_Field::Status);
     case Token_Type::Path:
         return comparison(Ast_Comparison_Field::Path);
+    case Token_Type::Body:
+        return comparison(Ast_Comparison_Field::Body);
     case Token_Type::Name:
         return comparison(Ast_Comparison_Field::Name);
     case Token_Type::Time:
@@ -532,6 +536,7 @@ std::unique_ptr<Ast_Node> Parser::parse_value(
     case Ast_Comparison_Field::Tag:
     case Ast_Comparison_Field::Status:
     case Ast_Comparison_Field::Path:
+    case Ast_Comparison_Field::Body:
     case Ast_Comparison_Field::Name:
         return ast_make_comparison(field, op, val.value);
 

@@ -21,6 +21,7 @@ std::optional<Sort_Field> parse_sort_field(const std::string &name) {
         {"deadline", Sort_Field::Deadline},
         {"status", Sort_Field::Status},
         {"tags", Sort_Field::Tags},
+        {"body", Sort_Field::Body},
     };
 
     const auto found = mado::common::find_fuzzy_match(
@@ -47,6 +48,8 @@ std::strong_ordering compare_entries(const mado::entry::Entry &a,
         return a.mtime() <=> b.mtime();
     case Sort_Field::Path:
         return a.path() <=> b.path();
+    case Sort_Field::Body:
+        return a.body() <=> b.body();
     case Sort_Field::Name:
         return a.name() <=> b.name();
     case Sort_Field::Priority:
@@ -92,6 +95,12 @@ std::optional<std::vector<Sort_Criterion>> parse_sort(const std::string &spec) {
         criteria.push_back({*field, descending});
     }
     return criteria;
+}
+
+bool sort_uses_field(const std::vector<Sort_Criterion> &criteria, Sort_Field field) {
+    return std::any_of(criteria.begin(), criteria.end(), [&](const auto &criterion) {
+        return criterion.field == field;
+    });
 }
 
 void sort_entries(std::vector<mado::entry::Entry> &entries,

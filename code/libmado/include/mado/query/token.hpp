@@ -29,6 +29,7 @@ enum class Token_Type {
     Deadline,     // deadline
     Mtime,        // mtime
     Any,          // any
+    Body,         // body
 
     // special expressions
     All,           // all

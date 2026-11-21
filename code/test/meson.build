@@ -20,9 +20,19 @@ test_repository_exe = executable('test_repository',
                                  cpp_args: ['-DMADO_TEST_ROOT="@0@"'.format(meson.project_source_root())],
                                  dependencies: libmado_dep)
 
+test_cli_sort_exe = executable('test_cli_sort',
+                               [
+                                 'test_utils.cpp',
+                                 'test_cli_sort.cpp',
+                                 '../cli/entry_sort.cpp',
+                               ],
+                               cpp_args: ['-DMADO_TEST_ROOT="@0@"'.format(meson.project_source_root())],
+                               dependencies: libmado_dep)
+
 test('query', test_query_exe)
 test('interpreter', test_interpreter_exe)
 test('repository', test_repository_exe)
+test('cli_sort', test_cli_sort_exe)
 test('cli', import('python').find_installation(),
      args: [files('test_cli.py'), cli_exe, meson.project_source_root()],
      timeout: 120)
